@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use wasm_bindgen::JsValue;
 
-use crate::{AsteroidColonies, BuildingType, CellState, WIDTH};
+use crate::{AsteroidColonies, Building, BuildingType, Cell, CellState, WIDTH};
 
 pub(crate) const EXCAVATE_TIME: usize = 10;
 pub(crate) const MOVE_TIME: usize = 2;
@@ -122,6 +122,33 @@ impl AsteroidColonies {
             }
         }
         Err(JsValue::from("No nearby power grid"))
+    }
+
+    pub(super) fn process_task(cells: &mut [Cell], building: &mut Building) {
+        match building.task {
+            Task::Excavate(ref mut t, dir) => {
+                if *t == 0 {
+                    building.task = Task::None;
+                    *building.inventory.entry(crate::ItemType::Slug).or_default() += 1.;
+                    let dir_vec = dir.to_vec();
+                    let [x, y] = [building.pos[0] + dir_vec[0], building.pos[1] + dir_vec[1]];
+                    cells[x as usize + y as usize * WIDTH].state = CellState::Empty;
+                } else {
+                    *t -= 1;
+                }
+            }
+            Task::Move(ref mut t, dir) => {
+                if *t == 0 {
+                    building.task = Task::None;
+                    let dir_vec = dir.to_vec();
+                    building.pos[0] += dir_vec[0];
+                    building.pos[1] += dir_vec[1];
+                } else {
+                    *t -= 1;
+                }
+            }
+            _ => {}
+        }
     }
 }
 

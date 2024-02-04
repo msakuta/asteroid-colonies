@@ -2,7 +2,7 @@ mod assets;
 mod task;
 mod utils;
 
-use std::fmt::Display;
+use std::{collections::HashMap, fmt::Display};
 
 use assets::Assets;
 use task::GlobalTask;
@@ -75,10 +75,17 @@ impl Display for BuildingType {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+enum ItemType {
+    /// Freshly dug soil from asteroid body. Hardly useful unless refined
+    Slug,
+}
+
 struct Building {
     pos: [i32; 2],
     type_: BuildingType,
     task: Task,
+    inventory: HashMap<ItemType, f64>,
 }
 
 const WIDTH: usize = 20;
@@ -102,11 +109,13 @@ impl AsteroidColonies {
                 pos: [3, 4],
                 type_: BuildingType::Power,
                 task: Task::None,
+                inventory: HashMap::new(),
             },
             Building {
                 pos: [4, 4],
                 type_: BuildingType::Excavator,
                 task: Task::None,
+                inventory: HashMap::new(),
             },
         ];
         for building in &buildings {
@@ -229,8 +238,8 @@ impl AsteroidColonies {
             .find(|b| b.pos[0] == ix && b.pos[1] == iy)
         {
             Ok(JsValue::from(format!(
-                "{} at {}, {}\nTask: {:?}",
-                building.type_, building.pos[0], building.pos[1], building.task
+                "{} at {}, {}\nTask: {:?}\nInventory: {:?}",
+                building.type_, building.pos[0], building.pos[1], building.task, building.inventory
             )))
         } else {
             Ok(JsValue::from(format!("Empty at {ix}, {iy}")))
@@ -253,29 +262,7 @@ impl AsteroidColonies {
 
     pub fn tick(&mut self) -> Result<(), JsValue> {
         for building in &mut self.buildings {
-            match building.task {
-                Task::Excavate(ref mut t, dir) => {
-                    if *t == 0 {
-                        building.task = Task::None;
-                        let dir_vec = dir.to_vec();
-                        let [x, y] = [building.pos[0] + dir_vec[0], building.pos[1] + dir_vec[1]];
-                        self.cells[x as usize + y as usize * WIDTH].state = CellState::Empty;
-                    } else {
-                        *t -= 1;
-                    }
-                }
-                Task::Move(ref mut t, dir) => {
-                    if *t == 0 {
-                        building.task = Task::None;
-                        let dir_vec = dir.to_vec();
-                        building.pos[0] += dir_vec[0];
-                        building.pos[1] += dir_vec[1];
-                    } else {
-                        *t -= 1;
-                    }
-                }
-                _ => {}
-            }
+            Self::process_task(&mut self.cells, building);
         }
 
         for task in &self.global_tasks {
