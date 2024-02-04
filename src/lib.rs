@@ -1,6 +1,8 @@
 mod assets;
 mod utils;
 
+use std::fmt::Display;
+
 use assets::Assets;
 use wasm_bindgen::prelude::*;
 use web_sys::{js_sys, CanvasRenderingContext2d, HtmlImageElement};
@@ -32,13 +34,33 @@ enum CellState {
     Empty,
 }
 
+#[derive(Clone, Copy)]
+enum BuildingType {
+    Power,
+    Excavator,
+}
+
+impl Display for BuildingType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Power => write!(f, "Power"),
+            Self::Excavator => write!(f, "Excavator"),
+        }
+    }
+}
+
+struct Building {
+    pos: [i32; 2],
+    type_: BuildingType,
+}
+
 const WIDTH: usize = 20;
 const HEIGHT: usize = 15;
 
 #[wasm_bindgen]
 pub struct AsteroidColonies {
     cells: Vec<CellState>,
-    buildings: Vec<[i32; 2]>,
+    buildings: Vec<Building>,
     assets: Assets,
 }
 
@@ -47,9 +69,19 @@ impl AsteroidColonies {
     #[wasm_bindgen(constructor)]
     pub fn new(image_assets: js_sys::Array) -> Result<AsteroidColonies, JsValue> {
         let mut cells = vec![CellState::Solid; WIDTH * HEIGHT];
-        let buildings = vec![[3, 4]];
+        let buildings = vec![
+            Building {
+                pos: [3, 4],
+                type_: BuildingType::Power,
+            },
+            Building {
+                pos: [4, 4],
+                type_: BuildingType::Excavator,
+            },
+        ];
         for building in &buildings {
-            cells[building[0] as usize + building[1] as usize * WIDTH] = CellState::Empty;
+            let pos = building.pos;
+            cells[pos[0] as usize + pos[1] as usize * WIDTH] = CellState::Empty;
         }
         Ok(Self {
             cells,
@@ -85,18 +117,14 @@ impl AsteroidColonies {
         }
 
         for building in &self.buildings {
-            let x = building[0] as f64 * 32.;
-            let y = building[1] as f64 * 32.;
+            let img = match building.type_ {
+                BuildingType::Power => &self.assets.img_power,
+                BuildingType::Excavator => &self.assets.img_excavator,
+            };
+            let x = building.pos[0] as f64 * 32.;
+            let y = building.pos[1] as f64 * 32.;
             context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-                &self.assets.img_power,
-                0.,
-                0.,
-                32.,
-                32.,
-                x,
-                y,
-                32.,
-                32.,
+                img, 0., 0., 32., 32., x, y, 32., 32.,
             )?;
         }
         Ok(())
@@ -105,10 +133,14 @@ impl AsteroidColonies {
     pub fn get_info(&self, x: i32, y: i32) -> Result<JsValue, JsValue> {
         let ix = x.div_euclid(32);
         let iy = y.div_euclid(32);
-        if let Some(building) = self.buildings.iter().find(|b| b[0] == ix && b[1] == iy) {
+        if let Some(building) = self
+            .buildings
+            .iter()
+            .find(|b| b.pos[0] == ix && b.pos[1] == iy)
+        {
             Ok(JsValue::from(format!(
-                "Power plant at {}, {}",
-                building[0], building[1]
+                "{} at {}, {}",
+                building.type_, building.pos[0], building.pos[1]
             )))
         } else {
             Ok(JsValue::from(format!("Empty at {ix}, {iy}")))
