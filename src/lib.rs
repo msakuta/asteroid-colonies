@@ -53,6 +53,7 @@ impl Display for BuildingType {
 enum Task {
     None,
     Excavate(usize, Direction),
+    Move(usize, Direction),
 }
 
 impl Display for Task {
@@ -60,6 +61,7 @@ impl Display for Task {
         match self {
             Self::None => write!(f, "None"),
             Self::Excavate(_, _) => write!(f, "Excavate"),
+            Self::Move(_, _) => write!(f, "Move"),
         }
     }
 }
@@ -92,7 +94,8 @@ struct Building {
 const WIDTH: usize = 20;
 const HEIGHT: usize = 15;
 
-const TASK_TIME: usize = 10;
+const EXCAVATE_TIME: usize = 10;
+const MOVE_TIME: usize = 2;
 
 #[wasm_bindgen]
 pub struct AsteroidColonies {
@@ -169,7 +172,7 @@ impl AsteroidColonies {
                 img, 0., 0., TILE_SIZE, TILE_SIZE, x, y, TILE_SIZE, TILE_SIZE,
             )?;
             match building.task {
-                Task::Excavate(t, _) => {
+                Task::Excavate(t, _) | Task::Move(t, _) => {
                     context.set_stroke_style(&JsValue::from("#000"));
                     context.set_fill_style(&JsValue::from("#7f0000"));
                     context.fill_rect(x + BAR_MARGIN, y + BAR_MARGIN, BAR_WIDTH, BAR_HEIGHT);
@@ -178,7 +181,7 @@ impl AsteroidColonies {
                     context.fill_rect(
                         x + BAR_MARGIN,
                         y + BAR_MARGIN,
-                        t as f64 * BAR_WIDTH / TASK_TIME as f64,
+                        t as f64 * BAR_WIDTH / EXCAVATE_TIME as f64,
                         BAR_HEIGHT,
                     );
                 }
@@ -205,12 +208,20 @@ impl AsteroidColonies {
         }
     }
 
-    pub fn excavate(&mut self, x: i32, y: i32) -> Result<JsValue, JsValue> {
+    pub fn command(&mut self, com: &str, x: i32, y: i32) -> Result<JsValue, JsValue> {
         let ix = x.div_euclid(32);
         let iy = y.div_euclid(32);
         if ix < 0 || WIDTH as i32 <= ix || iy < 0 || HEIGHT as i32 <= iy {
             return Err(JsValue::from("Point outside cell"));
         }
+        match com {
+            "excavate" => self.excavate(ix, iy),
+            "move" => self.move_(ix, iy),
+            _ => Err(JsValue::from(format!("Unknown command: {}", com))),
+        }
+    }
+
+    fn excavate(&mut self, ix: i32, iy: i32) -> Result<JsValue, JsValue> {
         if matches!(
             self.cells[ix as usize + iy as usize * WIDTH],
             CellState::Empty
@@ -223,16 +234,45 @@ impl AsteroidColonies {
             }
             if iy == building.pos[1] {
                 if ix - building.pos[0] == 1 {
-                    building.task = Task::Excavate(TASK_TIME, Direction::Right);
+                    building.task = Task::Excavate(EXCAVATE_TIME, Direction::Right);
                 } else if ix - building.pos[0] == -1 {
-                    building.task = Task::Excavate(TASK_TIME, Direction::Left);
+                    building.task = Task::Excavate(EXCAVATE_TIME, Direction::Left);
                 }
             }
             if ix == building.pos[0] {
                 if iy - building.pos[0] == 1 {
-                    building.task = Task::Excavate(TASK_TIME, Direction::Down);
+                    building.task = Task::Excavate(EXCAVATE_TIME, Direction::Down);
                 } else if iy - building.pos[0] == -1 {
-                    building.task = Task::Excavate(TASK_TIME, Direction::Up);
+                    building.task = Task::Excavate(EXCAVATE_TIME, Direction::Up);
+                }
+            }
+        }
+        Ok(JsValue::from(true))
+    }
+
+    fn move_(&mut self, ix: i32, iy: i32) -> Result<JsValue, JsValue> {
+        if matches!(
+            self.cells[ix as usize + iy as usize * WIDTH],
+            CellState::Solid
+        ) {
+            return Err(JsValue::from("Needs excavation before moving"));
+        }
+        for building in &mut self.buildings {
+            if building.type_ != BuildingType::Excavator {
+                continue;
+            }
+            if iy == building.pos[1] {
+                if ix - building.pos[0] == 1 {
+                    building.task = Task::Move(MOVE_TIME, Direction::Right);
+                } else if ix - building.pos[0] == -1 {
+                    building.task = Task::Move(MOVE_TIME, Direction::Left);
+                }
+            }
+            if ix == building.pos[0] {
+                if iy - building.pos[0] == 1 {
+                    building.task = Task::Move(MOVE_TIME, Direction::Down);
+                } else if iy - building.pos[0] == -1 {
+                    building.task = Task::Move(MOVE_TIME, Direction::Up);
                 }
             }
         }
@@ -248,6 +288,16 @@ impl AsteroidColonies {
                         let dir_vec = dir.to_vec();
                         let [x, y] = [building.pos[0] + dir_vec[0], building.pos[1] + dir_vec[1]];
                         self.cells[x as usize + y as usize * WIDTH] = CellState::Empty;
+                    } else {
+                        *t -= 1;
+                    }
+                }
+                Task::Move(ref mut t, dir) => {
+                    if *t == 0 {
+                        building.task = Task::None;
+                        let dir_vec = dir.to_vec();
+                        building.pos[0] += dir_vec[0];
+                        building.pos[1] += dir_vec[1];
                     } else {
                         *t -= 1;
                     }

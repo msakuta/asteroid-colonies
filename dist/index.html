@@ -4,6 +4,16 @@
   <meta charset="utf-8" />
   <script type="module" src="./js/main.js"></script>
   <style>
+    .container {
+      position: relative;
+    }
+    #sidePanel {
+      position: absolute;
+      left: 660px;
+      top: 0;
+      border: 1px solid black;
+      background-color: #afffaf;
+    }
     #info {
       border: 1px solid black;
       background-color: #afafff;
@@ -12,7 +22,13 @@
 </head>
 <body>
   <h1>hello</h1>
-  <canvas id="canvas" width="640" height="480"></canvas>
+  <div class="container">
+    <canvas id="canvas" width="640" height="480"></canvas>
+    <div id="sidePanel">
+      <div><label><input type="radio" name="command" id="excavate" value="excavate">Excavate</label></div>
+      <div><label><input type="radio" name="command" id="move" value="move">Move</label></div>
+    </div>
+  </div>
   <pre id="info"></pre>
 </body>
 </html>

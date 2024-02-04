@@ -31,9 +31,15 @@ const canvas = document.getElementById('canvas');
     canvas.addEventListener('mosueleave', evt => mousePos = null);
 
     canvas.addEventListener('click', evt => {
-        const [x, y] = toLogicalCoords(evt.clientX, evt.clientY);
-        if (game.excavate(x, y)) {
-            requestAnimationFrame(() => game.render(ctx));
+        for (let name of ["excavate", "move"]) {
+            const elem = document.getElementById(name);
+            if (elem?.checked) {
+                const [x, y] = toLogicalCoords(evt.clientX, evt.clientY);
+                if (game.command(name, x, y)) {
+                    requestAnimationFrame(() => game.render(ctx));
+                }
+                return;
+            }
         }
     })
 
