@@ -67,6 +67,17 @@ impl Cell {
 enum BuildingType {
     Power,
     Excavator,
+    Storage,
+}
+
+impl BuildingType {
+    fn capacity(&self) -> usize {
+        match self {
+            Self::Power => 3,
+            Self::Excavator => 3,
+            Self::Storage => 10,
+        }
+    }
 }
 
 impl Display for BuildingType {
@@ -74,6 +85,7 @@ impl Display for BuildingType {
         match self {
             Self::Power => write!(f, "Power"),
             Self::Excavator => write!(f, "Excavator"),
+            Self::Storage => write!(f, "Storage"),
         }
     }
 }
@@ -88,7 +100,7 @@ struct Building {
     pos: [i32; 2],
     type_: BuildingType,
     task: Task,
-    inventory: HashMap<ItemType, f64>,
+    inventory: HashMap<ItemType, usize>,
 }
 
 const WIDTH: usize = 20;
@@ -117,6 +129,12 @@ impl AsteroidColonies {
             Building {
                 pos: [4, 4],
                 type_: BuildingType::Excavator,
+                task: Task::None,
+                inventory: HashMap::new(),
+            },
+            Building {
+                pos: [3, 5],
+                type_: BuildingType::Storage,
                 task: Task::None,
                 inventory: HashMap::new(),
             },
@@ -194,6 +212,7 @@ impl AsteroidColonies {
             let img = match building.type_ {
                 BuildingType::Power => &self.assets.img_power,
                 BuildingType::Excavator => &self.assets.img_excavator,
+                BuildingType::Storage => &self.assets.img_storage,
             };
             let x = building.pos[0] as f64 * TILE_SIZE;
             let y = building.pos[1] as f64 * TILE_SIZE;
@@ -278,13 +297,25 @@ impl AsteroidColonies {
             "move" => self.move_(ix, iy),
             "power" => self.power(ix, iy),
             "conveyor" => self.conveyor(ix, iy),
+            "moveItem" => self.move_item(ix, iy),
             _ => Err(JsValue::from(format!("Unknown command: {}", com))),
         }
     }
 
     pub fn tick(&mut self) -> Result<(), JsValue> {
+        // A buffer to avoid borrow checker
+        let mut moving_items = vec![];
         for building in &mut self.buildings {
-            Self::process_task(&mut self.cells, building);
+            if let Some((item, dest)) = Self::process_task(&mut self.cells, building) {
+                moving_items.push((item, dest));
+            }
+        }
+
+        for (item, item_pos) in moving_items {
+            let found = self.buildings.iter_mut().find(|b| b.pos == item_pos);
+            if let Some(found) = found {
+                *found.inventory.entry(item).or_default() += 1;
+            }
         }
 
         for task in &self.global_tasks {

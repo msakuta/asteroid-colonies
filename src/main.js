@@ -3,6 +3,7 @@ import power_grid from '../images/power_grid.png';
 import conveyor from '../images/conveyor.png';
 import power from '../images/power.png';
 import excavator from '../images/excavator.png';
+import storage from '../images/storage.png';
 
 const canvas = document.getElementById('canvas');
 
@@ -16,6 +17,7 @@ const canvas = document.getElementById('canvas');
         ["conveyor", conveyor],
         ["power", power],
         ["excavator", excavator],
+        ["storage", storage],
     ].map(async ([name, src]) => {
         return [name, src, await loadImage(src)];
     });
@@ -35,7 +37,7 @@ const canvas = document.getElementById('canvas');
     canvas.addEventListener('mosueleave', evt => mousePos = null);
 
     canvas.addEventListener('click', evt => {
-        for (let name of ["excavate", "move", "power", "conveyor"]) {
+        for (let name of ["excavate", "move", "power", "conveyor", "moveItem"]) {
             const elem = document.getElementById(name);
             if (elem?.checked) {
                 const [x, y] = toLogicalCoords(evt.clientX, evt.clientY);

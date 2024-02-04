@@ -2,18 +2,24 @@ use std::fmt::Display;
 
 use wasm_bindgen::JsValue;
 
-use crate::{AsteroidColonies, Building, BuildingType, Cell, CellState, WIDTH};
+use crate::{AsteroidColonies, Building, BuildingType, Cell, CellState, ItemType, WIDTH};
 
 pub(crate) const EXCAVATE_TIME: usize = 10;
 pub(crate) const MOVE_TIME: usize = 2;
 pub(crate) const BUILD_POWER_GRID_TIME: usize = 5;
 pub(crate) const BUILD_CONVEYOR_TIME: usize = 10;
+pub(crate) const MOVE_ITEM_TIME: usize = 2;
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum Task {
     None,
     Excavate(usize, Direction),
     Move(usize, Direction),
+    MoveItem {
+        t: usize,
+        item_type: ItemType,
+        dest: [i32; 2],
+    },
 }
 
 impl Display for Task {
@@ -22,6 +28,7 @@ impl Display for Task {
             Self::None => write!(f, "None"),
             Self::Excavate(_, _) => write!(f, "Excavate"),
             Self::Move(_, _) => write!(f, "Move"),
+            Self::MoveItem { .. } => write!(f, "MoveItem"),
         }
     }
 }
@@ -61,6 +68,9 @@ impl AsteroidColonies {
         }
         for building in &mut self.buildings {
             if building.type_ != BuildingType::Excavator {
+                continue;
+            }
+            if building.type_.capacity() <= building.inventory.iter().map(|(_, v)| *v).sum() {
                 continue;
             }
             if let Some(dir) = choose_direction(&building.pos, ix, iy) {
@@ -152,12 +162,43 @@ impl AsteroidColonies {
         Err(JsValue::from("No nearby power grid"))
     }
 
-    pub(super) fn process_task(cells: &mut [Cell], building: &mut Building) {
+    pub(crate) fn move_item(&mut self, ix: i32, iy: i32) -> Result<JsValue, JsValue> {
+        let cell = &self.cells[ix as usize + iy as usize * WIDTH];
+        if matches!(cell.state, CellState::Solid) {
+            return Err(JsValue::from("Needs excavation before building conveyor"));
+        }
+        if !cell.conveyor {
+            return Err(JsValue::from("Conveyor is needed to move items"));
+        }
+        let Some(dest) = self
+            .buildings
+            .iter()
+            .find(|b| b.pos[0] == ix && b.pos[1] == iy)
+        else {
+            return Err(JsValue::from("Needs a building at the destination"));
+        };
+        for building in &mut self.buildings {
+            if 0 < *building.inventory.get(&ItemType::Slug).unwrap_or(&0) {
+                building.task = Task::MoveItem {
+                    t: MOVE_TIME,
+                    item_type: ItemType::Slug,
+                    dest: [ix, iy],
+                };
+                return Ok(JsValue::from(true));
+            }
+        }
+        Err(JsValue::from("No structure to send from"))
+    }
+
+    pub(super) fn process_task(
+        cells: &mut [Cell],
+        building: &mut Building,
+    ) -> Option<(ItemType, [i32; 2])> {
         match building.task {
             Task::Excavate(ref mut t, dir) => {
                 if *t == 0 {
                     building.task = Task::None;
-                    *building.inventory.entry(crate::ItemType::Slug).or_default() += 1.;
+                    *building.inventory.entry(crate::ItemType::Slug).or_default() += 1;
                     let dir_vec = dir.to_vec();
                     let [x, y] = [building.pos[0] + dir_vec[0], building.pos[1] + dir_vec[1]];
                     cells[x as usize + y as usize * WIDTH].state = CellState::Empty;
@@ -175,8 +216,25 @@ impl AsteroidColonies {
                     *t -= 1;
                 }
             }
+            Task::MoveItem {
+                ref mut t,
+                item_type,
+                dest,
+            } => {
+                if *t == 0 {
+                    building.task = Task::None;
+                    let entry = building.inventory.entry(item_type).or_default();
+                    if 0 < *entry {
+                        *entry -= 1;
+                        return Some((item_type, dest));
+                    }
+                } else {
+                    *t -= 1;
+                }
+            }
             _ => {}
         }
+        None
     }
 }
 
