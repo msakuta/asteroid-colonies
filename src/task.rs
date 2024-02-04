@@ -170,7 +170,7 @@ impl AsteroidColonies {
         if !cell.conveyor {
             return Err(JsValue::from("Conveyor is needed to move items"));
         }
-        let Some(dest) = self
+        let Some(_dest) = self
             .buildings
             .iter()
             .find(|b| b.pos[0] == ix && b.pos[1] == iy)
@@ -180,7 +180,7 @@ impl AsteroidColonies {
         for building in &mut self.buildings {
             if 0 < *building.inventory.get(&ItemType::Slug).unwrap_or(&0) {
                 building.task = Task::MoveItem {
-                    t: MOVE_TIME,
+                    t: MOVE_ITEM_TIME,
                     item_type: ItemType::Slug,
                     dest: [ix, iy],
                 };
