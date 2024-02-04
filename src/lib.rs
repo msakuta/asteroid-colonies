@@ -59,30 +59,25 @@ impl AsteroidColonies {
         }
 
         for building in &self.buildings {
+            let x = building[0] as f64 * 32.;
+            let y = building[1] as f64 * 32.;
             context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-                img2,
-                0.,
-                0.,
-                32.,
-                32.,
-                building[0] as f64 * 32.,
-                building[1] as f64 * 32.,
-                32.,
-                32.,
+                img2, 0., 0., 32., 32., x, y, 32., 32.,
             )?;
         }
-        // context.fill_rect(0., 0., 32., 32.);
-        // if let Some(item) = self.tool_belt.get(tool_index).unwrap_or(&None) {
-        //     if Some(SelectedItem::ToolBelt(tool_index)) == self.selected_item {
-        //         context.set_fill_style(&js_str!("#00ffff"));
-        //         context.fill_rect(0., 0., 32., 32.);
-        //     }
-        //     let mut tool = self.new_structure(item, &Position { x: 0, y: 0 })?;
-        //     tool.set_rotation(&self.tool_rotation).ok();
-        //     for depth in 0..3 {
-        //         tool.draw(self, context, depth, true)?;
-        //     }
-        // }
         Ok(())
+    }
+
+    pub fn get_info(&self, x: i32, y: i32) -> Result<JsValue, JsValue> {
+        let ix = x.div_euclid(32);
+        let iy = y.div_euclid(32);
+        if let Some(building) = self.buildings.iter().find(|b| b[0] == ix && b[1] == iy) {
+            Ok(JsValue::from(format!(
+                "Power plant at {}, {}",
+                building[0], building[1]
+            )))
+        } else {
+            Ok(JsValue::from(format!("Empty at {ix}, {iy}")))
+        }
     }
 }
