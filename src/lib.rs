@@ -92,6 +92,8 @@ struct Building {
 const WIDTH: usize = 20;
 const HEIGHT: usize = 15;
 
+const TASK_TIME: usize = 10;
+
 #[wasm_bindgen]
 pub struct AsteroidColonies {
     cells: Vec<CellState>,
@@ -128,28 +130,31 @@ impl AsteroidColonies {
     }
 
     pub fn render(&self, context: &CanvasRenderingContext2d) -> Result<(), JsValue> {
-        // let width = context.cli();
-        // context.clear_rect(0., 0., 32., 32.);
+        const TILE_SIZE: f64 = 32.;
+        const BAR_MARGIN: f64 = 4.;
+        const BAR_WIDTH: f64 = TILE_SIZE - BAR_MARGIN * 2.;
+        const BAR_HEIGHT: f64 = 6.;
+
         context.set_fill_style(&JsValue::from("#ff0000"));
         for (i, cell) in self.cells.iter().enumerate() {
             let iy = i / WIDTH;
-            let y = iy as f64 * 32.;
+            let y = iy as f64 * TILE_SIZE;
             let ix = i % WIDTH;
-            let x = ix as f64 * 32.;
+            let x = ix as f64 * TILE_SIZE;
             let (sx, sy) = match cell {
-                CellState::Empty => (3. * 32., 3. * 32.),
+                CellState::Empty => (3. * TILE_SIZE, 3. * TILE_SIZE),
                 CellState::Solid => (0., 0.),
             };
             context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
                 &self.assets.img_bg,
                 sx,
                 sy,
-                32.,
-                32.,
+                TILE_SIZE,
+                TILE_SIZE,
                 x,
                 y,
-                32.,
-                32.,
+                TILE_SIZE,
+                TILE_SIZE,
             )?;
         }
 
@@ -158,11 +163,27 @@ impl AsteroidColonies {
                 BuildingType::Power => &self.assets.img_power,
                 BuildingType::Excavator => &self.assets.img_excavator,
             };
-            let x = building.pos[0] as f64 * 32.;
-            let y = building.pos[1] as f64 * 32.;
+            let x = building.pos[0] as f64 * TILE_SIZE;
+            let y = building.pos[1] as f64 * TILE_SIZE;
             context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-                img, 0., 0., 32., 32., x, y, 32., 32.,
+                img, 0., 0., TILE_SIZE, TILE_SIZE, x, y, TILE_SIZE, TILE_SIZE,
             )?;
+            match building.task {
+                Task::Excavate(t, _) => {
+                    context.set_stroke_style(&JsValue::from("#000"));
+                    context.set_fill_style(&JsValue::from("#7f0000"));
+                    context.fill_rect(x + BAR_MARGIN, y + BAR_MARGIN, BAR_WIDTH, BAR_HEIGHT);
+                    context.set_stroke_style(&JsValue::from("#000"));
+                    context.set_fill_style(&JsValue::from("#007f00"));
+                    context.fill_rect(
+                        x + BAR_MARGIN,
+                        y + BAR_MARGIN,
+                        t as f64 * BAR_WIDTH / TASK_TIME as f64,
+                        BAR_HEIGHT,
+                    );
+                }
+                _ => {}
+            }
         }
         Ok(())
     }
@@ -190,22 +211,28 @@ impl AsteroidColonies {
         if ix < 0 || WIDTH as i32 <= ix || iy < 0 || HEIGHT as i32 <= iy {
             return Err(JsValue::from("Point outside cell"));
         }
+        if matches!(
+            self.cells[ix as usize + iy as usize * WIDTH],
+            CellState::Empty
+        ) {
+            return Err(JsValue::from("Already excavated"));
+        }
         for building in &mut self.buildings {
             if building.type_ != BuildingType::Excavator {
                 continue;
             }
             if iy == building.pos[1] {
                 if ix - building.pos[0] == 1 {
-                    building.task = Task::Excavate(10, Direction::Left);
+                    building.task = Task::Excavate(TASK_TIME, Direction::Right);
                 } else if ix - building.pos[0] == -1 {
-                    building.task = Task::Excavate(10, Direction::Right);
+                    building.task = Task::Excavate(TASK_TIME, Direction::Left);
                 }
             }
             if ix == building.pos[0] {
                 if iy - building.pos[0] == 1 {
-                    building.task = Task::Excavate(10, Direction::Down);
+                    building.task = Task::Excavate(TASK_TIME, Direction::Down);
                 } else if iy - building.pos[0] == -1 {
-                    building.task = Task::Excavate(10, Direction::Up);
+                    building.task = Task::Excavate(TASK_TIME, Direction::Up);
                 }
             }
         }
