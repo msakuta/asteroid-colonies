@@ -1,4 +1,5 @@
-import rust from '@wasm-tool/rollup-plugin-rust'
+import rust from '@wasm-tool/rollup-plugin-rust';
+import url from '@rollup/plugin-url';
 
 export default {
     input: "./src/main.js",
@@ -9,5 +10,6 @@ export default {
         rust({
             serverPath: "/js/",
         }),
+		url(),
     ]
 }

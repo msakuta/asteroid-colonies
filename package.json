@@ -7,7 +7,8 @@
     "test": "tests"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "rimraf dist/js && rollup --bundleConfigAsCjs --config",
+    "watch": "rimraf dist/js && rollup --bundleConfigAsCjs --config --watch"
   },
   "keywords": [],
   "author": "",
@@ -15,6 +16,7 @@
   "devDependencies": {
     "@wasm-tool/rollup-plugin-rust": "^2.4.5",
     "rimraf": "^5.0.5",
-    "rollup": "^4.9.6"
+    "rollup": "^4.9.6",
+    "@rollup/plugin-url": "^8.0.2"
   }
 }
