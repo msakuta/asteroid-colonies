@@ -20,12 +20,15 @@ const canvas = document.getElementById('canvas');
     const game = new AsteroidColonies(loadedImages);
     const ctx = canvas.getContext('2d');
     game.render(ctx);
+    let mousePos = null;
 
     canvas.addEventListener('mousemove', evt => {
-        const [x, y] = toLogicalCoords(evt.clientX, evt.clientY);
+        const [x, y] = mousePos = toLogicalCoords(evt.clientX, evt.clientY);
         const info = game.get_info(x, y);
         document.getElementById('info').innerHTML = info;
     });
+
+    canvas.addEventListener('mosueleave', evt => mousePos = null);
 
     canvas.addEventListener('click', evt => {
         const [x, y] = toLogicalCoords(evt.clientX, evt.clientY);
@@ -33,6 +36,19 @@ const canvas = document.getElementById('canvas');
             requestAnimationFrame(() => game.render(ctx));
         }
     })
+
+    let time = 0;
+
+    setInterval(() => {
+        console.log(`tick: ${time}`);
+        game.tick();
+        game.render(ctx);
+        if (mousePos !== null) {
+            const info = game.get_info(mousePos[0], mousePos[1]);
+            document.getElementById('info').innerHTML = info;
+        }
+        time++;
+    }, 1000);
 })()
 
 async function loadImage(url) {

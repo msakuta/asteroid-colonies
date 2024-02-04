@@ -5,7 +5,7 @@ use std::fmt::Display;
 
 use assets::Assets;
 use wasm_bindgen::prelude::*;
-use web_sys::{js_sys, CanvasRenderingContext2d, HtmlImageElement};
+use web_sys::{js_sys, CanvasRenderingContext2d};
 
 #[macro_export]
 macro_rules! console_log {
@@ -34,7 +34,7 @@ enum CellState {
     Empty,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum BuildingType {
     Power,
     Excavator,
@@ -49,9 +49,44 @@ impl Display for BuildingType {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+enum Task {
+    None,
+    Excavate(usize, Direction),
+}
+
+impl Display for Task {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::None => write!(f, "None"),
+            Self::Excavate(_, _) => write!(f, "Excavate"),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+enum Direction {
+    Left,
+    Up,
+    Right,
+    Down,
+}
+
+impl Direction {
+    fn to_vec(&self) -> [i32; 2] {
+        match self {
+            Self::Left => [-1, 0],
+            Self::Up => [0, -1],
+            Self::Right => [1, 0],
+            Self::Down => [0, 1],
+        }
+    }
+}
+
 struct Building {
     pos: [i32; 2],
     type_: BuildingType,
+    task: Task,
 }
 
 const WIDTH: usize = 20;
@@ -73,10 +108,12 @@ impl AsteroidColonies {
             Building {
                 pos: [3, 4],
                 type_: BuildingType::Power,
+                task: Task::None,
             },
             Building {
                 pos: [4, 4],
                 type_: BuildingType::Excavator,
+                task: Task::None,
             },
         ];
         for building in &buildings {
@@ -139,8 +176,8 @@ impl AsteroidColonies {
             .find(|b| b.pos[0] == ix && b.pos[1] == iy)
         {
             Ok(JsValue::from(format!(
-                "{} at {}, {}",
-                building.type_, building.pos[0], building.pos[1]
+                "{} at {}, {}\nTask: {:?}",
+                building.type_, building.pos[0], building.pos[1], building.task
             )))
         } else {
             Ok(JsValue::from(format!("Empty at {ix}, {iy}")))
@@ -153,7 +190,44 @@ impl AsteroidColonies {
         if ix < 0 || WIDTH as i32 <= ix || iy < 0 || HEIGHT as i32 <= iy {
             return Err(JsValue::from("Point outside cell"));
         }
-        self.cells[ix as usize + iy as usize * WIDTH] = CellState::Empty;
+        for building in &mut self.buildings {
+            if building.type_ != BuildingType::Excavator {
+                continue;
+            }
+            if iy == building.pos[1] {
+                if ix - building.pos[0] == 1 {
+                    building.task = Task::Excavate(10, Direction::Left);
+                } else if ix - building.pos[0] == -1 {
+                    building.task = Task::Excavate(10, Direction::Right);
+                }
+            }
+            if ix == building.pos[0] {
+                if iy - building.pos[0] == 1 {
+                    building.task = Task::Excavate(10, Direction::Down);
+                } else if iy - building.pos[0] == -1 {
+                    building.task = Task::Excavate(10, Direction::Up);
+                }
+            }
+        }
         Ok(JsValue::from(true))
+    }
+
+    pub fn tick(&mut self) -> Result<(), JsValue> {
+        for building in &mut self.buildings {
+            match building.task {
+                Task::Excavate(ref mut t, dir) => {
+                    if *t == 0 {
+                        building.task = Task::None;
+                        let dir_vec = dir.to_vec();
+                        let [x, y] = [building.pos[0] + dir_vec[0], building.pos[1] + dir_vec[1]];
+                        self.cells[x as usize + y as usize * WIDTH] = CellState::Empty;
+                    } else {
+                        *t -= 1;
+                    }
+                }
+                _ => {}
+            }
+        }
+        Ok(())
     }
 }

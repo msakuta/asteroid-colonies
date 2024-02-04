@@ -1,5 +1,5 @@
 use wasm_bindgen::{JsCast, JsValue};
-use web_sys::{js_sys, CanvasRenderingContext2d, HtmlImageElement};
+use web_sys::{js_sys, HtmlImageElement};
 
 pub(crate) struct Assets {
     pub img_bg: HtmlImageElement,
