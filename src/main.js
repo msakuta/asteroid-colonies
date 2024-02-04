@@ -1,5 +1,6 @@
 import bg from '../images/back32.png';
 import power from '../images/power.png';
+import excavator from '../images/excavator.png';
 
 const canvas = document.getElementById('canvas');
 
@@ -7,11 +8,18 @@ const canvas = document.getElementById('canvas');
     const wasm = await import("../Cargo.toml")
     const {AsteroidColonies} = await wasm.default();
 
-    const game = new AsteroidColonies();
+    const loadImages = [
+        ["bg32", bg],
+        ["power", power],
+        ["excavator", excavator],
+    ].map(async ([name, src]) => {
+        return [name, src, await loadImage(src)];
+    });
+    const loadedImages = await Promise.all(loadImages);
+
+    const game = new AsteroidColonies(loadedImages);
     const ctx = canvas.getContext('2d');
-    const img = await loadImage(bg);
-    const img2 = await loadImage(power);
-    game.render(ctx, img, img2);
+    game.render(ctx);
 
     canvas.addEventListener('mousemove', evt => {
         const [x, y] = toLogicalCoords(evt.clientX, evt.clientY);
@@ -22,7 +30,7 @@ const canvas = document.getElementById('canvas');
     canvas.addEventListener('click', evt => {
         const [x, y] = toLogicalCoords(evt.clientX, evt.clientY);
         if (game.excavate(x, y)) {
-            requestAnimationFrame(() => game.render(ctx, img, img2));
+            requestAnimationFrame(() => game.render(ctx));
         }
     })
 })()

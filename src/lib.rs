@@ -1,7 +1,9 @@
+mod assets;
 mod utils;
 
+use assets::Assets;
 use wasm_bindgen::prelude::*;
-use web_sys::{CanvasRenderingContext2d, HtmlImageElement};
+use web_sys::{js_sys, CanvasRenderingContext2d, HtmlImageElement};
 
 #[macro_export]
 macro_rules! console_log {
@@ -37,26 +39,26 @@ const HEIGHT: usize = 15;
 pub struct AsteroidColonies {
     cells: Vec<CellState>,
     buildings: Vec<[i32; 2]>,
+    assets: Assets,
 }
 
 #[wasm_bindgen]
 impl AsteroidColonies {
     #[wasm_bindgen(constructor)]
-    pub fn new() -> Self {
+    pub fn new(image_assets: js_sys::Array) -> Result<AsteroidColonies, JsValue> {
         let mut cells = vec![CellState::Solid; WIDTH * HEIGHT];
         let buildings = vec![[3, 4]];
         for building in &buildings {
             cells[building[0] as usize + building[1] as usize * WIDTH] = CellState::Empty;
         }
-        Self { cells, buildings }
+        Ok(Self {
+            cells,
+            buildings,
+            assets: Assets::new(image_assets)?,
+        })
     }
 
-    pub fn render(
-        &self,
-        context: &CanvasRenderingContext2d,
-        img: &HtmlImageElement,
-        img2: &HtmlImageElement,
-    ) -> Result<(), JsValue> {
+    pub fn render(&self, context: &CanvasRenderingContext2d) -> Result<(), JsValue> {
         // let width = context.cli();
         // context.clear_rect(0., 0., 32., 32.);
         context.set_fill_style(&JsValue::from("#ff0000"));
@@ -70,7 +72,15 @@ impl AsteroidColonies {
                 CellState::Solid => (0., 0.),
             };
             context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-                img, sx, sy, 32., 32., x, y, 32., 32.,
+                &self.assets.img_bg,
+                sx,
+                sy,
+                32.,
+                32.,
+                x,
+                y,
+                32.,
+                32.,
             )?;
         }
 
@@ -78,7 +88,15 @@ impl AsteroidColonies {
             let x = building[0] as f64 * 32.;
             let y = building[1] as f64 * 32.;
             context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-                img2, 0., 0., 32., 32., x, y, 32., 32.,
+                &self.assets.img_power,
+                0.,
+                0.,
+                32.,
+                32.,
+                x,
+                y,
+                32.,
+                32.,
             )?;
         }
         Ok(())
