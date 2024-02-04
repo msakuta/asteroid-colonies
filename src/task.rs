@@ -7,6 +7,7 @@ use crate::{AsteroidColonies, Building, BuildingType, Cell, CellState, WIDTH};
 pub(crate) const EXCAVATE_TIME: usize = 10;
 pub(crate) const MOVE_TIME: usize = 2;
 pub(crate) const BUILD_POWER_GRID_TIME: usize = 5;
+pub(crate) const BUILD_CONVEYOR_TIME: usize = 10;
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum Task {
@@ -47,6 +48,7 @@ impl Direction {
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum GlobalTask {
     BuildPowerGrid(usize, [i32; 2]),
+    BuildConveyor(usize, [i32; 2]),
 }
 
 impl AsteroidColonies {
@@ -118,6 +120,32 @@ impl AsteroidColonies {
             if src_cell.power_grid {
                 self.global_tasks
                     .push(GlobalTask::BuildPowerGrid(BUILD_POWER_GRID_TIME, [ix, iy]));
+                return Ok(JsValue::from(true));
+            }
+        }
+        Err(JsValue::from("No nearby power grid"))
+    }
+
+    pub(crate) fn conveyor(&mut self, ix: i32, iy: i32) -> Result<JsValue, JsValue> {
+        let cell = &self.cells[ix as usize + iy as usize * WIDTH];
+        if matches!(cell.state, CellState::Solid) {
+            return Err(JsValue::from("Needs excavation before building conveyor"));
+        }
+        if cell.conveyor {
+            return Err(JsValue::from("Conveyor is already installed in this cell"));
+        }
+        for dir in [
+            Direction::Left,
+            Direction::Up,
+            Direction::Right,
+            Direction::Down,
+        ] {
+            let dir_vec = dir.to_vec();
+            let src_pos = [ix + dir_vec[0], iy + dir_vec[1]];
+            let src_cell = &self.cells[src_pos[0] as usize + src_pos[1] as usize * WIDTH];
+            if src_cell.conveyor {
+                self.global_tasks
+                    .push(GlobalTask::BuildConveyor(BUILD_CONVEYOR_TIME, [ix, iy]));
                 return Ok(JsValue::from(true));
             }
         }

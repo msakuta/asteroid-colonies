@@ -9,7 +9,7 @@ use task::GlobalTask;
 use wasm_bindgen::prelude::*;
 use web_sys::{js_sys, CanvasRenderingContext2d};
 
-use crate::task::{Task, BUILD_POWER_GRID_TIME, EXCAVATE_TIME, MOVE_TIME};
+use crate::task::{Task, BUILD_CONVEYOR_TIME, BUILD_POWER_GRID_TIME, EXCAVATE_TIME, MOVE_TIME};
 
 #[macro_export]
 macro_rules! console_log {
@@ -42,6 +42,7 @@ enum CellState {
 struct Cell {
     state: CellState,
     power_grid: bool,
+    conveyor: bool,
 }
 
 impl Cell {
@@ -49,6 +50,7 @@ impl Cell {
         Self {
             state: CellState::Solid,
             power_grid: false,
+            conveyor: false,
         }
     }
 
@@ -56,6 +58,7 @@ impl Cell {
         Self {
             state: CellState::Empty,
             power_grid: true,
+            conveyor: true,
         }
     }
 }
@@ -171,6 +174,20 @@ impl AsteroidColonies {
                         TILE_SIZE,
                     )?;
             }
+            if cell.conveyor {
+                context
+                    .draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+                        &self.assets.img_conveyor,
+                        0.,
+                        0.,
+                        TILE_SIZE,
+                        TILE_SIZE,
+                        x,
+                        y,
+                        TILE_SIZE,
+                        TILE_SIZE,
+                    )?;
+            }
         }
 
         for building in &self.buildings {
@@ -208,7 +225,7 @@ impl AsteroidColonies {
 
         for task in &self.global_tasks {
             match task {
-                GlobalTask::BuildPowerGrid(t, pos) => {
+                GlobalTask::BuildPowerGrid(t, pos) | GlobalTask::BuildConveyor(t, pos) => {
                     let x = pos[0] as f64 * TILE_SIZE;
                     let y = pos[1] as f64 * TILE_SIZE;
 
@@ -217,10 +234,14 @@ impl AsteroidColonies {
                     context.fill_rect(x + BAR_MARGIN, y + BAR_MARGIN, BAR_WIDTH, BAR_HEIGHT);
                     context.set_stroke_style(&JsValue::from("#000"));
                     context.set_fill_style(&JsValue::from("#007f00"));
+                    let max_time = match task {
+                        GlobalTask::BuildPowerGrid(_, _) => BUILD_POWER_GRID_TIME,
+                        GlobalTask::BuildConveyor(_, _) => BUILD_CONVEYOR_TIME,
+                    };
                     context.fill_rect(
                         x + BAR_MARGIN,
                         y + BAR_MARGIN,
-                        *t as f64 * BAR_WIDTH / BUILD_POWER_GRID_TIME as f64,
+                        *t as f64 * BAR_WIDTH / max_time as f64,
                         BAR_HEIGHT,
                     );
                 }
@@ -256,6 +277,7 @@ impl AsteroidColonies {
             "excavate" => self.excavate(ix, iy),
             "move" => self.move_(ix, iy),
             "power" => self.power(ix, iy),
+            "conveyor" => self.conveyor(ix, iy),
             _ => Err(JsValue::from(format!("Unknown command: {}", com))),
         }
     }
@@ -270,12 +292,15 @@ impl AsteroidColonies {
                 GlobalTask::BuildPowerGrid(0, pos) => {
                     self.cells[pos[0] as usize + pos[1] as usize * WIDTH].power_grid = true;
                 }
+                GlobalTask::BuildConveyor(0, pos) => {
+                    self.cells[pos[0] as usize + pos[1] as usize * WIDTH].conveyor = true;
+                }
                 _ => {}
             }
         }
 
         self.global_tasks.retain_mut(|task| match task {
-            GlobalTask::BuildPowerGrid(ref mut t, _) => {
+            GlobalTask::BuildPowerGrid(ref mut t, _) | GlobalTask::BuildConveyor(ref mut t, _) => {
                 if *t == 0 {
                     false
                 } else {
