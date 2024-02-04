@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use wasm_bindgen::JsValue;
 
-use crate::{AsteroidColonies, BuildingType, CellState, WIDTH};
+use crate::{AsteroidColonies, Building, BuildingType, CellState, WIDTH};
 
 pub(crate) const EXCAVATE_TIME: usize = 10;
 pub(crate) const MOVE_TIME: usize = 2;
@@ -55,19 +55,8 @@ impl AsteroidColonies {
             if building.type_ != BuildingType::Excavator {
                 continue;
             }
-            if iy == building.pos[1] {
-                if ix - building.pos[0] == 1 {
-                    building.task = Task::Excavate(EXCAVATE_TIME, Direction::Right);
-                } else if ix - building.pos[0] == -1 {
-                    building.task = Task::Excavate(EXCAVATE_TIME, Direction::Left);
-                }
-            }
-            if ix == building.pos[0] {
-                if iy - building.pos[0] == 1 {
-                    building.task = Task::Excavate(EXCAVATE_TIME, Direction::Down);
-                } else if iy - building.pos[0] == -1 {
-                    building.task = Task::Excavate(EXCAVATE_TIME, Direction::Up);
-                }
+            if let Some(dir) = choose_direction(building, ix, iy) {
+                building.task = Task::Excavate(EXCAVATE_TIME, dir);
             }
         }
         Ok(JsValue::from(true))
@@ -80,25 +69,41 @@ impl AsteroidColonies {
         ) {
             return Err(JsValue::from("Needs excavation before moving"));
         }
+        if self
+            .buildings
+            .iter()
+            .any(|b| b.pos[0] == ix && b.pos[1] == iy)
+        {
+            return Err(JsValue::from(
+                "The destination is already occupied by a building",
+            ));
+        }
         for building in &mut self.buildings {
             if building.type_ != BuildingType::Excavator {
                 continue;
             }
-            if iy == building.pos[1] {
-                if ix - building.pos[0] == 1 {
-                    building.task = Task::Move(MOVE_TIME, Direction::Right);
-                } else if ix - building.pos[0] == -1 {
-                    building.task = Task::Move(MOVE_TIME, Direction::Left);
-                }
-            }
-            if ix == building.pos[0] {
-                if iy - building.pos[0] == 1 {
-                    building.task = Task::Move(MOVE_TIME, Direction::Down);
-                } else if iy - building.pos[0] == -1 {
-                    building.task = Task::Move(MOVE_TIME, Direction::Up);
-                }
+            if let Some(dir) = choose_direction(building, ix, iy) {
+                building.task = Task::Move(MOVE_TIME, dir);
             }
         }
         Ok(JsValue::from(true))
     }
+}
+
+fn choose_direction(building: &Building, ix: i32, iy: i32) -> Option<Direction> {
+    if iy == building.pos[1] {
+        if ix - building.pos[0] == 1 {
+            return Some(Direction::Right);
+        } else if ix - building.pos[0] == -1 {
+            return Some(Direction::Left);
+        }
+    }
+    if ix == building.pos[0] {
+        if iy - building.pos[1] == 1 {
+            return Some(Direction::Down);
+        } else if iy - building.pos[1] == -1 {
+            return Some(Direction::Up);
+        }
+    }
+    None
 }
