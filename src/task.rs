@@ -2,10 +2,11 @@ use std::fmt::Display;
 
 use wasm_bindgen::JsValue;
 
-use crate::{AsteroidColonies, Building, BuildingType, CellState, WIDTH};
+use crate::{AsteroidColonies, BuildingType, CellState, WIDTH};
 
 pub(crate) const EXCAVATE_TIME: usize = 10;
 pub(crate) const MOVE_TIME: usize = 2;
+pub(crate) const BUILD_POWER_GRID_TIME: usize = 5;
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum Task {
@@ -43,10 +44,15 @@ impl Direction {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum GlobalTask {
+    BuildPowerGrid(usize, [i32; 2]),
+}
+
 impl AsteroidColonies {
     pub(crate) fn excavate(&mut self, ix: i32, iy: i32) -> Result<JsValue, JsValue> {
         if matches!(
-            self.cells[ix as usize + iy as usize * WIDTH],
+            self.cells[ix as usize + iy as usize * WIDTH].state,
             CellState::Empty
         ) {
             return Err(JsValue::from("Already excavated"));
@@ -55,7 +61,7 @@ impl AsteroidColonies {
             if building.type_ != BuildingType::Excavator {
                 continue;
             }
-            if let Some(dir) = choose_direction(building, ix, iy) {
+            if let Some(dir) = choose_direction(&building.pos, ix, iy) {
                 building.task = Task::Excavate(EXCAVATE_TIME, dir);
             }
         }
@@ -63,11 +69,12 @@ impl AsteroidColonies {
     }
 
     pub(crate) fn move_(&mut self, ix: i32, iy: i32) -> Result<JsValue, JsValue> {
-        if matches!(
-            self.cells[ix as usize + iy as usize * WIDTH],
-            CellState::Solid
-        ) {
+        let cell = &self.cells[ix as usize + iy as usize * WIDTH];
+        if matches!(cell.state, CellState::Solid) {
             return Err(JsValue::from("Needs excavation before moving"));
+        }
+        if !cell.power_grid {
+            return Err(JsValue::from("Power grid is required to move"));
         }
         if self
             .buildings
@@ -82,26 +89,54 @@ impl AsteroidColonies {
             if building.type_ != BuildingType::Excavator {
                 continue;
             }
-            if let Some(dir) = choose_direction(building, ix, iy) {
+            if let Some(dir) = choose_direction(&building.pos, ix, iy) {
                 building.task = Task::Move(MOVE_TIME, dir);
             }
         }
         Ok(JsValue::from(true))
     }
+
+    pub(crate) fn power(&mut self, ix: i32, iy: i32) -> Result<JsValue, JsValue> {
+        let cell = &self.cells[ix as usize + iy as usize * WIDTH];
+        if matches!(cell.state, CellState::Solid) {
+            return Err(JsValue::from("Needs excavation before building power grid"));
+        }
+        if cell.power_grid {
+            return Err(JsValue::from(
+                "Power grid is already installed in this cell",
+            ));
+        }
+        for dir in [
+            Direction::Left,
+            Direction::Up,
+            Direction::Right,
+            Direction::Down,
+        ] {
+            let dir_vec = dir.to_vec();
+            let src_pos = [ix + dir_vec[0], iy + dir_vec[1]];
+            let src_cell = &self.cells[src_pos[0] as usize + src_pos[1] as usize * WIDTH];
+            if src_cell.power_grid {
+                self.global_tasks
+                    .push(GlobalTask::BuildPowerGrid(BUILD_POWER_GRID_TIME, [ix, iy]));
+                return Ok(JsValue::from(true));
+            }
+        }
+        Err(JsValue::from("No nearby power grid"))
+    }
 }
 
-fn choose_direction(building: &Building, ix: i32, iy: i32) -> Option<Direction> {
-    if iy == building.pos[1] {
-        if ix - building.pos[0] == 1 {
+fn choose_direction(pos: &[i32; 2], ix: i32, iy: i32) -> Option<Direction> {
+    if iy == pos[1] {
+        if ix - pos[0] == 1 {
             return Some(Direction::Right);
-        } else if ix - building.pos[0] == -1 {
+        } else if ix - pos[0] == -1 {
             return Some(Direction::Left);
         }
     }
-    if ix == building.pos[0] {
-        if iy - building.pos[1] == 1 {
+    if ix == pos[0] {
+        if iy - pos[1] == 1 {
             return Some(Direction::Down);
-        } else if iy - building.pos[1] == -1 {
+        } else if iy - pos[1] == -1 {
             return Some(Direction::Up);
         }
     }

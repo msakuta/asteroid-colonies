@@ -5,10 +5,11 @@ mod utils;
 use std::fmt::Display;
 
 use assets::Assets;
+use task::GlobalTask;
 use wasm_bindgen::prelude::*;
 use web_sys::{js_sys, CanvasRenderingContext2d};
 
-use crate::task::{Task, EXCAVATE_TIME};
+use crate::task::{Task, BUILD_POWER_GRID_TIME, EXCAVATE_TIME, MOVE_TIME};
 
 #[macro_export]
 macro_rules! console_log {
@@ -37,6 +38,28 @@ enum CellState {
     Empty,
 }
 
+#[derive(Clone, Copy)]
+struct Cell {
+    state: CellState,
+    power_grid: bool,
+}
+
+impl Cell {
+    fn new() -> Self {
+        Self {
+            state: CellState::Solid,
+            power_grid: false,
+        }
+    }
+
+    fn building() -> Self {
+        Self {
+            state: CellState::Empty,
+            power_grid: true,
+        }
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum BuildingType {
     Power,
@@ -63,16 +86,17 @@ const HEIGHT: usize = 15;
 
 #[wasm_bindgen]
 pub struct AsteroidColonies {
-    cells: Vec<CellState>,
+    cells: Vec<Cell>,
     buildings: Vec<Building>,
     assets: Assets,
+    global_tasks: Vec<GlobalTask>,
 }
 
 #[wasm_bindgen]
 impl AsteroidColonies {
     #[wasm_bindgen(constructor)]
     pub fn new(image_assets: js_sys::Array) -> Result<AsteroidColonies, JsValue> {
-        let mut cells = vec![CellState::Solid; WIDTH * HEIGHT];
+        let mut cells = vec![Cell::new(); WIDTH * HEIGHT];
         let buildings = vec![
             Building {
                 pos: [3, 4],
@@ -87,12 +111,13 @@ impl AsteroidColonies {
         ];
         for building in &buildings {
             let pos = building.pos;
-            cells[pos[0] as usize + pos[1] as usize * WIDTH] = CellState::Empty;
+            cells[pos[0] as usize + pos[1] as usize * WIDTH] = Cell::building();
         }
         Ok(Self {
             cells,
             buildings,
             assets: Assets::new(image_assets)?,
+            global_tasks: vec![],
         })
     }
 
@@ -108,7 +133,7 @@ impl AsteroidColonies {
             let y = iy as f64 * TILE_SIZE;
             let ix = i % WIDTH;
             let x = ix as f64 * TILE_SIZE;
-            let (sx, sy) = match cell {
+            let (sx, sy) = match cell.state {
                 CellState::Empty => (3. * TILE_SIZE, 3. * TILE_SIZE),
                 CellState::Solid => (0., 0.),
             };
@@ -123,6 +148,20 @@ impl AsteroidColonies {
                 TILE_SIZE,
                 TILE_SIZE,
             )?;
+            if cell.power_grid {
+                context
+                    .draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+                        &self.assets.img_power_grid,
+                        0.,
+                        0.,
+                        TILE_SIZE,
+                        TILE_SIZE,
+                        x,
+                        y,
+                        TILE_SIZE,
+                        TILE_SIZE,
+                    )?;
+            }
         }
 
         for building in &self.buildings {
@@ -142,14 +181,40 @@ impl AsteroidColonies {
                     context.fill_rect(x + BAR_MARGIN, y + BAR_MARGIN, BAR_WIDTH, BAR_HEIGHT);
                     context.set_stroke_style(&JsValue::from("#000"));
                     context.set_fill_style(&JsValue::from("#007f00"));
+                    let max_time = match building.task {
+                        Task::Excavate(_, _) => EXCAVATE_TIME,
+                        Task::Move(_, _) => MOVE_TIME,
+                        _ => unreachable!(),
+                    };
                     context.fill_rect(
                         x + BAR_MARGIN,
                         y + BAR_MARGIN,
-                        t as f64 * BAR_WIDTH / EXCAVATE_TIME as f64,
+                        t as f64 * BAR_WIDTH / max_time as f64,
                         BAR_HEIGHT,
                     );
                 }
                 _ => {}
+            }
+        }
+
+        for task in &self.global_tasks {
+            match task {
+                GlobalTask::BuildPowerGrid(t, pos) => {
+                    let x = pos[0] as f64 * TILE_SIZE;
+                    let y = pos[1] as f64 * TILE_SIZE;
+
+                    context.set_stroke_style(&JsValue::from("#000"));
+                    context.set_fill_style(&JsValue::from("#7f0000"));
+                    context.fill_rect(x + BAR_MARGIN, y + BAR_MARGIN, BAR_WIDTH, BAR_HEIGHT);
+                    context.set_stroke_style(&JsValue::from("#000"));
+                    context.set_fill_style(&JsValue::from("#007f00"));
+                    context.fill_rect(
+                        x + BAR_MARGIN,
+                        y + BAR_MARGIN,
+                        *t as f64 * BAR_WIDTH / BUILD_POWER_GRID_TIME as f64,
+                        BAR_HEIGHT,
+                    );
+                }
             }
         }
         Ok(())
@@ -181,6 +246,7 @@ impl AsteroidColonies {
         match com {
             "excavate" => self.excavate(ix, iy),
             "move" => self.move_(ix, iy),
+            "power" => self.power(ix, iy),
             _ => Err(JsValue::from(format!("Unknown command: {}", com))),
         }
     }
@@ -193,7 +259,7 @@ impl AsteroidColonies {
                         building.task = Task::None;
                         let dir_vec = dir.to_vec();
                         let [x, y] = [building.pos[0] + dir_vec[0], building.pos[1] + dir_vec[1]];
-                        self.cells[x as usize + y as usize * WIDTH] = CellState::Empty;
+                        self.cells[x as usize + y as usize * WIDTH].state = CellState::Empty;
                     } else {
                         *t -= 1;
                     }
@@ -211,6 +277,27 @@ impl AsteroidColonies {
                 _ => {}
             }
         }
+
+        for task in &self.global_tasks {
+            match task {
+                GlobalTask::BuildPowerGrid(0, pos) => {
+                    self.cells[pos[0] as usize + pos[1] as usize * WIDTH].power_grid = true;
+                }
+                _ => {}
+            }
+        }
+
+        self.global_tasks.retain_mut(|task| match task {
+            GlobalTask::BuildPowerGrid(ref mut t, _) => {
+                if *t == 0 {
+                    false
+                } else {
+                    *t -= 1;
+                    true
+                }
+            }
+        });
+
         Ok(())
     }
 }
