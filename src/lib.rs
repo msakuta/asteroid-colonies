@@ -24,8 +24,18 @@ extern "C" {
     fn alert(s: &str);
 }
 
+#[derive(Clone, Copy)]
+enum CellState {
+    Solid,
+    Empty,
+}
+
+const WIDTH: usize = 20;
+const HEIGHT: usize = 15;
+
 #[wasm_bindgen]
 pub struct AsteroidColonies {
+    cells: Vec<CellState>,
     buildings: Vec<[i32; 2]>,
 }
 
@@ -33,9 +43,12 @@ pub struct AsteroidColonies {
 impl AsteroidColonies {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
-        Self {
-            buildings: vec![[3, 4]],
+        let mut cells = vec![CellState::Solid; WIDTH * HEIGHT];
+        let buildings = vec![[3, 4]];
+        for building in &buildings {
+            cells[building[0] as usize + building[1] as usize * WIDTH] = CellState::Empty;
         }
+        Self { cells, buildings }
     }
 
     pub fn render(
@@ -47,15 +60,18 @@ impl AsteroidColonies {
         // let width = context.cli();
         // context.clear_rect(0., 0., 32., 32.);
         context.set_fill_style(&JsValue::from("#ff0000"));
-        for iy in 0..15 {
+        for (i, cell) in self.cells.iter().enumerate() {
+            let iy = i / WIDTH;
             let y = iy as f64 * 32.;
-            for ix in 0..20 {
-                let x = ix as f64 * 32.;
-                context
-                    .draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-                        img, 0., 0., 32., 32., x, y, 32., 32.,
-                    )?;
-            }
+            let ix = i % WIDTH;
+            let x = ix as f64 * 32.;
+            let (sx, sy) = match cell {
+                CellState::Empty => (3. * 32., 3. * 32.),
+                CellState::Solid => (0., 0.),
+            };
+            context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+                img, sx, sy, 32., 32., x, y, 32., 32.,
+            )?;
         }
 
         for building in &self.buildings {
@@ -79,5 +95,15 @@ impl AsteroidColonies {
         } else {
             Ok(JsValue::from(format!("Empty at {ix}, {iy}")))
         }
+    }
+
+    pub fn excavate(&mut self, x: i32, y: i32) -> Result<JsValue, JsValue> {
+        let ix = x.div_euclid(32);
+        let iy = y.div_euclid(32);
+        if ix < 0 || WIDTH as i32 <= ix || iy < 0 || HEIGHT as i32 <= iy {
+            return Err(JsValue::from("Point outside cell"));
+        }
+        self.cells[ix as usize + iy as usize * WIDTH] = CellState::Empty;
+        Ok(JsValue::from(true))
     }
 }
