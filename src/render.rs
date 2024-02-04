@@ -10,14 +10,14 @@ use crate::{
     BuildingType, CellState, WIDTH,
 };
 
+const TILE_SIZE: f64 = 32.;
+const BAR_MARGIN: f64 = 4.;
+const BAR_WIDTH: f64 = TILE_SIZE - BAR_MARGIN * 2.;
+const BAR_HEIGHT: f64 = 6.;
+
 #[wasm_bindgen]
 impl AsteroidColonies {
     pub fn render(&self, context: &CanvasRenderingContext2d) -> Result<(), JsValue> {
-        const TILE_SIZE: f64 = 32.;
-        const BAR_MARGIN: f64 = 4.;
-        const BAR_WIDTH: f64 = TILE_SIZE - BAR_MARGIN * 2.;
-        const BAR_HEIGHT: f64 = 6.;
-
         context.set_fill_style(&JsValue::from("#ff0000"));
         for (i, cell) in self.cells.iter().enumerate() {
             let iy = i / WIDTH;
@@ -82,24 +82,26 @@ impl AsteroidColonies {
             )?;
             match building.task {
                 Task::Excavate(t, _) | Task::Move(t, _) | Task::MoveItem { t, .. } => {
-                    context.set_stroke_style(&JsValue::from("#000"));
-                    context.set_fill_style(&JsValue::from("#7f0000"));
-                    context.fill_rect(x + BAR_MARGIN, y + BAR_MARGIN, BAR_WIDTH, BAR_HEIGHT);
-                    context.set_stroke_style(&JsValue::from("#000"));
-                    context.set_fill_style(&JsValue::from("#007f00"));
                     let max_time = match building.task {
                         Task::Excavate(_, _) => EXCAVATE_TIME,
                         Task::Move(_, _) => MOVE_TIME,
                         _ => unreachable!(),
                     };
-                    context.fill_rect(
-                        x + BAR_MARGIN,
-                        y + BAR_MARGIN,
-                        t as f64 * BAR_WIDTH / max_time as f64,
-                        BAR_HEIGHT,
-                    );
+                    render_bar(context, x, y, t as f64, max_time as f64, "#00af00");
                 }
                 _ => {}
+            }
+
+            let inventory_count: usize = building.inventory.iter().map(|item| *item.1).sum();
+            if 0 < inventory_count {
+                render_bar(
+                    context,
+                    x,
+                    y + TILE_SIZE - BAR_HEIGHT - BAR_MARGIN * 2.,
+                    inventory_count as f64,
+                    building.type_.capacity() as f64,
+                    "#afaf00",
+                );
             }
         }
 
@@ -129,4 +131,18 @@ impl AsteroidColonies {
         }
         Ok(())
     }
+}
+
+fn render_bar(context: &CanvasRenderingContext2d, x: f64, y: f64, v: f64, max: f64, color: &str) {
+    context.set_stroke_style(&JsValue::from("#000"));
+    context.set_fill_style(&JsValue::from("#7f0000"));
+    context.fill_rect(x + BAR_MARGIN, y + BAR_MARGIN, BAR_WIDTH, BAR_HEIGHT);
+    context.set_stroke_style(&JsValue::from("#000"));
+    context.set_fill_style(&JsValue::from(color));
+    context.fill_rect(
+        x + BAR_MARGIN,
+        y + BAR_MARGIN,
+        v * BAR_WIDTH / max,
+        BAR_HEIGHT,
+    );
 }
