@@ -88,11 +88,16 @@ impl AsteroidColonies {
         if !cell.power_grid {
             return Err(JsValue::from("Power grid is required to move"));
         }
-        if self
-            .buildings
-            .iter()
-            .any(|b| b.pos[0] == ix && b.pos[1] == iy)
-        {
+
+        let intersects = |b: &Building| {
+            let size = b.type_.size();
+            b.pos[0] <= ix
+                && ix < size[0] as i32 + b.pos[0]
+                && b.pos[1] <= iy
+                && iy < size[1] as i32 + b.pos[1]
+        };
+
+        if self.buildings.iter().any(intersects) {
             return Err(JsValue::from(
                 "The destination is already occupied by a building",
             ));
