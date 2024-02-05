@@ -5,7 +5,8 @@ use web_sys::CanvasRenderingContext2d;
 
 use crate::{
     task::{
-        GlobalTask, Task, BUILD_CONVEYOR_TIME, BUILD_POWER_GRID_TIME, EXCAVATE_TIME, MOVE_TIME,
+        GlobalTask, Task, BUILD_CONVEYOR_TIME, BUILD_POWER_GRID_TIME, EXCAVATE_TIME,
+        MOVE_ITEM_TIME, MOVE_TIME,
     },
     BuildingType, CellState, WIDTH,
 };
@@ -85,6 +86,7 @@ impl AsteroidColonies {
                     let max_time = match building.task {
                         Task::Excavate(_, _) => EXCAVATE_TIME,
                         Task::Move(_, _) => MOVE_TIME,
+                        Task::MoveItem { .. } => MOVE_ITEM_TIME,
                         _ => unreachable!(),
                     };
                     render_bar(context, x, y, t as f64, max_time as f64, "#00af00");
