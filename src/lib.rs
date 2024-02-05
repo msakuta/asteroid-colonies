@@ -78,6 +78,8 @@ pub struct AsteroidColonies {
     buildings: Vec<Building>,
     assets: Assets,
     global_tasks: Vec<GlobalTask>,
+    /// Used power for the last tick, in kW
+    used_power: usize,
 }
 
 #[wasm_bindgen]
@@ -107,6 +109,7 @@ impl AsteroidColonies {
             buildings,
             assets: Assets::new(image_assets)?,
             global_tasks: vec![],
+            used_power: 0,
         })
     }
 
@@ -120,8 +123,8 @@ impl AsteroidColonies {
                 && b.pos[1] <= iy
                 && iy < size[1] as i32 + b.pos[1]
         };
-        if let Some(building) = self.buildings.iter().find(intersects) {
-            Ok(JsValue::from(format!(
+        let building_str = if let Some(building) = self.buildings.iter().find(intersects) {
+            format!(
                 "{} at {}, {}\nTask: {:?}\nInventory: {:?}\nCrews: {} / {}",
                 building.type_,
                 building.pos[0],
@@ -130,10 +133,32 @@ impl AsteroidColonies {
                 building.inventory,
                 building.crews,
                 building.type_.max_crews()
-            )))
+            )
         } else {
-            Ok(JsValue::from(format!("Empty at {ix}, {iy}")))
-        }
+            format!("Empty at {ix}, {iy}")
+        };
+        let crew_str = format!(
+            "\nTotal crew: {}",
+            self.buildings.iter().map(|b| b.crews).sum::<usize>()
+        );
+        // We want to count power generation and consumption separately
+        let power_capacity_str = format!(
+            "\nTotal power capacity: {} kW",
+            self.buildings
+                .iter()
+                .map(|b| b.power().max(0))
+                .sum::<isize>()
+        );
+        let power_consumed = self
+            .buildings
+            .iter()
+            .map(|b| b.power().min(0))
+            .sum::<isize>()
+            .abs() as usize;
+        let power_used_str = format!("\nUsed power: {} kW", self.used_power + power_consumed);
+        Ok(JsValue::from(
+            building_str + &crew_str + &power_capacity_str + &power_used_str,
+        ))
     }
 
     pub fn command(&mut self, com: &str, x: i32, y: i32) -> Result<JsValue, JsValue> {
@@ -170,6 +195,8 @@ impl AsteroidColonies {
         }
 
         let mut workforce: usize = self.buildings.iter().map(|b| b.crews).sum();
+        let power_cap: isize = self.buildings.iter().map(|b| b.power()).sum();
+        let mut power = power_cap;
 
         for task in &self.global_tasks {
             match task {
@@ -187,6 +214,8 @@ impl AsteroidColonies {
             }
         }
 
+        const POWER_CONSUMPTION: usize = 200;
+
         self.global_tasks.retain_mut(|task| match task {
             GlobalTask::BuildPowerGrid(ref mut t, _)
             | GlobalTask::BuildConveyor(ref mut t, _)
@@ -194,14 +223,17 @@ impl AsteroidColonies {
                 if *t == 0 {
                     false
                 } else {
-                    if 0 < workforce {
+                    if 0 < workforce && POWER_CONSUMPTION as isize <= power {
                         *t -= 1;
+                        power -= POWER_CONSUMPTION as isize;
                         workforce -= 1;
                     }
                     true
                 }
             }
         });
+
+        self.used_power = (power_cap - power) as usize;
 
         Ok(())
     }

@@ -33,6 +33,16 @@ impl BuildingType {
             _ => 0,
         }
     }
+
+    /// Return the amount of base generating/consuming power
+    pub fn power(&self) -> isize {
+        match self {
+            Self::Power => 500,
+            Self::CrewCabin => -100,
+            Self::Excavator => -10,
+            Self::Storage => 0,
+        }
+    }
 }
 
 impl Display for BuildingType {
@@ -64,5 +74,14 @@ impl Building {
             inventory: HashMap::new(),
             crews: type_.max_crews(),
         }
+    }
+
+    pub fn power(&self) -> isize {
+        let base = self.type_.power();
+        let task_power = match self.task {
+            Task::Excavate(_, _) => 200,
+            _ => 0,
+        };
+        base - task_power
     }
 }
