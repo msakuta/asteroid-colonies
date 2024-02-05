@@ -4,6 +4,7 @@ import conveyor from '../images/conveyor.png';
 import power from '../images/power.png';
 import excavator from '../images/excavator.png';
 import storage from '../images/storage.png';
+import crew_cabin from '../images/crew_cabin.png';
 
 const canvas = document.getElementById('canvas');
 
@@ -18,6 +19,7 @@ const canvas = document.getElementById('canvas');
         ["power", power],
         ["excavator", excavator],
         ["storage", storage],
+        ["crew_cabin", crew_cabin],
     ].map(async ([name, src]) => {
         return [name, src, await loadImage(src)];
     });

@@ -1,16 +1,15 @@
 mod assets;
+mod building;
 mod render;
 mod task;
 mod utils;
-
-use std::{collections::HashMap, fmt::Display};
 
 use assets::Assets;
 use task::GlobalTask;
 use wasm_bindgen::prelude::*;
 use web_sys::js_sys;
 
-use crate::task::Task;
+use crate::building::{Building, BuildingType};
 
 #[macro_export]
 macro_rules! console_log {
@@ -64,44 +63,10 @@ impl Cell {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum BuildingType {
-    Power,
-    Excavator,
-    Storage,
-}
-
-impl BuildingType {
-    fn capacity(&self) -> usize {
-        match self {
-            Self::Power => 3,
-            Self::Excavator => 3,
-            Self::Storage => 10,
-        }
-    }
-}
-
-impl Display for BuildingType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Power => write!(f, "Power"),
-            Self::Excavator => write!(f, "Excavator"),
-            Self::Storage => write!(f, "Storage"),
-        }
-    }
-}
-
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 enum ItemType {
     /// Freshly dug soil from asteroid body. Hardly useful unless refined
     Slug,
-}
-
-struct Building {
-    pos: [i32; 2],
-    type_: BuildingType,
-    task: Task,
-    inventory: HashMap<ItemType, usize>,
 }
 
 const WIDTH: usize = 20;
@@ -121,28 +86,21 @@ impl AsteroidColonies {
     pub fn new(image_assets: js_sys::Array) -> Result<AsteroidColonies, JsValue> {
         let mut cells = vec![Cell::new(); WIDTH * HEIGHT];
         let buildings = vec![
-            Building {
-                pos: [3, 4],
-                type_: BuildingType::Power,
-                task: Task::None,
-                inventory: HashMap::new(),
-            },
-            Building {
-                pos: [4, 4],
-                type_: BuildingType::Excavator,
-                task: Task::None,
-                inventory: HashMap::new(),
-            },
-            Building {
-                pos: [3, 5],
-                type_: BuildingType::Storage,
-                task: Task::None,
-                inventory: HashMap::new(),
-            },
+            Building::new([2, 2], BuildingType::CrewCabin),
+            Building::new([3, 4], BuildingType::Power),
+            Building::new([4, 4], BuildingType::Excavator),
+            Building::new([3, 5], BuildingType::Storage),
         ];
         for building in &buildings {
             let pos = building.pos;
-            cells[pos[0] as usize + pos[1] as usize * WIDTH] = Cell::building();
+            let size = building.type_.size();
+            for iy in 0..size[1] {
+                let y = pos[1] as usize + iy;
+                for ix in 0..size[0] {
+                    let x = pos[0] as usize + ix;
+                    cells[x + y * WIDTH] = Cell::building();
+                }
+            }
         }
         Ok(Self {
             cells,
@@ -155,14 +113,23 @@ impl AsteroidColonies {
     pub fn get_info(&self, x: i32, y: i32) -> Result<JsValue, JsValue> {
         let ix = x.div_euclid(32);
         let iy = y.div_euclid(32);
-        if let Some(building) = self
-            .buildings
-            .iter()
-            .find(|b| b.pos[0] == ix && b.pos[1] == iy)
-        {
+        let intersects = |b: &&Building| {
+            let size = b.type_.size();
+            b.pos[0] <= ix
+                && ix < size[0] as i32 + b.pos[0]
+                && b.pos[1] <= iy
+                && iy < size[1] as i32 + b.pos[1]
+        };
+        if let Some(building) = self.buildings.iter().find(intersects) {
             Ok(JsValue::from(format!(
-                "{} at {}, {}\nTask: {:?}\nInventory: {:?}",
-                building.type_, building.pos[0], building.pos[1], building.task, building.inventory
+                "{} at {}, {}\nTask: {:?}\nInventory: {:?}\nCrews: {} / {}",
+                building.type_,
+                building.pos[0],
+                building.pos[1],
+                building.task,
+                building.inventory,
+                building.crews,
+                building.type_.max_crews()
             )))
         } else {
             Ok(JsValue::from(format!("Empty at {ix}, {iy}")))
@@ -201,6 +168,8 @@ impl AsteroidColonies {
             }
         }
 
+        let mut workforce: usize = self.buildings.iter().map(|b| b.crews).sum();
+
         for task in &self.global_tasks {
             match task {
                 GlobalTask::BuildPowerGrid(0, pos) => {
@@ -218,7 +187,10 @@ impl AsteroidColonies {
                 if *t == 0 {
                     false
                 } else {
-                    *t -= 1;
+                    if 0 < workforce {
+                        *t -= 1;
+                        workforce -= 1;
+                    }
                     true
                 }
             }
