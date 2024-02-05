@@ -9,6 +9,7 @@ pub(crate) const MOVE_TIME: usize = 2;
 pub(crate) const BUILD_POWER_GRID_TIME: usize = 5;
 pub(crate) const BUILD_CONVEYOR_TIME: usize = 10;
 pub(crate) const MOVE_ITEM_TIME: usize = 2;
+pub(crate) const BUILD_POWER_PLANT_TIME: usize = 50;
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum Task {
@@ -56,6 +57,7 @@ impl Direction {
 pub(crate) enum GlobalTask {
     BuildPowerGrid(usize, [i32; 2]),
     BuildConveyor(usize, [i32; 2]),
+    BuildPowerPlant(usize, [i32; 2]),
 }
 
 impl AsteroidColonies {
@@ -193,6 +195,28 @@ impl AsteroidColonies {
             }
         }
         Err(JsValue::from("No structure to send from"))
+    }
+
+    pub(super) fn build_power_plant(&mut self, ix: i32, iy: i32) -> Result<JsValue, JsValue> {
+        let cell = &self.cells[ix as usize + iy as usize * WIDTH];
+        if matches!(cell.state, CellState::Solid) {
+            return Err(JsValue::from("Needs excavation before building a building"));
+        }
+        if !cell.conveyor {
+            return Err(JsValue::from("Conveyor is needed to build a building"));
+        }
+        if self
+            .buildings
+            .iter()
+            .any(|b| b.pos[0] == ix && b.pos[1] == iy)
+        {
+            return Err(JsValue::from("A building already exists at the target"));
+        }
+        self.global_tasks.push(GlobalTask::BuildPowerPlant(
+            BUILD_POWER_PLANT_TIME,
+            [ix, iy],
+        ));
+        Ok(JsValue::from(true))
     }
 
     pub(super) fn process_task(

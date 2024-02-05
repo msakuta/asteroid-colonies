@@ -148,6 +148,7 @@ impl AsteroidColonies {
             "power" => self.power(ix, iy),
             "conveyor" => self.conveyor(ix, iy),
             "moveItem" => self.move_item(ix, iy),
+            "buildPowerPlant" => self.build_power_plant(ix, iy),
             _ => Err(JsValue::from(format!("Unknown command: {}", com))),
         }
     }
@@ -178,12 +179,18 @@ impl AsteroidColonies {
                 GlobalTask::BuildConveyor(0, pos) => {
                     self.cells[pos[0] as usize + pos[1] as usize * WIDTH].conveyor = true;
                 }
+                GlobalTask::BuildPowerPlant(0, pos) => {
+                    self.buildings
+                        .push(Building::new(*pos, BuildingType::Power));
+                }
                 _ => {}
             }
         }
 
         self.global_tasks.retain_mut(|task| match task {
-            GlobalTask::BuildPowerGrid(ref mut t, _) | GlobalTask::BuildConveyor(ref mut t, _) => {
+            GlobalTask::BuildPowerGrid(ref mut t, _)
+            | GlobalTask::BuildConveyor(ref mut t, _)
+            | GlobalTask::BuildPowerPlant(ref mut t, _) => {
                 if *t == 0 {
                     false
                 } else {
