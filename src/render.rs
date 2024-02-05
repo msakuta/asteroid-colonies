@@ -5,8 +5,8 @@ use web_sys::CanvasRenderingContext2d;
 
 use crate::{
     task::{
-        GlobalTask, Task, BUILD_CONVEYOR_TIME, BUILD_POWER_GRID_TIME, BUILD_POWER_PLANT_TIME,
-        EXCAVATE_TIME, MOVE_ITEM_TIME, MOVE_TIME,
+        GlobalTask, Task, BUILD_CONVEYOR_TIME, BUILD_POWER_GRID_TIME, EXCAVATE_TIME,
+        MOVE_ITEM_TIME, MOVE_TIME,
     },
     BuildingType, CellState, WIDTH,
 };
@@ -115,7 +115,7 @@ impl AsteroidColonies {
             match task {
                 GlobalTask::BuildPowerGrid(t, pos)
                 | GlobalTask::BuildConveyor(t, pos)
-                | GlobalTask::BuildPowerPlant(t, pos) => {
+                | GlobalTask::BuildBuilding(t, pos, _) => {
                     let x = pos[0] as f64 * TILE_SIZE;
                     let y = pos[1] as f64 * TILE_SIZE;
 
@@ -127,7 +127,7 @@ impl AsteroidColonies {
                     let max_time = match task {
                         GlobalTask::BuildPowerGrid(_, _) => BUILD_POWER_GRID_TIME,
                         GlobalTask::BuildConveyor(_, _) => BUILD_CONVEYOR_TIME,
-                        GlobalTask::BuildPowerPlant(_, _) => BUILD_POWER_PLANT_TIME,
+                        GlobalTask::BuildBuilding(_, _, ty) => ty.build_time(),
                     };
                     context.fill_rect(
                         x + BAR_MARGIN,

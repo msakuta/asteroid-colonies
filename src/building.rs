@@ -1,8 +1,14 @@
 use std::{collections::HashMap, fmt::Display};
 
-use crate::{task::Task, ItemType};
+use crate::{
+    task::{
+        Task, BUILD_CREW_CABIN_TIME, BUILD_EXCAVATOR_TIME, BUILD_POWER_PLANT_TIME,
+        BUILD_STORAGE_TIME,
+    },
+    ItemType,
+};
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum BuildingType {
     Power,
     Excavator,
@@ -41,6 +47,15 @@ impl BuildingType {
             Self::CrewCabin => -100,
             Self::Excavator => -10,
             Self::Storage => 0,
+        }
+    }
+
+    pub fn build_time(&self) -> usize {
+        match self {
+            Self::Power => BUILD_POWER_PLANT_TIME,
+            Self::CrewCabin => BUILD_CREW_CABIN_TIME,
+            Self::Excavator => BUILD_EXCAVATOR_TIME,
+            Self::Storage => BUILD_STORAGE_TIME,
         }
     }
 }

@@ -10,6 +10,9 @@ pub(crate) const BUILD_POWER_GRID_TIME: usize = 5;
 pub(crate) const BUILD_CONVEYOR_TIME: usize = 10;
 pub(crate) const MOVE_ITEM_TIME: usize = 2;
 pub(crate) const BUILD_POWER_PLANT_TIME: usize = 50;
+pub(crate) const BUILD_EXCAVATOR_TIME: usize = 100;
+pub(crate) const BUILD_CREW_CABIN_TIME: usize = 500;
+pub(crate) const BUILD_STORAGE_TIME: usize = 20;
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum Task {
@@ -57,7 +60,7 @@ impl Direction {
 pub(crate) enum GlobalTask {
     BuildPowerGrid(usize, [i32; 2]),
     BuildConveyor(usize, [i32; 2]),
-    BuildPowerPlant(usize, [i32; 2]),
+    BuildBuilding(usize, [i32; 2], BuildingType),
 }
 
 impl AsteroidColonies {
@@ -197,7 +200,12 @@ impl AsteroidColonies {
         Err(JsValue::from("No structure to send from"))
     }
 
-    pub(super) fn build_power_plant(&mut self, ix: i32, iy: i32) -> Result<JsValue, JsValue> {
+    pub(super) fn build_building(
+        &mut self,
+        ix: i32,
+        iy: i32,
+        type_: BuildingType,
+    ) -> Result<JsValue, JsValue> {
         let cell = &self.cells[ix as usize + iy as usize * WIDTH];
         if matches!(cell.state, CellState::Solid) {
             return Err(JsValue::from("Needs excavation before building a building"));
@@ -212,9 +220,10 @@ impl AsteroidColonies {
         {
             return Err(JsValue::from("A building already exists at the target"));
         }
-        self.global_tasks.push(GlobalTask::BuildPowerPlant(
-            BUILD_POWER_PLANT_TIME,
+        self.global_tasks.push(GlobalTask::BuildBuilding(
+            type_.build_time(),
             [ix, iy],
+            type_,
         ));
         Ok(JsValue::from(true))
     }
