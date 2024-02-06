@@ -78,13 +78,23 @@ impl AsteroidColonies {
                 BuildingType::CrewCabin => &self.assets.img_crew_cabin,
                 BuildingType::Assembler => &self.assets.img_assembler,
             };
+            let (sx, sy) = match building.type_ {
+                BuildingType::Assembler => {
+                    if !matches!(building.task, Task::None) {
+                        ((self.global_time % 4) as f64 * TILE_SIZE * 2., 0.)
+                    } else {
+                        (0., 0.)
+                    }
+                }
+                _ => (0., 0.),
+            };
             let x = building.pos[0] as f64 * TILE_SIZE;
             let y = building.pos[1] as f64 * TILE_SIZE;
             let size = building.type_.size();
             let width = size[0] as f64 * TILE_SIZE;
             let height = size[1] as f64 * TILE_SIZE;
             context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-                img, 0., 0., width, height, x, y, width, height,
+                img, sx, sy, width, height, x, y, width, height,
             )?;
             match building.task {
                 Task::Excavate(t, _) | Task::Move(t, _) | Task::MoveItem { t, .. } => {

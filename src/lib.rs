@@ -90,6 +90,7 @@ pub struct AsteroidColonies {
     global_tasks: Vec<GlobalTask>,
     /// Used power for the last tick, in kW
     used_power: usize,
+    global_time: usize,
 }
 
 #[wasm_bindgen]
@@ -121,6 +122,7 @@ impl AsteroidColonies {
             assets: Assets::new(image_assets)?,
             global_tasks: vec![],
             used_power: 0,
+            global_time: 0,
         })
     }
 
@@ -246,6 +248,8 @@ impl AsteroidColonies {
         });
 
         self.used_power = (power_cap - power) as usize;
+
+        self.global_time += 1;
 
         Ok(())
     }
