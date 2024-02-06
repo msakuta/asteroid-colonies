@@ -181,7 +181,7 @@ impl AsteroidColonies {
         match com {
             "excavate" => self.excavate(ix, iy),
             "move" => self.move_(ix, iy),
-            "power" => self.power(ix, iy),
+            "power" => self.build_power_grid(ix, iy),
             "conveyor" => self.conveyor(ix, iy),
             "moveItem" => self.move_item(ix, iy),
             "buildPowerPlant" => self.build_building(ix, iy, BuildingType::Power),

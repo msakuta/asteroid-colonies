@@ -121,7 +121,7 @@ impl AsteroidColonies {
         Ok(JsValue::from(true))
     }
 
-    pub(crate) fn power(&mut self, ix: i32, iy: i32) -> Result<JsValue, JsValue> {
+    pub(crate) fn build_power_grid(&mut self, ix: i32, iy: i32) -> Result<JsValue, JsValue> {
         let cell = &self.cells[ix as usize + iy as usize * WIDTH];
         if matches!(cell.state, CellState::Solid) {
             return Err(JsValue::from("Needs excavation before building power grid"));
@@ -131,6 +131,14 @@ impl AsteroidColonies {
                 "Power grid is already installed in this cell",
             ));
         }
+        let no_power_grid = || JsValue::from("Power grid item does not exist in nearby structures");
+        let Some(building) = self
+            .buildings
+            .iter_mut()
+            .find(|b| 0 < *b.inventory.get(&ItemType::PowerGridComponent).unwrap_or(&0))
+        else {
+            return Err(no_power_grid());
+        };
         for dir in [
             Direction::Left,
             Direction::Up,
@@ -141,6 +149,10 @@ impl AsteroidColonies {
             let src_pos = [ix + dir_vec[0], iy + dir_vec[1]];
             let src_cell = &self.cells[src_pos[0] as usize + src_pos[1] as usize * WIDTH];
             if src_cell.power_grid {
+                *building
+                    .inventory
+                    .get_mut(&ItemType::PowerGridComponent)
+                    .ok_or_else(no_power_grid)? -= 1;
                 self.global_tasks
                     .push(GlobalTask::BuildPowerGrid(BUILD_POWER_GRID_TIME, [ix, iy]));
                 return Ok(JsValue::from(true));
