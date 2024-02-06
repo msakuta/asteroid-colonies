@@ -41,7 +41,7 @@ const canvas = document.getElementById('canvas');
     canvas.addEventListener('mosueleave', evt => mousePos = null);
 
     canvas.addEventListener('click', evt => {
-        for (let name of ["excavate", "move", "power", "conveyor", "moveItem", "buildPowerPlant", "buildStorage", "assemble"]) {
+        for (let name of ["excavate", "move", "power", "conveyor", "moveItem", "buildPowerPlant", "buildStorage", "assemble", "assembleConveyor"]) {
             const elem = document.getElementById(name);
             if (elem?.checked) {
                 const [x, y] = toLogicalCoords(evt.clientX, evt.clientY);

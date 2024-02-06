@@ -169,6 +169,14 @@ impl AsteroidColonies {
         if cell.conveyor {
             return Err(JsValue::from("Conveyor is already installed in this cell"));
         }
+        let no_conveyor = || JsValue::from("Conveyor item does not exist in nearby structures");
+        let Some(building) = self
+            .buildings
+            .iter_mut()
+            .find(|b| 0 < *b.inventory.get(&ItemType::ConveyorComponent).unwrap_or(&0))
+        else {
+            return Err(no_conveyor());
+        };
         for dir in [
             Direction::Left,
             Direction::Up,
@@ -179,6 +187,10 @@ impl AsteroidColonies {
             let src_pos = [ix + dir_vec[0], iy + dir_vec[1]];
             let src_cell = &self.cells[src_pos[0] as usize + src_pos[1] as usize * WIDTH];
             if src_cell.conveyor {
+                *building
+                    .inventory
+                    .get_mut(&ItemType::ConveyorComponent)
+                    .ok_or_else(no_conveyor)? -= 1;
                 self.global_tasks
                     .push(GlobalTask::BuildConveyor(BUILD_CONVEYOR_TIME, [ix, iy]));
                 return Ok(JsValue::from(true));

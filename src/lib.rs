@@ -68,6 +68,7 @@ enum ItemType {
     /// Freshly dug soil from asteroid body. Hardly useful unless refined
     Slug,
     PowerGridComponent,
+    ConveyorComponent,
 }
 
 impl ItemType {
@@ -75,6 +76,7 @@ impl ItemType {
         match self {
             Self::Slug => 0,
             Self::PowerGridComponent => 10,
+            Self::ConveyorComponent => 20,
         }
     }
 }
@@ -189,6 +191,7 @@ impl AsteroidColonies {
             "buildPowerPlant" => self.build_building(ix, iy, BuildingType::Power),
             "buildStorage" => self.build_building(ix, iy, BuildingType::Storage),
             "assemble" => self.assemble(ix, iy, ItemType::PowerGridComponent),
+            "assembleConveyor" => self.assemble(ix, iy, ItemType::ConveyorComponent),
             _ => Err(JsValue::from(format!("Unknown command: {}", com))),
         }
     }
