@@ -2,8 +2,8 @@ use std::{collections::HashMap, fmt::Display};
 
 use crate::{
     task::{
-        Task, BUILD_CREW_CABIN_TIME, BUILD_EXCAVATOR_TIME, BUILD_POWER_PLANT_TIME,
-        BUILD_STORAGE_TIME,
+        Task, BUILD_ASSEMBLER_TIME, BUILD_CREW_CABIN_TIME, BUILD_EXCAVATOR_TIME,
+        BUILD_POWER_PLANT_TIME, BUILD_STORAGE_TIME,
     },
     ItemType,
 };
@@ -14,6 +14,7 @@ pub(crate) enum BuildingType {
     Excavator,
     Storage,
     CrewCabin,
+    Assembler,
 }
 
 impl BuildingType {
@@ -23,12 +24,13 @@ impl BuildingType {
             Self::Excavator => 3,
             Self::Storage => 10,
             Self::CrewCabin => 10,
+            Self::Assembler => 10,
         }
     }
 
     pub fn size(&self) -> [usize; 2] {
         match self {
-            Self::CrewCabin => [2, 2],
+            Self::CrewCabin | Self::Assembler => [2, 2],
             _ => [1, 1],
         }
     }
@@ -47,6 +49,7 @@ impl BuildingType {
             Self::CrewCabin => -100,
             Self::Excavator => -10,
             Self::Storage => 0,
+            Self::Assembler => -20,
         }
     }
 
@@ -56,6 +59,7 @@ impl BuildingType {
             Self::CrewCabin => BUILD_CREW_CABIN_TIME,
             Self::Excavator => BUILD_EXCAVATOR_TIME,
             Self::Storage => BUILD_STORAGE_TIME,
+            Self::Assembler => BUILD_ASSEMBLER_TIME,
         }
     }
 }
@@ -67,6 +71,7 @@ impl Display for BuildingType {
             Self::Excavator => write!(f, "Excavator"),
             Self::Storage => write!(f, "Storage"),
             Self::CrewCabin => write!(f, "CrewCabin"),
+            Self::Assembler => write!(f, "Assembler"),
         }
     }
 }

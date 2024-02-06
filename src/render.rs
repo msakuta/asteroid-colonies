@@ -76,6 +76,7 @@ impl AsteroidColonies {
                 BuildingType::Excavator => &self.assets.img_excavator,
                 BuildingType::Storage => &self.assets.img_storage,
                 BuildingType::CrewCabin => &self.assets.img_crew_cabin,
+                BuildingType::Assembler => &self.assets.img_assembler,
             };
             let x = building.pos[0] as f64 * TILE_SIZE;
             let y = building.pos[1] as f64 * TILE_SIZE;

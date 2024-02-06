@@ -13,6 +13,7 @@ pub(crate) const BUILD_POWER_PLANT_TIME: usize = 50;
 pub(crate) const BUILD_EXCAVATOR_TIME: usize = 100;
 pub(crate) const BUILD_CREW_CABIN_TIME: usize = 500;
 pub(crate) const BUILD_STORAGE_TIME: usize = 20;
+pub(crate) const BUILD_ASSEMBLER_TIME: usize = 100;
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum Task {
@@ -24,6 +25,7 @@ pub(crate) enum Task {
         item_type: ItemType,
         dest: [i32; 2],
     },
+    Assemble(usize, ItemType),
 }
 
 impl Display for Task {
@@ -33,6 +35,7 @@ impl Display for Task {
             Self::Excavate(_, _) => write!(f, "Excavate"),
             Self::Move(_, _) => write!(f, "Move"),
             Self::MoveItem { .. } => write!(f, "MoveItem"),
+            Self::Assemble(_, _) => write!(f, "BuildItem"),
         }
     }
 }
@@ -228,6 +231,30 @@ impl AsteroidColonies {
         Ok(JsValue::from(true))
     }
 
+    pub(super) fn assemble(
+        &mut self,
+        ix: i32,
+        iy: i32,
+        type_: ItemType,
+    ) -> Result<JsValue, JsValue> {
+        let intersects = |b: &Building| {
+            let size = b.type_.size();
+            b.pos[0] <= ix
+                && ix < size[0] as i32 + b.pos[0]
+                && b.pos[1] <= iy
+                && iy < size[1] as i32 + b.pos[1]
+        };
+
+        let Some(assembler) = self.buildings.iter_mut().find(|b| intersects(*b)) else {
+            return Err(JsValue::from("The building does not exist at the target"));
+        };
+        if !matches!(assembler.type_, BuildingType::Assembler) {
+            return Err(JsValue::from("The building is not an assembler"));
+        }
+        assembler.task = Task::Assemble(type_.build_time(), type_);
+        Ok(JsValue::from(true))
+    }
+
     pub(super) fn process_task(
         cells: &mut [Cell],
         building: &mut Building,
@@ -265,6 +292,17 @@ impl AsteroidColonies {
                     if 0 < *entry {
                         *entry -= 1;
                         return Some((item_type, dest));
+                    }
+                } else {
+                    *t -= 1;
+                }
+            }
+            Task::Assemble(ref mut t, item_type) => {
+                if *t == 0 {
+                    let entry = building.inventory.entry(item_type).or_default();
+                    if *entry < building.type_.capacity() {
+                        *entry += 1;
+                        building.task = Task::None;
                     }
                 } else {
                     *t -= 1;

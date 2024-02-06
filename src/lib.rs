@@ -67,6 +67,16 @@ impl Cell {
 enum ItemType {
     /// Freshly dug soil from asteroid body. Hardly useful unless refined
     Slug,
+    PowerGridComponent,
+}
+
+impl ItemType {
+    const fn build_time(&self) -> usize {
+        match self {
+            Self::Slug => 0,
+            Self::PowerGridComponent => 10,
+        }
+    }
 }
 
 const WIDTH: usize = 20;
@@ -92,6 +102,7 @@ impl AsteroidColonies {
             Building::new([3, 4], BuildingType::Power),
             Building::new([4, 4], BuildingType::Excavator),
             Building::new([3, 5], BuildingType::Storage),
+            Building::new([3, 6], BuildingType::Assembler),
         ];
         for building in &buildings {
             let pos = building.pos;
@@ -175,6 +186,7 @@ impl AsteroidColonies {
             "moveItem" => self.move_item(ix, iy),
             "buildPowerPlant" => self.build_building(ix, iy, BuildingType::Power),
             "buildStorage" => self.build_building(ix, iy, BuildingType::Storage),
+            "assemble" => self.assemble(ix, iy, ItemType::PowerGridComponent),
             _ => Err(JsValue::from(format!("Unknown command: {}", com))),
         }
     }

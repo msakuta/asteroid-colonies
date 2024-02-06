@@ -9,6 +9,7 @@ pub(crate) struct Assets {
     pub img_excavator: HtmlImageElement,
     pub img_storage: HtmlImageElement,
     pub img_crew_cabin: HtmlImageElement,
+    pub img_assembler: HtmlImageElement,
 }
 
 impl Assets {
@@ -42,6 +43,7 @@ impl Assets {
             img_excavator: load_texture("excavator")?,
             img_storage: load_texture("storage")?,
             img_crew_cabin: load_texture("crew_cabin")?,
+            img_assembler: load_texture("assembler")?,
         })
     }
 }
