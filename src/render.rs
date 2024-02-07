@@ -77,11 +77,19 @@ impl AsteroidColonies {
                 BuildingType::Storage => &self.assets.img_storage,
                 BuildingType::CrewCabin => &self.assets.img_crew_cabin,
                 BuildingType::Assembler => &self.assets.img_assembler,
+                BuildingType::Furnace => &self.assets.img_furnace,
             };
             let (sx, sy) = match building.type_ {
                 BuildingType::Assembler => {
                     if !matches!(building.task, Task::None) {
                         ((self.global_time % 4) as f64 * TILE_SIZE * 2., 0.)
+                    } else {
+                        (0., 0.)
+                    }
+                }
+                BuildingType::Furnace => {
+                    if !matches!(building.task, Task::None) {
+                        ((self.global_time % 2 + 1) as f64 * TILE_SIZE * 2., 0.)
                     } else {
                         (0., 0.)
                     }

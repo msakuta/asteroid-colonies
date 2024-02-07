@@ -14,6 +14,8 @@ pub(crate) const BUILD_EXCAVATOR_TIME: usize = 100;
 pub(crate) const BUILD_CREW_CABIN_TIME: usize = 500;
 pub(crate) const BUILD_STORAGE_TIME: usize = 20;
 pub(crate) const BUILD_ASSEMBLER_TIME: usize = 100;
+pub(crate) const BUILD_FURNACE_TIME: usize = 100;
+pub(crate) const SLUG_SMELT_TIME: usize = 50;
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum Task {
@@ -26,6 +28,7 @@ pub(crate) enum Task {
         dest: [i32; 2],
     },
     Assemble(usize, ItemType),
+    // Smelt(usize),
 }
 
 impl Display for Task {
@@ -215,10 +218,10 @@ impl AsteroidColonies {
             return Err(JsValue::from("Needs a building at the destination"));
         };
         for building in &mut self.buildings {
-            if 0 < *building.inventory.get(&ItemType::Slug).unwrap_or(&0) {
+            if 0 < *building.inventory.get(&ItemType::RawOre).unwrap_or(&0) {
                 building.task = Task::MoveItem {
                     t: MOVE_ITEM_TIME,
-                    item_type: ItemType::Slug,
+                    item_type: ItemType::RawOre,
                     dest: [ix, iy],
                 };
                 return Ok(JsValue::from(true));
@@ -287,7 +290,10 @@ impl AsteroidColonies {
             Task::Excavate(ref mut t, dir) => {
                 if *t == 0 {
                     building.task = Task::None;
-                    *building.inventory.entry(crate::ItemType::Slug).or_default() += 1;
+                    *building
+                        .inventory
+                        .entry(crate::ItemType::RawOre)
+                        .or_default() += 1;
                     let dir_vec = dir.to_vec();
                     let [x, y] = [building.pos[0] + dir_vec[0], building.pos[1] + dir_vec[1]];
                     cells[x as usize + y as usize * WIDTH].state = CellState::Empty;

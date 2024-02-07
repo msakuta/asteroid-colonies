@@ -3,7 +3,7 @@ use std::{collections::HashMap, fmt::Display};
 use crate::{
     task::{
         Task, BUILD_ASSEMBLER_TIME, BUILD_CREW_CABIN_TIME, BUILD_EXCAVATOR_TIME,
-        BUILD_POWER_PLANT_TIME, BUILD_STORAGE_TIME,
+        BUILD_FURNACE_TIME, BUILD_POWER_PLANT_TIME, BUILD_STORAGE_TIME, SLUG_SMELT_TIME,
     },
     ItemType,
 };
@@ -15,6 +15,7 @@ pub(crate) enum BuildingType {
     Storage,
     CrewCabin,
     Assembler,
+    Furnace,
 }
 
 impl BuildingType {
@@ -25,12 +26,13 @@ impl BuildingType {
             Self::Storage => 10,
             Self::CrewCabin => 10,
             Self::Assembler => 10,
+            Self::Furnace => 10,
         }
     }
 
     pub fn size(&self) -> [usize; 2] {
         match self {
-            Self::CrewCabin | Self::Assembler => [2, 2],
+            Self::CrewCabin | Self::Assembler | Self::Furnace => [2, 2],
             _ => [1, 1],
         }
     }
@@ -50,6 +52,7 @@ impl BuildingType {
             Self::Excavator => -10,
             Self::Storage => 0,
             Self::Assembler => -20,
+            Self::Furnace => -10,
         }
     }
 
@@ -60,6 +63,7 @@ impl BuildingType {
             Self::Excavator => BUILD_EXCAVATOR_TIME,
             Self::Storage => BUILD_STORAGE_TIME,
             Self::Assembler => BUILD_ASSEMBLER_TIME,
+            Self::Furnace => BUILD_FURNACE_TIME,
         }
     }
 }
@@ -72,6 +76,7 @@ impl Display for BuildingType {
             Self::Storage => write!(f, "Storage"),
             Self::CrewCabin => write!(f, "CrewCabin"),
             Self::Assembler => write!(f, "Assembler"),
+            Self::Furnace => write!(f, "Furnace"),
         }
     }
 }
@@ -103,5 +108,29 @@ impl Building {
             _ => 0,
         };
         base - task_power
+    }
+
+    pub fn tick(bldgs: &mut [Building], idx: usize) {
+        let (first, rest) = bldgs.split_at_mut(idx);
+        let Some((this, last)) = rest.split_first_mut() else {
+            return;
+        };
+        let mut others = first.iter_mut().chain(last.iter_mut());
+        match this.type_ {
+            BuildingType::Furnace => {
+                if !matches!(this.task, Task::None) {
+                    return;
+                }
+                let source = others.find(|b| 0 < *b.inventory.get(&ItemType::RawOre).unwrap_or(&0));
+                if let Some(source) = source {
+                    let Some(entry) = source.inventory.get_mut(&ItemType::RawOre) else {
+                        return;
+                    };
+                    *entry -= 1;
+                    this.task = Task::Assemble(SLUG_SMELT_TIME, ItemType::IronIngot);
+                }
+            }
+            _ => {}
+        }
     }
 }

@@ -66,7 +66,8 @@ impl Cell {
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 enum ItemType {
     /// Freshly dug soil from asteroid body. Hardly useful unless refined
-    Slug,
+    RawOre,
+    IronIngot,
     PowerGridComponent,
     ConveyorComponent,
 }
@@ -74,7 +75,8 @@ enum ItemType {
 impl ItemType {
     const fn build_time(&self) -> usize {
         match self {
-            Self::Slug => 0,
+            Self::RawOre => 0,
+            Self::IronIngot => 0,
             Self::PowerGridComponent => 10,
             Self::ConveyorComponent => 20,
         }
@@ -106,6 +108,7 @@ impl AsteroidColonies {
             Building::new([4, 4], BuildingType::Excavator),
             Building::new([3, 5], BuildingType::Storage),
             Building::new([3, 6], BuildingType::Assembler),
+            Building::new([1, 6], BuildingType::Furnace),
         ];
         for building in &buildings {
             let pos = building.pos;
@@ -199,6 +202,9 @@ impl AsteroidColonies {
     pub fn tick(&mut self) -> Result<(), JsValue> {
         // A buffer to avoid borrow checker
         let mut moving_items = vec![];
+        for i in 0..self.buildings.len() {
+            Building::tick(&mut self.buildings, i);
+        }
         for building in &mut self.buildings {
             if let Some((item, dest)) = Self::process_task(&mut self.cells, building) {
                 moving_items.push((item, dest));
