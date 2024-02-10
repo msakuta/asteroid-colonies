@@ -96,7 +96,7 @@ pub(crate) struct Building {
     pub inventory: HashMap<ItemType, usize>,
     /// The number of crews attending this building.
     pub crews: usize,
-    pub recipe: Option<Recipe>,
+    pub recipe: Option<&'static Recipe>,
 }
 
 impl Building {

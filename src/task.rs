@@ -260,13 +260,11 @@ impl AsteroidColonies {
         Ok(JsValue::from(true))
     }
 
-    pub(super) fn set_recipe(
+    pub(super) fn set_building_recipe(
         &mut self,
         ix: i32,
         iy: i32,
-        inputs: HashMap<ItemType, usize>,
-        output: ItemType,
-        time: usize,
+        recipe: &'static Recipe,
     ) -> Result<JsValue, JsValue> {
         let intersects = |b: &Building| {
             let size = b.type_.size();
@@ -282,13 +280,7 @@ impl AsteroidColonies {
         if !matches!(assembler.type_, BuildingType::Assembler) {
             return Err(JsValue::from("The building is not an assembler"));
         }
-        let mut outputs = HashMap::new();
-        outputs.insert(output, 1);
-        assembler.recipe = Some(Recipe {
-            inputs,
-            outputs,
-            time,
-        });
+        assembler.recipe = Some(recipe);
         Ok(JsValue::from(true))
     }
 

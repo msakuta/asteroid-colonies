@@ -94,6 +94,24 @@ impl ItemType {
 const WIDTH: usize = 20;
 const HEIGHT: usize = 15;
 
+static RECIPES: std::sync::OnceLock<[Recipe; 2]> = std::sync::OnceLock::new();
+fn recipes() -> &'static [Recipe] {
+    RECIPES.get_or_init(|| {
+        [
+            Recipe {
+                inputs: hash_map!(ItemType::IronIngot, 1),
+                outputs: hash_map!(ItemType::PowerGridComponent, 1),
+                time: 100,
+            },
+            Recipe {
+                inputs: hash_map!(ItemType::IronIngot, 2),
+                outputs: hash_map!(ItemType::ConveyorComponent, 1),
+                time: 200,
+            },
+        ]
+    })
+}
+
 #[wasm_bindgen]
 pub struct AsteroidColonies {
     cells: Vec<Cell>,
@@ -209,22 +227,70 @@ impl AsteroidColonies {
             "moveItem" => self.move_item(ix, iy),
             "buildPowerPlant" => self.build_building(ix, iy, BuildingType::Power),
             "buildStorage" => self.build_building(ix, iy, BuildingType::Storage),
-            "recipePowerGridComponent" => self.set_recipe(
-                ix,
-                iy,
-                hash_map!(ItemType::IronIngot, 1),
-                ItemType::PowerGridComponent,
-                100,
-            ),
-            "recipeConveyorComponent" => self.set_recipe(
-                ix,
-                iy,
-                hash_map!(ItemType::IronIngot, 2),
-                ItemType::ConveyorComponent,
-                200,
-            ),
             _ => Err(JsValue::from(format!("Unknown command: {}", com))),
         }
+    }
+
+    pub fn get_recipes(&self, x: i32, y: i32) -> Result<Vec<JsValue>, JsValue> {
+        let ix = x.div_euclid(32);
+        let iy = y.div_euclid(32);
+        if ix < 0 || WIDTH as i32 <= ix || iy < 0 || HEIGHT as i32 <= iy {
+            return Err(JsValue::from("Point outside cell"));
+        }
+        let intersects = |b: &Building| {
+            let size = b.type_.size();
+            b.pos[0] <= ix
+                && ix < size[0] as i32 + b.pos[0]
+                && b.pos[1] <= iy
+                && iy < size[1] as i32 + b.pos[1]
+        };
+
+        let Some(assembler) = self.buildings.iter().find(|b| intersects(*b)) else {
+            return Err(JsValue::from("The building does not exist at the target"));
+        };
+        if !matches!(assembler.type_, BuildingType::Assembler) {
+            return Err(JsValue::from("The building is not an assembler"));
+        }
+        Ok(recipes()
+            .iter()
+            .filter_map(|recipe| {
+                Some(JsValue::from(format!(
+                    "{:?}",
+                    recipe.outputs.iter().next()?.0
+                )))
+            })
+            .collect())
+    }
+
+    pub fn set_recipe(&mut self, x: i32, y: i32, name: &str) -> Result<(), JsValue> {
+        let ix = x.div_euclid(32);
+        let iy = y.div_euclid(32);
+        if ix < 0 || WIDTH as i32 <= ix || iy < 0 || HEIGHT as i32 <= iy {
+            return Err(JsValue::from("Point outside cell"));
+        }
+        let intersects = |b: &Building| {
+            let size = b.type_.size();
+            b.pos[0] <= ix
+                && ix < size[0] as i32 + b.pos[0]
+                && b.pos[1] <= iy
+                && iy < size[1] as i32 + b.pos[1]
+        };
+
+        let Some(assembler) = self.buildings.iter().find(|b| intersects(*b)) else {
+            return Err(JsValue::from("The building does not exist at the target"));
+        };
+        if !matches!(assembler.type_, BuildingType::Assembler) {
+            return Err(JsValue::from("The building is not an assembler"));
+        }
+        for recipe in recipes() {
+            let Some((key, _)) = recipe.outputs.iter().next() else {
+                continue;
+            };
+            if format!("{:?}", key) == name {
+                self.set_building_recipe(ix, iy, recipe)?;
+            }
+        }
+        Ok(())
     }
 
     pub fn tick(&mut self) -> Result<(), JsValue> {

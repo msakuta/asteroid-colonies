@@ -43,12 +43,46 @@ const canvas = document.getElementById('canvas');
     canvas.addEventListener('mosueleave', evt => mousePos = null);
 
     canvas.addEventListener('click', evt => {
-        for (let name of ["excavate", "move", "power", "conveyor", "moveItem", "buildPowerPlant", "buildStorage", "recipePowerGridComponent", "recipeConveyorComponent"]) {
+        for (let name of ["excavate", "move", "power", "conveyor", "moveItem", "buildPowerPlant", "buildStorage", "recipe"]) {
             const elem = document.getElementById(name);
             if (elem?.checked) {
                 const [x, y] = toLogicalCoords(evt.clientX, evt.clientY);
-                if (game.command(name, x, y)) {
-                    requestAnimationFrame(() => game.render(ctx));
+                const recipesElem = document.getElementById("recipes");
+                if (name === "recipe") {
+                    try {
+                        const recipes = game.get_recipes(x, y);
+                        while (recipesElem.firstChild) recipesElem.removeChild(recipesElem.firstChild);
+                        recipesElem.classList = "recipe";
+                        recipesElem.style.position = "absolute";
+                        recipesElem.style.display = "block";
+                        recipesElem.style.left = `${x}px`;
+                        recipesElem.style.top = `${y}px`;
+                        const headerElem = document.createElement("div");
+                        headerElem.innerHTML = "Select a recipe";
+                        headerElem.style.fontWeight = "bold";
+                        recipesElem.appendChild(headerElem);
+                        for (let recipe of recipes) {
+                            const recipeElem = document.createElement("div");
+                            recipeElem.innerHTML = recipe;
+                            const recipeName = recipe;
+                            recipeElem.addEventListener("click", evt => {
+                                game.set_recipe(x, y, recipeName);
+                                recipesElem.style.display = "none";
+                            })
+                            recipesElem.appendChild(recipeElem);
+                        }
+                        container.appendChild(recipesElem);
+                    }
+                    catch (e) {
+                        console.error(e);
+                        recipesElem.style.display = "none";
+                    }
+                }
+                else {
+                    recipesElem.style.display = "none";
+                    if (game.command(name, x, y)) {
+                        requestAnimationFrame(() => game.render(ctx));
+                    }
                 }
                 return;
             }

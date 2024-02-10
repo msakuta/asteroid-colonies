@@ -18,11 +18,15 @@
       border: 1px solid black;
       background-color: #afafff;
     }
+    .recipe {
+      border: 1px solid black;
+      background-color: #ffafff;
+    }
   </style>
 </head>
 <body>
   <h1>hello</h1>
-  <div class="container">
+  <div class="container" id="container">
     <canvas id="canvas" width="640" height="480"></canvas>
     <div id="sidePanel">
       <div><label><input type="radio" name="command" id="excavate" value="excavate">Excavate</label></div>
@@ -32,9 +36,9 @@
       <div><label><input type="radio" name="command" id="moveItem" value="moveItem">Move item</label></div>
       <div><label><input type="radio" name="command" id="buildPowerPlant" value="buildPowerPlant">Build power plant</label></div>
       <div><label><input type="radio" name="command" id="buildStorage" value="buildStorage">Build storage</label></div>
-      <div><label><input type="radio" name="command" id="recipePowerGridComponent" value="recipePowerGridComponent">Set recipe to Power Grid Component</label></div>
-      <div><label><input type="radio" name="command" id="recipeConveyorComponent" value="recipeConveyorComponent">set recipe to Conveyor Component</label></div>
+      <div><label><input type="radio" name="command" id="recipe" value="recipe">Set a recipe</label></div>
     </div>
+    <div id="recipes" style="display: none"></div>
   </div>
   <pre id="info"></pre>
 </body>
