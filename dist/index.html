@@ -18,9 +18,23 @@
       border: 1px solid black;
       background-color: #afafff;
     }
-    .recipe {
+    .recipes {
       border: 1px solid black;
-      background-color: #ffafff;
+      background-color: #afafaf;
+      padding: 4px;
+    }
+
+    .recipe {
+      position: relative;
+      margin: 4px;
+      padding: 4px;
+      border: 1px solid #7f7f3f;
+      background-color: #ffff7f;
+      white-space: normal;
+    }
+
+    .item {
+      white-space: normal;
     }
 
     .overlay{
@@ -68,7 +82,7 @@
       <div><label><input type="radio" name="command" id="buildAssembler" value="buildAssembler">Build assembler</label></div>
       <div><label><input type="radio" name="command" id="recipe" value="recipe">Set a recipe</label></div>
     </div>
-    <div id="recipes" style="display: none"></div>
+    <div id="recipes" class="recipes" style="display: none"></div>
   </div>
   <pre id="info"></pre>
 </body>

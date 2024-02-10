@@ -46,7 +46,7 @@ const canvas = document.getElementById('canvas');
     canvas.addEventListener('mousemove', evt => {
         const [x, y] = mousePos = toLogicalCoords(evt.clientX, evt.clientY);
         const info = game.get_info(x, y);
-        document.getElementById('info').innerHTML = info;
+        document.getElementById('info').innerHTML = formatInfo(info);
     });
 
     canvas.addEventListener('mouseleave', evt => mousePos = null);
@@ -61,7 +61,6 @@ const canvas = document.getElementById('canvas');
                     try {
                         const recipes = game.get_recipes(x, y);
                         while (recipesElem.firstChild) recipesElem.removeChild(recipesElem.firstChild);
-                        recipesElem.classList = "recipe";
                         recipesElem.style.position = "absolute";
                         recipesElem.style.display = "block";
                         recipesElem.style.left = `${x}px`;
@@ -73,19 +72,7 @@ const canvas = document.getElementById('canvas');
                         for (let recipe of recipes) {
                             const recipeElem = document.createElement("div");
                             const recipeName = recipe.outputs.keys().next().value;
-                            let inputs = "";
-                            for (let [input, count] of recipe.inputs.entries()) {
-                                const icon = iconWithCount(itemToIcon(input), count);
-                                if (inputs) inputs += " " + icon;
-                                else inputs += icon;
-                            }
-                            let outputs = "";
-                            for (let [output, count] of recipe.outputs.entries()) {
-                                const icon = iconWithCount(itemToIcon(output), count);
-                                if (outputs) outputs += " " + icon;
-                                else outputs += icon;
-                            }
-                            recipeElem.innerHTML = `${outputs} <= ${inputs}`;
+                            recipeElem.innerHTML = formatRecipe(recipe);
                             recipeElem.addEventListener("click", evt => {
                                 game.set_recipe(x, y, recipeName);
                                 recipesElem.style.display = "none";
@@ -117,7 +104,7 @@ const canvas = document.getElementById('canvas');
         game.render(ctx);
         if (mousePos !== null) {
             const info = game.get_info(mousePos[0], mousePos[1]);
-            document.getElementById('info').innerHTML = info;
+            document.getElementById('info').innerHTML = formatInfo(info);
         }
         time++;
     }, 100);
@@ -148,7 +135,7 @@ function itemToIcon(item) {
 function iconWithCount(itemUrl, count) {
     const widthFactor = 1;
     const heightFactor = 1;
-    return `<div style="
+    return `<div class="item" style="
         display: inline-block;
         position: relative;
         background-image: url(${itemUrl});
@@ -160,6 +147,40 @@ function iconWithCount(itemUrl, count) {
         ${count}
         </div>
       </div>`;
+}
+
+function formatRecipe(recipe) {
+    let inputs = "";
+    for (let [input, count] of recipe.inputs.entries()) {
+        const icon = iconWithCount(itemToIcon(input), count);
+        if (inputs) inputs += " " + icon;
+        else inputs += icon;
+    }
+    let outputs = "";
+    for (let [output, count] of recipe.outputs.entries()) {
+        const icon = iconWithCount(itemToIcon(output), count);
+        if (outputs) outputs += " " + icon;
+        else outputs += icon;
+    }
+    return `<div class="recipe">${outputs} <= ${inputs}</div>`;
+}
+
+function formatInventory(inventory) {
+    let result = "";
+    for (let [input, count] of inventory.entries()) {
+        const icon = iconWithCount(itemToIcon(input), count);
+        if (result) result += " " + icon;
+        else result += icon;
+    }
+    return result;
+}
+
+function formatInfo(result) {
+    return `Building: ${result.building?.type_}
+    Recipe: ${result.building?.recipe ? formatRecipe(result.building.recipe) : ""}
+    Inventory: ${result.building?.inventory ? formatInventory(result.building.inventory) : ""}
+    Power capacity: ${result.power_capacity} kW
+    Used power: ${result.power_consumed} kW`;
 }
 
 function toLogicalCoords(clientX, clientY) {

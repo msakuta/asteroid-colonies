@@ -1,16 +1,19 @@
 mod assets;
 mod building;
+mod info;
 mod render;
 mod task;
 mod utils;
 
-use assets::Assets;
 use serde::Serialize;
-use task::GlobalTask;
 use wasm_bindgen::prelude::*;
 use web_sys::js_sys;
 
-use crate::building::{Building, BuildingType, Recipe};
+use crate::{
+    assets::Assets,
+    building::{Building, BuildingType, Recipe},
+    task::GlobalTask,
+};
 
 macro_rules! hash_map {
     { $($key:expr => $value:expr),+ } => {
@@ -179,62 +182,6 @@ impl AsteroidColonies {
         })
     }
 
-    pub fn get_info(&self, x: i32, y: i32) -> Result<JsValue, JsValue> {
-        let ix = x.div_euclid(32);
-        let iy = y.div_euclid(32);
-        let intersects = |b: &&Building| {
-            let size = b.type_.size();
-            b.pos[0] <= ix
-                && ix < size[0] as i32 + b.pos[0]
-                && b.pos[1] <= iy
-                && iy < size[1] as i32 + b.pos[1]
-        };
-        let building_str = self
-            .buildings
-            .iter()
-            .find(intersects)
-            .map(|building| {
-                let recipe_str = building
-                    .recipe
-                    .as_ref()
-                    .map(|r| format!("\nRecipe: {:?} -> {:?}", r.inputs, r.outputs))
-                    .unwrap_or_else(|| "".to_string());
-                format!(
-                    "{} at {}, {}\nTask: {:?}{recipe_str}\nInventory: {:?}\nCrews: {} / {}",
-                    building.type_,
-                    building.pos[0],
-                    building.pos[1],
-                    building.task,
-                    building.inventory,
-                    building.crews,
-                    building.type_.max_crews()
-                )
-            })
-            .unwrap_or_else(|| format!("Empty at {ix}, {iy}"));
-        let crew_str = format!(
-            "\nTotal crew: {}",
-            self.buildings.iter().map(|b| b.crews).sum::<usize>()
-        );
-        // We want to count power generation and consumption separately
-        let power_capacity_str = format!(
-            "\nTotal power capacity: {} kW",
-            self.buildings
-                .iter()
-                .map(|b| b.power().max(0))
-                .sum::<isize>()
-        );
-        let power_consumed = self
-            .buildings
-            .iter()
-            .map(|b| b.power().min(0))
-            .sum::<isize>()
-            .abs() as usize;
-        let power_used_str = format!("\nUsed power: {} kW", self.used_power + power_consumed);
-        Ok(JsValue::from(
-            building_str + &crew_str + &power_capacity_str + &power_used_str,
-        ))
-    }
-
     pub fn command(&mut self, com: &str, x: i32, y: i32) -> Result<JsValue, JsValue> {
         let ix = x.div_euclid(32);
         let iy = y.div_euclid(32);
@@ -278,7 +225,7 @@ impl AsteroidColonies {
             .iter()
             .map(|recipe| serde_wasm_bindgen::to_value(recipe))
             .collect::<Result<_, _>>()
-            .map_err(|e| JsValue::from(e))
+            .map_err(JsValue::from)
     }
 
     pub fn set_recipe(&mut self, x: i32, y: i32, name: &str) -> Result<(), JsValue> {

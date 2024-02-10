@@ -12,7 +12,7 @@ use crate::{
     ItemType,
 };
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize)]
 pub(crate) enum BuildingType {
     Power,
     Excavator,
@@ -85,7 +85,7 @@ impl Display for BuildingType {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 pub(crate) struct Recipe {
     pub inputs: HashMap<ItemType, usize>,
     pub outputs: HashMap<ItemType, usize>,
