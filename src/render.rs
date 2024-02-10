@@ -114,19 +114,30 @@ impl AsteroidColonies {
             };
 
             if let Some((t, max_time)) = task_target {
-                render_bar(context, x, y, t as f64, max_time as f64, "#00af00");
+                RenderBar {
+                    context,
+                    x,
+                    y,
+                    v: t as f64,
+                    max: max_time as f64,
+                    scale: size[1] as f64,
+                    color: "#00af00",
+                }
+                .render_bar();
             }
 
             let inventory_count: usize = building.inventory.iter().map(|item| *item.1).sum();
             if 0 < inventory_count {
-                render_bar(
+                RenderBar {
                     context,
                     x,
-                    y + TILE_SIZE - BAR_HEIGHT - BAR_MARGIN * 2.,
-                    inventory_count as f64,
-                    building.type_.capacity() as f64,
-                    "#afaf00",
-                );
+                    y: y + TILE_SIZE - BAR_HEIGHT - BAR_MARGIN * 2.,
+                    v: inventory_count as f64,
+                    max: building.type_.capacity() as f64,
+                    scale: size[1] as f64,
+                    color: "#afaf00",
+                }
+                .render_bar();
             }
         }
 
@@ -168,16 +179,35 @@ fn render_global_task_bar(
     );
 }
 
-fn render_bar(context: &CanvasRenderingContext2d, x: f64, y: f64, v: f64, max: f64, color: &str) {
-    context.set_stroke_style(&JsValue::from("#000"));
-    context.set_fill_style(&JsValue::from("#7f0000"));
-    context.fill_rect(x + BAR_MARGIN, y + BAR_MARGIN, BAR_WIDTH, BAR_HEIGHT);
-    context.set_stroke_style(&JsValue::from("#000"));
-    context.set_fill_style(&JsValue::from(color));
-    context.fill_rect(
-        x + BAR_MARGIN,
-        y + BAR_MARGIN,
-        v * BAR_WIDTH / max,
-        BAR_HEIGHT,
-    );
+struct RenderBar<'a> {
+    context: &'a CanvasRenderingContext2d,
+    x: f64,
+    y: f64,
+    v: f64,
+    max: f64,
+    scale: f64,
+    color: &'a str,
+}
+
+impl<'a> RenderBar<'a> {
+    fn render_bar(&self) {
+        let context = self.context;
+        let (x, y) = (self.x, self.y);
+        context.set_stroke_style(&JsValue::from("#000"));
+        context.set_fill_style(&JsValue::from("#7f0000"));
+        context.fill_rect(
+            x + BAR_MARGIN,
+            y + BAR_MARGIN,
+            BAR_WIDTH * self.scale,
+            BAR_HEIGHT,
+        );
+        context.set_stroke_style(&JsValue::from("#000"));
+        context.set_fill_style(&JsValue::from(self.color));
+        context.fill_rect(
+            x + BAR_MARGIN,
+            y + BAR_MARGIN,
+            self.v * BAR_WIDTH * self.scale / self.max,
+            BAR_HEIGHT,
+        );
+    }
 }
