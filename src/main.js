@@ -11,8 +11,10 @@ import furnace from '../images/furnace.png';
 const canvas = document.getElementById('canvas');
 
 (async () => {
-    const wasm = await import("../Cargo.toml")
-    const {AsteroidColonies} = await wasm.default();
+    const wasm = await import("../Cargo.toml");
+    const {AsteroidColonies, set_panic_hook} = await wasm.default();
+
+    set_panic_hook();
 
     const loadImages = [
         ["bg32", bg],
