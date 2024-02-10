@@ -232,24 +232,42 @@ impl AsteroidColonies {
         Err(JsValue::from("No structure to send from"))
     }
 
+    fn is_clear(&self, ix: i32, iy: i32, size: [usize; 2]) -> bool {
+        for jy in iy..iy + size[1] as i32 {
+            for jx in ix..ix + size[0] as i32 {
+                let j_cell = &self.cells[jx as usize + jy as usize * WIDTH];
+                if matches!(j_cell.state, CellState::Solid) {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+
     pub(super) fn build_building(
         &mut self,
         ix: i32,
         iy: i32,
         type_: BuildingType,
     ) -> Result<JsValue, JsValue> {
-        let cell = &self.cells[ix as usize + iy as usize * WIDTH];
-        if matches!(cell.state, CellState::Solid) {
+        let size = type_.size();
+        if !self.is_clear(ix, iy, size) {
             return Err(JsValue::from("Needs excavation before building a building"));
         }
+        let cell = &self.cells[ix as usize + iy as usize * WIDTH];
         if !cell.conveyor {
             return Err(JsValue::from("Conveyor is needed to build a building"));
         }
-        if self
-            .buildings
-            .iter()
-            .any(|b| b.pos[0] == ix && b.pos[1] == iy)
-        {
+
+        let intersects = |b: &Building| {
+            let j_size = b.type_.size();
+            b.pos[0] < ix + size[0] as i32
+                && ix < b.pos[0] + j_size[0] as i32
+                && b.pos[1] < iy + size[1] as i32
+                && iy < size[1] as i32 + b.pos[1]
+        };
+
+        if self.buildings.iter().any(intersects) {
             return Err(JsValue::from("A building already exists at the target"));
         }
         self.global_tasks.push(GlobalTask::BuildBuilding(

@@ -249,6 +249,7 @@ impl AsteroidColonies {
             "moveItem" => self.move_item(ix, iy),
             "buildPowerPlant" => self.build_building(ix, iy, BuildingType::Power),
             "buildStorage" => self.build_building(ix, iy, BuildingType::Storage),
+            "buildAssembler" => self.build_building(ix, iy, BuildingType::Assembler),
             _ => Err(JsValue::from(format!("Unknown command: {}", com))),
         }
     }

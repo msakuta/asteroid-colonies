@@ -29,8 +29,8 @@ impl BuildingType {
             Self::Excavator => 3,
             Self::Storage => 10,
             Self::CrewCabin => 10,
-            Self::Assembler => 20,
-            Self::Furnace => 10,
+            Self::Assembler => 30,
+            Self::Furnace => 20,
         }
     }
 
@@ -182,8 +182,10 @@ impl Building {
                     *entry -= 1;
                     let mut outputs = HashMap::new();
                     const TOTAL_AMOUNT: usize = 4;
-                    let iron = rand::thread_rng().gen_range(0..TOTAL_AMOUNT);
-                    outputs.insert(ItemType::IronIngot, iron);
+                    let iron = rand::thread_rng().gen_range(0..=TOTAL_AMOUNT);
+                    if 0 < iron {
+                        outputs.insert(ItemType::IronIngot, iron);
+                    }
                     let copper = TOTAL_AMOUNT - iron;
                     if 0 < copper {
                         outputs.insert(ItemType::CopperIngot, copper);
