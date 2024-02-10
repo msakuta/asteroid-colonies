@@ -12,11 +12,18 @@ use web_sys::js_sys;
 use crate::building::{Building, BuildingType, Recipe};
 
 macro_rules! hash_map {
-    ($key:path, $val:expr) => {{
-        let mut ret = std::collections::HashMap::new();
-        ret.insert($key, $val);
-        ret
-    }};
+    { $($key:expr => $value:expr),+ } => {
+        {
+            let mut m = ::std::collections::HashMap::new();
+            $(
+                m.insert($key, $value);
+            )+
+            m
+        }
+    };
+    { } => {
+        ::std::collections::HashMap::new()
+    }
 }
 
 #[macro_export]
@@ -76,37 +83,39 @@ enum ItemType {
     /// Freshly dug soil from asteroid body. Hardly useful unless refined
     RawOre,
     IronIngot,
+    CopperIngot,
     PowerGridComponent,
     ConveyorComponent,
-}
-
-impl ItemType {
-    const fn build_time(&self) -> usize {
-        match self {
-            Self::RawOre => 0,
-            Self::IronIngot => 0,
-            Self::PowerGridComponent => 10,
-            Self::ConveyorComponent => 20,
-        }
-    }
+    Gear,
+    Wire,
 }
 
 const WIDTH: usize = 20;
 const HEIGHT: usize = 15;
 
-static RECIPES: std::sync::OnceLock<[Recipe; 2]> = std::sync::OnceLock::new();
+static RECIPES: std::sync::OnceLock<Vec<Recipe>> = std::sync::OnceLock::new();
 fn recipes() -> &'static [Recipe] {
     RECIPES.get_or_init(|| {
-        [
+        vec![
             Recipe {
-                inputs: hash_map!(ItemType::IronIngot, 1),
-                outputs: hash_map!(ItemType::PowerGridComponent, 1),
+                inputs: hash_map!(ItemType::Wire => 1, ItemType::IronIngot => 1),
+                outputs: hash_map!(ItemType::PowerGridComponent => 1),
                 time: 100,
             },
             Recipe {
-                inputs: hash_map!(ItemType::IronIngot, 2),
-                outputs: hash_map!(ItemType::ConveyorComponent, 1),
+                inputs: hash_map!(ItemType::IronIngot => 2),
+                outputs: hash_map!(ItemType::ConveyorComponent => 1),
                 time: 200,
+            },
+            Recipe {
+                inputs: hash_map!(ItemType::IronIngot => 1),
+                outputs: hash_map!(ItemType::Gear => 2),
+                time: 70,
+            },
+            Recipe {
+                inputs: hash_map!(ItemType::CopperIngot => 1),
+                outputs: hash_map!(ItemType::Wire => 2),
+                time: 50,
             },
         ]
     })

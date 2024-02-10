@@ -1,5 +1,6 @@
 use std::{collections::HashMap, fmt::Display};
 
+use rand::Rng;
 use wasm_bindgen::JsValue;
 
 use crate::{
@@ -132,6 +133,7 @@ impl Building {
                     if first
                         .iter()
                         .chain(last.iter())
+                        .chain(std::iter::once(this as &_))
                         .map(|o| o.inventory.get(ty).copied().unwrap_or(0))
                         .sum::<usize>()
                         < *count
@@ -177,7 +179,13 @@ impl Building {
                     };
                     *entry -= 1;
                     let mut outputs = HashMap::new();
-                    outputs.insert(ItemType::IronIngot, 2);
+                    const TOTAL_AMOUNT: usize = 4;
+                    let iron = rand::thread_rng().gen_range(0..TOTAL_AMOUNT);
+                    outputs.insert(ItemType::IronIngot, iron);
+                    let copper = TOTAL_AMOUNT - iron;
+                    if 0 < copper {
+                        outputs.insert(ItemType::CopperIngot, copper);
+                    }
                     this.task = Task::Assemble(IRON_INGOT_SMELT_TIME, outputs);
                 }
             }
