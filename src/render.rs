@@ -104,17 +104,17 @@ impl AsteroidColonies {
             context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
                 img, sx, sy, width, height, x, y, width, height,
             )?;
-            match building.task {
-                Task::Excavate(t, _) | Task::Move(t, _) | Task::MoveItem { t, .. } => {
-                    let max_time = match building.task {
-                        Task::Excavate(_, _) => EXCAVATE_TIME,
-                        Task::Move(_, _) => MOVE_TIME,
-                        Task::MoveItem { .. } => MOVE_ITEM_TIME,
-                        _ => unreachable!(),
-                    };
-                    render_bar(context, x, y, t as f64, max_time as f64, "#00af00");
-                }
-                _ => {}
+
+            let task_target = match building.task {
+                Task::Excavate(t, _) => Some((t, EXCAVATE_TIME)),
+                Task::Move(t, _) => Some((t, MOVE_TIME)),
+                Task::MoveItem { t, .. } => Some((t, MOVE_ITEM_TIME)),
+                Task::Assemble { t, max_t, .. } => Some((t, max_t)),
+                _ => None,
+            };
+
+            if let Some((t, max_time)) = task_target {
+                render_bar(context, x, y, t as f64, max_time as f64, "#00af00");
             }
 
             let inventory_count: usize = building.inventory.iter().map(|item| *item.1).sum();
@@ -131,36 +131,41 @@ impl AsteroidColonies {
         }
 
         for task in &self.global_tasks {
-            match task {
-                GlobalTask::BuildPowerGrid(t, pos)
-                | GlobalTask::BuildConveyor(t, pos)
-                | GlobalTask::BuildBuilding(t, pos, _)
-                | GlobalTask::Excavate(t, pos) => {
-                    let x = pos[0] as f64 * TILE_SIZE;
-                    let y = pos[1] as f64 * TILE_SIZE;
+            let task_target = match task {
+                GlobalTask::BuildPowerGrid(t, pos) => Some((*t, pos, BUILD_POWER_GRID_TIME)),
+                GlobalTask::BuildConveyor(t, pos) => Some((*t, pos, BUILD_CONVEYOR_TIME)),
+                GlobalTask::BuildBuilding(t, pos, ty) => Some((*t, pos, ty.build_time())),
+                GlobalTask::Excavate(t, pos) => Some((*t, pos, LABOR_EXCAVATE_TIME)),
+            };
 
-                    context.set_stroke_style(&JsValue::from("#000"));
-                    context.set_fill_style(&JsValue::from("#7f0000"));
-                    context.fill_rect(x + BAR_MARGIN, y + BAR_MARGIN, BAR_WIDTH, BAR_HEIGHT);
-                    context.set_stroke_style(&JsValue::from("#000"));
-                    context.set_fill_style(&JsValue::from("#007f00"));
-                    let max_time = match task {
-                        GlobalTask::BuildPowerGrid(_, _) => BUILD_POWER_GRID_TIME,
-                        GlobalTask::BuildConveyor(_, _) => BUILD_CONVEYOR_TIME,
-                        GlobalTask::BuildBuilding(_, _, ty) => ty.build_time(),
-                        GlobalTask::Excavate(_, _) => LABOR_EXCAVATE_TIME,
-                    };
-                    context.fill_rect(
-                        x + BAR_MARGIN,
-                        y + BAR_MARGIN,
-                        *t as f64 * BAR_WIDTH / max_time as f64,
-                        BAR_HEIGHT,
-                    );
-                }
+            if let Some((t, pos, max_time)) = task_target {
+                render_global_task_bar(context, pos, t, max_time);
             }
         }
         Ok(())
     }
+}
+
+fn render_global_task_bar(
+    context: &CanvasRenderingContext2d,
+    pos: &[i32; 2],
+    t: usize,
+    max_time: usize,
+) {
+    let x = pos[0] as f64 * TILE_SIZE;
+    let y = pos[1] as f64 * TILE_SIZE;
+
+    context.set_stroke_style(&JsValue::from("#000"));
+    context.set_fill_style(&JsValue::from("#7f0000"));
+    context.fill_rect(x + BAR_MARGIN, y + BAR_MARGIN, BAR_WIDTH, BAR_HEIGHT);
+    context.set_stroke_style(&JsValue::from("#000"));
+    context.set_fill_style(&JsValue::from("#007f00"));
+    context.fill_rect(
+        x + BAR_MARGIN,
+        y + BAR_MARGIN,
+        t as f64 * BAR_WIDTH / max_time as f64,
+        BAR_HEIGHT,
+    );
 }
 
 fn render_bar(context: &CanvasRenderingContext2d, x: f64, y: f64, v: f64, max: f64, color: &str) {

@@ -167,7 +167,11 @@ impl Building {
                         *entry -= *count;
                     }
                 }
-                this.task = Task::Assemble(recipe.time, recipe.outputs.clone());
+                this.task = Task::Assemble {
+                    t: recipe.time,
+                    max_t: recipe.time,
+                    outputs: recipe.outputs.clone(),
+                };
             }
         }
         match this.type_ {
@@ -211,7 +215,11 @@ impl Building {
                     if 0 < copper {
                         outputs.insert(ItemType::CopperIngot, copper);
                     }
-                    this.task = Task::Assemble(IRON_INGOT_SMELT_TIME, outputs);
+                    this.task = Task::Assemble {
+                        t: IRON_INGOT_SMELT_TIME,
+                        max_t: IRON_INGOT_SMELT_TIME,
+                        outputs,
+                    };
                 }
             }
             _ => {}

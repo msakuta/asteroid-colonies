@@ -30,7 +30,11 @@ pub(crate) enum Task {
         item_type: ItemType,
         dest: [i32; 2],
     },
-    Assemble(usize, HashMap<ItemType, usize>),
+    Assemble {
+        t: usize,
+        max_t: usize,
+        outputs: HashMap<ItemType, usize>,
+    },
     // Smelt(usize),
 }
 
@@ -41,7 +45,7 @@ impl Display for Task {
             Self::Excavate(_, _) => write!(f, "Excavate"),
             Self::Move(_, _) => write!(f, "Move"),
             Self::MoveItem { .. } => write!(f, "MoveItem"),
-            Self::Assemble(_, _) => write!(f, "BuildItem"),
+            Self::Assemble { .. } => write!(f, "BuildItem"),
         }
     }
 }
@@ -353,12 +357,16 @@ impl AsteroidColonies {
                     *t -= 1;
                 }
             }
-            Task::Assemble(ref mut t, ref items) => {
+            Task::Assemble {
+                ref mut t,
+                ref outputs,
+                ..
+            } => {
                 if *t == 0 {
-                    let count = items.iter().map(|(_, c)| c).sum::<usize>()
+                    let count = outputs.iter().map(|(_, c)| c).sum::<usize>()
                         + building.inventory.iter().map(|(_, c)| c).sum::<usize>();
                     if count < building.type_.capacity() {
-                        for (i, c) in items {
+                        for (i, c) in outputs {
                             *building.inventory.entry(*i).or_default() += c;
                         }
                         building.task = Task::None;
