@@ -231,7 +231,9 @@ impl AsteroidColonies {
         // A buffer to avoid borrow checker
         let mut moving_items = vec![];
         for i in 0..self.buildings.len() {
-            Building::tick(&mut self.buildings, i);
+            if let Err(e) = Building::tick(&mut self.buildings, i) {
+                console_log!("Building::tick error: {}", e);
+            };
         }
         for building in &mut self.buildings {
             if let Some((item, dest)) = Self::process_task(&mut self.cells, building) {

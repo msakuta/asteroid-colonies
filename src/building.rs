@@ -120,7 +120,7 @@ impl Building {
         base - task_power
     }
 
-    pub fn tick(bldgs: &mut [Building], idx: usize) -> Result<(), JsValue> {
+    pub fn tick(bldgs: &mut [Building], idx: usize) -> Result<(), String> {
         let (first, rest) = bldgs.split_at_mut(idx);
         let Some((this, last)) = rest.split_first_mut() else {
             return Ok(());
@@ -128,15 +128,19 @@ impl Building {
         // let mut others = || first.iter_mut().chain(last.iter_mut());
         if matches!(this.task, Task::None) {
             if let Some(recipe) = &this.recipe {
-                if recipe.inputs.iter().any(|(ty, count)| {
-                    first
+                for (ty, count) in recipe.inputs.iter() {
+                    if first
                         .iter()
                         .chain(last.iter())
                         .map(|o| o.inventory.get(ty).copied().unwrap_or(0))
                         .sum::<usize>()
                         < *count
-                }) {
-                    return Err(JsValue::from("An ingredient is missing"));
+                    {
+                        return Err(format!(
+                            "An ingredient {ty:?} is missing for recipe {:?}",
+                            recipe.outputs
+                        ));
+                    }
                 }
                 for (ty, count) in &recipe.inputs {
                     if let Some(entry) = this.inventory.get_mut(&ty) {
