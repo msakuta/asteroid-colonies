@@ -1,7 +1,8 @@
 use std::{collections::HashMap, fmt::Display};
 
 use rand::Rng;
-use wasm_bindgen::JsValue;
+
+use serde::Serialize;
 
 use crate::{
     task::{
@@ -28,7 +29,7 @@ impl BuildingType {
             Self::Excavator => 3,
             Self::Storage => 10,
             Self::CrewCabin => 10,
-            Self::Assembler => 10,
+            Self::Assembler => 20,
             Self::Furnace => 10,
         }
     }
@@ -84,6 +85,7 @@ impl Display for BuildingType {
     }
 }
 
+#[derive(Serialize)]
 pub(crate) struct Recipe {
     pub inputs: HashMap<ItemType, usize>,
     pub outputs: HashMap<ItemType, usize>,

@@ -5,6 +5,7 @@ mod task;
 mod utils;
 
 use assets::Assets;
+use serde::Serialize;
 use task::GlobalTask;
 use wasm_bindgen::prelude::*;
 use web_sys::js_sys;
@@ -78,7 +79,7 @@ impl Cell {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize)]
 enum ItemType {
     /// Freshly dug soil from asteroid body. Hardly useful unless refined
     RawOre,
@@ -88,6 +89,8 @@ enum ItemType {
     ConveyorComponent,
     Gear,
     Wire,
+    Circuit,
+    AssemblerComponent,
 }
 
 const WIDTH: usize = 20;
@@ -116,6 +119,16 @@ fn recipes() -> &'static [Recipe] {
                 inputs: hash_map!(ItemType::CopperIngot => 1),
                 outputs: hash_map!(ItemType::Wire => 2),
                 time: 50,
+            },
+            Recipe {
+                inputs: hash_map!(ItemType::Wire => 1, ItemType::IronIngot => 1),
+                outputs: hash_map!(ItemType::Circuit => 1),
+                time: 120,
+            },
+            Recipe {
+                inputs: hash_map!(ItemType::Gear => 2, ItemType::Circuit => 2),
+                outputs: hash_map!(ItemType::AssemblerComponent => 1),
+                time: 200,
             },
         ]
     })
@@ -260,15 +273,11 @@ impl AsteroidColonies {
         if !matches!(assembler.type_, BuildingType::Assembler) {
             return Err(JsValue::from("The building is not an assembler"));
         }
-        Ok(recipes()
+        recipes()
             .iter()
-            .filter_map(|recipe| {
-                Some(JsValue::from(format!(
-                    "{:?}",
-                    recipe.outputs.iter().next()?.0
-                )))
-            })
-            .collect())
+            .map(|recipe| serde_wasm_bindgen::to_value(recipe))
+            .collect::<Result<_, _>>()
+            .map_err(|e| JsValue::from(e))
     }
 
     pub fn set_recipe(&mut self, x: i32, y: i32, name: &str) -> Result<(), JsValue> {

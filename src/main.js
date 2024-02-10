@@ -63,8 +63,13 @@ const canvas = document.getElementById('canvas');
                         recipesElem.appendChild(headerElem);
                         for (let recipe of recipes) {
                             const recipeElem = document.createElement("div");
-                            recipeElem.innerHTML = recipe;
-                            const recipeName = recipe;
+                            const recipeName = recipe.outputs.keys().next().value;
+                            let inputs = "";
+                            for (let input of recipe.inputs.keys()) {
+                                if (inputs) inputs += ", " + input;
+                                else inputs += input;
+                            }
+                            recipeElem.innerHTML = `${recipeName} <= (${inputs})`;
                             recipeElem.addEventListener("click", evt => {
                                 game.set_recipe(x, y, recipeName);
                                 recipesElem.style.display = "none";
