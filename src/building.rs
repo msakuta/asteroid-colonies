@@ -123,6 +123,10 @@ impl Building {
         base - task_power
     }
 
+    pub fn inventory_size(&self) -> usize {
+        self.inventory.iter().map(|(_, v)| *v).sum()
+    }
+
     pub fn tick(bldgs: &mut [Building], idx: usize) -> Result<(), String> {
         let (first, rest) = bldgs.split_at_mut(idx);
         let Some((this, last)) = rest.split_first_mut() else {

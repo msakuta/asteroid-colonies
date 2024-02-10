@@ -7,6 +7,7 @@ use crate::{
 };
 
 pub(crate) const EXCAVATE_TIME: usize = 10;
+pub(crate) const LABOR_EXCAVATE_TIME: usize = 100;
 pub(crate) const MOVE_TIME: usize = 2;
 pub(crate) const BUILD_POWER_GRID_TIME: usize = 5;
 pub(crate) const BUILD_CONVEYOR_TIME: usize = 10;
@@ -69,6 +70,8 @@ pub(crate) enum GlobalTask {
     BuildPowerGrid(usize, [i32; 2]),
     BuildConveyor(usize, [i32; 2]),
     BuildBuilding(usize, [i32; 2], BuildingType),
+    /// Excavate using human labor. Very slow and inefficient.
+    Excavate(usize, [i32; 2]),
 }
 
 impl AsteroidColonies {
@@ -83,13 +86,16 @@ impl AsteroidColonies {
             if building.type_ != BuildingType::Excavator {
                 continue;
             }
-            if building.type_.capacity() <= building.inventory.iter().map(|(_, v)| *v).sum() {
+            if building.type_.capacity() <= building.inventory_size() {
                 continue;
             }
             if let Some(dir) = choose_direction(&building.pos, ix, iy) {
                 building.task = Task::Excavate(EXCAVATE_TIME, dir);
+                return Ok(JsValue::from(true));
             }
         }
+        self.global_tasks
+            .push(GlobalTask::Excavate(LABOR_EXCAVATE_TIME, [ix, iy]));
         Ok(JsValue::from(true))
     }
 
@@ -364,6 +370,59 @@ impl AsteroidColonies {
             _ => {}
         }
         None
+    }
+
+    pub(super) fn process_global_tasks(&mut self) {
+        let mut workforce: usize = self.buildings.iter().map(|b| b.crews).sum();
+        let power_cap: isize = self.buildings.iter().map(|b| b.power()).sum();
+        let mut power = power_cap;
+
+        for task in &self.global_tasks {
+            match task {
+                GlobalTask::BuildPowerGrid(0, pos) => {
+                    self.cells[pos[0] as usize + pos[1] as usize * WIDTH].power_grid = true;
+                }
+                GlobalTask::BuildConveyor(0, pos) => {
+                    self.cells[pos[0] as usize + pos[1] as usize * WIDTH].conveyor = true;
+                }
+                GlobalTask::BuildBuilding(0, pos, type_) => {
+                    self.buildings.push(Building::new(*pos, *type_));
+                }
+                GlobalTask::Excavate(0, pos) => {
+                    self.cells[pos[0] as usize + pos[1] as usize * WIDTH].state = CellState::Empty;
+                    let cabin = self.buildings.iter_mut().find(|b| {
+                        matches!(b.type_, BuildingType::CrewCabin)
+                            && b.inventory_size() < b.type_.capacity()
+                    });
+                    if let Some(cabin) = cabin {
+                        *cabin.inventory.entry(ItemType::RawOre).or_default() += 1;
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        const POWER_CONSUMPTION: usize = 200;
+
+        self.global_tasks.retain_mut(|task| match task {
+            GlobalTask::BuildPowerGrid(ref mut t, _)
+            | GlobalTask::BuildConveyor(ref mut t, _)
+            | GlobalTask::BuildBuilding(ref mut t, _, _)
+            | GlobalTask::Excavate(ref mut t, _) => {
+                if *t == 0 {
+                    false
+                } else {
+                    if 0 < workforce && POWER_CONSUMPTION as isize <= power {
+                        *t -= 1;
+                        power -= POWER_CONSUMPTION as isize;
+                        workforce -= 1;
+                    }
+                    true
+                }
+            }
+        });
+
+        self.used_power = (power_cap - power) as usize;
     }
 }
 
