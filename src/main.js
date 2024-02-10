@@ -49,7 +49,7 @@ const canvas = document.getElementById('canvas');
         document.getElementById('info').innerHTML = info;
     });
 
-    canvas.addEventListener('mosueleave', evt => mousePos = null);
+    canvas.addEventListener('mouseleave', evt => mousePos = null);
 
     canvas.addEventListener('click', evt => {
         for (let name of ["excavate", "move", "power", "conveyor", "moveItem", "buildPowerPlant", "buildStorage", "buildAssembler", "recipe"]) {
