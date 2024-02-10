@@ -1,4 +1,10 @@
 import bg from '../images/back32.png';
+import rawOre from '../images/rawOre.png';
+import ironIngot from '../images/ironIngot.png';
+import copperIngot from '../images/copperIngot.png';
+import gear from '../images/gear.png';
+import wire from '../images/wire.png';
+import circuit from '../images/circuit.png';
 import power_grid from '../images/power_grid.png';
 import conveyor from '../images/conveyor.png';
 import power from '../images/power.png';
@@ -6,6 +12,7 @@ import excavator from '../images/excavator.png';
 import storage from '../images/storage.png';
 import crew_cabin from '../images/crew_cabin.png';
 import assembler from '../images/assembler.png';
+import assemblerComponent from '../images/assemblerComponent.png';
 import furnace from '../images/furnace.png';
 
 const canvas = document.getElementById('canvas');
@@ -67,11 +74,18 @@ const canvas = document.getElementById('canvas');
                             const recipeElem = document.createElement("div");
                             const recipeName = recipe.outputs.keys().next().value;
                             let inputs = "";
-                            for (let input of recipe.inputs.keys()) {
-                                if (inputs) inputs += ", " + input;
-                                else inputs += input;
+                            for (let [input, count] of recipe.inputs.entries()) {
+                                const icon = iconWithCount(itemToIcon(input), count);
+                                if (inputs) inputs += " " + icon;
+                                else inputs += icon;
                             }
-                            recipeElem.innerHTML = `${recipeName} <= (${inputs})`;
+                            let outputs = "";
+                            for (let [output, count] of recipe.outputs.entries()) {
+                                const icon = iconWithCount(itemToIcon(output), count);
+                                if (outputs) outputs += " " + icon;
+                                else outputs += icon;
+                            }
+                            recipeElem.innerHTML = `${outputs} <= ${inputs}`;
                             recipeElem.addEventListener("click", evt => {
                                 game.set_recipe(x, y, recipeName);
                                 recipesElem.style.display = "none";
@@ -115,6 +129,37 @@ async function loadImage(url) {
         i.onload = (() => r(i));
         i.src = url;
     });
+}
+
+function itemToIcon(item) {
+    switch(item){
+        case "RawOre": return rawOre;
+        case "IronIngot": return ironIngot;
+        case "CopperIngot": return copperIngot;
+        case "Gear": return gear;
+        case "Wire": return wire;
+        case "Circuit": return circuit;
+        case "PowerGridComponent": return power_grid;
+        case "ConveyorComponent": return conveyor;
+        case "AssemblerComponent": return assemblerComponent;
+    }
+}
+
+function iconWithCount(itemUrl, count) {
+    const widthFactor = 1;
+    const heightFactor = 1;
+    return `<div style="
+        display: inline-block;
+        position: relative;
+        background-image: url(${itemUrl});
+        background-size: ${32 * widthFactor}px ${32 * heightFactor}px;
+        width: 32px;
+        height: 32px;
+      ">
+        <div class="overlay noselect">
+        ${count}
+        </div>
+      </div>`;
 }
 
 function toLogicalCoords(clientX, clientY) {
