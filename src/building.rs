@@ -1,9 +1,11 @@
 use std::{collections::HashMap, fmt::Display};
 
+use wasm_bindgen::JsValue;
+
 use crate::{
     task::{
         Task, BUILD_ASSEMBLER_TIME, BUILD_CREW_CABIN_TIME, BUILD_EXCAVATOR_TIME,
-        BUILD_FURNACE_TIME, BUILD_POWER_PLANT_TIME, BUILD_STORAGE_TIME, SLUG_SMELT_TIME,
+        BUILD_FURNACE_TIME, BUILD_POWER_PLANT_TIME, BUILD_STORAGE_TIME, IRON_INGOT_SMELT_TIME,
     },
     ItemType,
 };
@@ -81,6 +83,12 @@ impl Display for BuildingType {
     }
 }
 
+pub(crate) struct Recipe {
+    pub inputs: HashMap<ItemType, usize>,
+    pub outputs: HashMap<ItemType, usize>,
+    pub time: usize,
+}
+
 pub(crate) struct Building {
     pub pos: [i32; 2],
     pub type_: BuildingType,
@@ -88,6 +96,7 @@ pub(crate) struct Building {
     pub inventory: HashMap<ItemType, usize>,
     /// The number of crews attending this building.
     pub crews: usize,
+    pub recipe: Option<Recipe>,
 }
 
 impl Building {
@@ -98,6 +107,7 @@ impl Building {
             task: Task::None,
             inventory: HashMap::new(),
             crews: type_.max_crews(),
+            recipe: None,
         }
     }
 
@@ -110,27 +120,65 @@ impl Building {
         base - task_power
     }
 
-    pub fn tick(bldgs: &mut [Building], idx: usize) {
+    pub fn tick(bldgs: &mut [Building], idx: usize) -> Result<(), JsValue> {
         let (first, rest) = bldgs.split_at_mut(idx);
         let Some((this, last)) = rest.split_first_mut() else {
-            return;
+            return Ok(());
         };
-        let mut others = first.iter_mut().chain(last.iter_mut());
+        // let mut others = || first.iter_mut().chain(last.iter_mut());
+        if matches!(this.task, Task::None) {
+            if let Some(recipe) = &this.recipe {
+                if recipe.inputs.iter().any(|(ty, count)| {
+                    first
+                        .iter()
+                        .chain(last.iter())
+                        .map(|o| o.inventory.get(ty).copied().unwrap_or(0))
+                        .sum::<usize>()
+                        < *count
+                }) {
+                    return Err(JsValue::from("An ingredient is missing"));
+                }
+                for (ty, count) in &recipe.inputs {
+                    if let Some(entry) = this.inventory.get_mut(&ty) {
+                        *entry -= *count;
+                    } else if let Some(entry) =
+                        first.iter_mut().chain(last.iter_mut()).find_map(|o| {
+                            let cand = o.inventory.get_mut(ty);
+                            if let Some(cand) = &cand {
+                                if **cand == 0 {
+                                    return None;
+                                }
+                            }
+                            cand
+                        })
+                    {
+                        *entry -= *count;
+                    }
+                }
+                this.task = Task::Assemble(recipe.time, recipe.outputs.clone());
+            }
+        }
         match this.type_ {
             BuildingType::Furnace => {
                 if !matches!(this.task, Task::None) {
-                    return;
+                    return Ok(());
                 }
-                let source = others.find(|b| 0 < *b.inventory.get(&ItemType::RawOre).unwrap_or(&0));
+                let source = first
+                    .iter_mut()
+                    .chain(last.iter_mut())
+                    .find(|b| 0 < *b.inventory.get(&ItemType::RawOre).unwrap_or(&0));
                 if let Some(source) = source {
                     let Some(entry) = source.inventory.get_mut(&ItemType::RawOre) else {
-                        return;
+                        return Ok(());
                     };
                     *entry -= 1;
-                    this.task = Task::Assemble(SLUG_SMELT_TIME, ItemType::IronIngot);
+                    let mut outputs = HashMap::new();
+                    outputs.insert(ItemType::IronIngot, 2);
+                    this.task = Task::Assemble(IRON_INGOT_SMELT_TIME, outputs);
                 }
             }
             _ => {}
         }
+        Ok(())
     }
 }

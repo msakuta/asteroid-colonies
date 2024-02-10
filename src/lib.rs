@@ -9,7 +9,15 @@ use task::GlobalTask;
 use wasm_bindgen::prelude::*;
 use web_sys::js_sys;
 
-use crate::building::{Building, BuildingType};
+use crate::building::{Building, BuildingType, Recipe};
+
+macro_rules! hash_map {
+    ($key:path, $val:expr) => {{
+        let mut ret = std::collections::HashMap::new();
+        ret.insert($key, $val);
+        ret
+    }};
+}
 
 #[macro_export]
 macro_rules! console_log {
@@ -141,20 +149,28 @@ impl AsteroidColonies {
                 && b.pos[1] <= iy
                 && iy < size[1] as i32 + b.pos[1]
         };
-        let building_str = if let Some(building) = self.buildings.iter().find(intersects) {
-            format!(
-                "{} at {}, {}\nTask: {:?}\nInventory: {:?}\nCrews: {} / {}",
-                building.type_,
-                building.pos[0],
-                building.pos[1],
-                building.task,
-                building.inventory,
-                building.crews,
-                building.type_.max_crews()
-            )
-        } else {
-            format!("Empty at {ix}, {iy}")
-        };
+        let building_str = self
+            .buildings
+            .iter()
+            .find(intersects)
+            .map(|building| {
+                let recipe_str = building
+                    .recipe
+                    .as_ref()
+                    .map(|r| format!("\nRecipe: {:?} -> {:?}", r.inputs, r.outputs))
+                    .unwrap_or_else(|| "".to_string());
+                format!(
+                    "{} at {}, {}\nTask: {:?}{recipe_str}\nInventory: {:?}\nCrews: {} / {}",
+                    building.type_,
+                    building.pos[0],
+                    building.pos[1],
+                    building.task,
+                    building.inventory,
+                    building.crews,
+                    building.type_.max_crews()
+                )
+            })
+            .unwrap_or_else(|| format!("Empty at {ix}, {iy}"));
         let crew_str = format!(
             "\nTotal crew: {}",
             self.buildings.iter().map(|b| b.crews).sum::<usize>()
@@ -193,8 +209,20 @@ impl AsteroidColonies {
             "moveItem" => self.move_item(ix, iy),
             "buildPowerPlant" => self.build_building(ix, iy, BuildingType::Power),
             "buildStorage" => self.build_building(ix, iy, BuildingType::Storage),
-            "assemble" => self.assemble(ix, iy, ItemType::PowerGridComponent),
-            "assembleConveyor" => self.assemble(ix, iy, ItemType::ConveyorComponent),
+            "recipePowerGridComponent" => self.set_recipe(
+                ix,
+                iy,
+                hash_map!(ItemType::IronIngot, 1),
+                ItemType::PowerGridComponent,
+                100,
+            ),
+            "recipeConveyorComponent" => self.set_recipe(
+                ix,
+                iy,
+                hash_map!(ItemType::IronIngot, 2),
+                ItemType::ConveyorComponent,
+                200,
+            ),
             _ => Err(JsValue::from(format!("Unknown command: {}", com))),
         }
     }

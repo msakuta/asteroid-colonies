@@ -1,8 +1,10 @@
-use std::fmt::Display;
+use std::{collections::HashMap, fmt::Display};
 
 use wasm_bindgen::JsValue;
 
-use crate::{AsteroidColonies, Building, BuildingType, Cell, CellState, ItemType, WIDTH};
+use crate::{
+    building::Recipe, AsteroidColonies, Building, BuildingType, Cell, CellState, ItemType, WIDTH,
+};
 
 pub(crate) const EXCAVATE_TIME: usize = 10;
 pub(crate) const MOVE_TIME: usize = 2;
@@ -15,9 +17,9 @@ pub(crate) const BUILD_CREW_CABIN_TIME: usize = 500;
 pub(crate) const BUILD_STORAGE_TIME: usize = 20;
 pub(crate) const BUILD_ASSEMBLER_TIME: usize = 100;
 pub(crate) const BUILD_FURNACE_TIME: usize = 100;
-pub(crate) const SLUG_SMELT_TIME: usize = 50;
+pub(crate) const IRON_INGOT_SMELT_TIME: usize = 50;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub(crate) enum Task {
     None,
     Excavate(usize, Direction),
@@ -27,7 +29,7 @@ pub(crate) enum Task {
         item_type: ItemType,
         dest: [i32; 2],
     },
-    Assemble(usize, ItemType),
+    Assemble(usize, HashMap<ItemType, usize>),
     // Smelt(usize),
 }
 
@@ -258,11 +260,13 @@ impl AsteroidColonies {
         Ok(JsValue::from(true))
     }
 
-    pub(super) fn assemble(
+    pub(super) fn set_recipe(
         &mut self,
         ix: i32,
         iy: i32,
-        type_: ItemType,
+        inputs: HashMap<ItemType, usize>,
+        output: ItemType,
+        time: usize,
     ) -> Result<JsValue, JsValue> {
         let intersects = |b: &Building| {
             let size = b.type_.size();
@@ -278,7 +282,13 @@ impl AsteroidColonies {
         if !matches!(assembler.type_, BuildingType::Assembler) {
             return Err(JsValue::from("The building is not an assembler"));
         }
-        assembler.task = Task::Assemble(type_.build_time(), type_);
+        let mut outputs = HashMap::new();
+        outputs.insert(output, 1);
+        assembler.recipe = Some(Recipe {
+            inputs,
+            outputs,
+            time,
+        });
         Ok(JsValue::from(true))
     }
 
@@ -327,11 +337,14 @@ impl AsteroidColonies {
                     *t -= 1;
                 }
             }
-            Task::Assemble(ref mut t, item_type) => {
+            Task::Assemble(ref mut t, ref items) => {
                 if *t == 0 {
-                    let entry = building.inventory.entry(item_type).or_default();
-                    if *entry < building.type_.capacity() {
-                        *entry += 1;
+                    let count = items.iter().map(|(_, c)| c).sum::<usize>()
+                        + building.inventory.iter().map(|(_, c)| c).sum::<usize>();
+                    if count < building.type_.capacity() {
+                        for (i, c) in items {
+                            *building.inventory.entry(*i).or_default() += c;
+                        }
                         building.task = Task::None;
                     }
                 } else {
