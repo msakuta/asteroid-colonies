@@ -172,6 +172,23 @@ impl Building {
         }
         match this.type_ {
             BuildingType::Furnace => {
+                let dest = first.iter_mut().chain(last.iter_mut()).find(|b| {
+                    matches!(b.type_, BuildingType::Storage)
+                        && b.inventory_size() < b.type_.capacity()
+                });
+                // Push away outputs
+                if let Some(dest) = dest {
+                    let product = this
+                        .inventory
+                        .iter_mut()
+                        .find(|(t, _)| !matches!(t, ItemType::RawOre));
+                    if let Some(product) = product {
+                        if 0 < *product.1 {
+                            *dest.inventory.entry(*product.0).or_default() += 1;
+                            *product.1 -= 1;
+                        }
+                    }
+                }
                 if !matches!(this.task, Task::None) {
                     return Ok(());
                 }
