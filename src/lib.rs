@@ -3,6 +3,7 @@ mod building;
 mod info;
 mod render;
 mod task;
+mod transport;
 mod utils;
 
 use serde::Serialize;
@@ -13,6 +14,7 @@ use crate::{
     assets::Assets,
     building::{Building, BuildingType, Recipe},
     task::GlobalTask,
+    transport::Transport,
 };
 
 macro_rules! hash_map {
@@ -138,16 +140,6 @@ fn recipes() -> &'static [Recipe] {
 }
 
 type Pos = [i32; 2];
-
-/// Transporting item
-#[derive(Clone, Debug)]
-struct Transport {
-    src: Pos,
-    dest: Pos,
-    item: ItemType,
-    amount: usize,
-    path: Vec<Pos>,
-}
 
 #[wasm_bindgen]
 pub struct AsteroidColonies {
@@ -300,27 +292,7 @@ impl AsteroidColonies {
         }
 
         self.process_global_tasks();
-
-        let intersects = |b: &Building, [ix, iy]: Pos| {
-            let size = b.type_.size();
-            b.pos[0] <= ix
-                && ix < size[0] as i32 + b.pos[0]
-                && b.pos[1] <= iy
-                && iy < size[1] as i32 + b.pos[1]
-        };
-
-        for t in &mut self.transports {
-            if t.path.len() <= 1 {
-                if let Some(building) = self.buildings.iter_mut().find(|b| intersects(b, t.dest)) {
-                    *building.inventory.entry(t.item).or_default() += t.amount;
-                    t.path.clear();
-                }
-            } else {
-                t.path.pop();
-            }
-        }
-
-        self.transports.retain(|t| !t.path.is_empty());
+        self.process_transports();
 
         self.global_time += 1;
 
