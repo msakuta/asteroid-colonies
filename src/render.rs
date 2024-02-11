@@ -139,6 +139,19 @@ impl AsteroidColonies {
                 }
                 .render_bar();
             }
+
+            if let Some(path) = &building.output_path {
+                context.set_stroke_style(&JsValue::from("#ffff00"));
+                context.set_line_width(2.);
+                context.begin_path();
+                for node in path {
+                    context.line_to(
+                        (node[0] as f64 + 0.5) * TILE_SIZE,
+                        (node[1] as f64 + 0.5) * TILE_SIZE,
+                    );
+                }
+                context.stroke();
+            }
         }
 
         for task in &self.global_tasks {

@@ -111,7 +111,7 @@ fn recipes() -> &'static [Recipe] {
             Recipe {
                 inputs: hash_map!(ItemType::IronIngot => 2),
                 outputs: hash_map!(ItemType::ConveyorComponent => 1),
-                time: 200,
+                time: 120,
             },
             Recipe {
                 inputs: hash_map!(ItemType::IronIngot => 1),
@@ -158,7 +158,11 @@ impl AsteroidColonies {
             Building::new([3, 4], BuildingType::Power),
             Building::new([4, 4], BuildingType::Excavator),
             Building::new([5, 5], BuildingType::Storage),
-            Building::new([3, 6], BuildingType::Assembler),
+            Building::new_inventory(
+                [3, 6],
+                BuildingType::Assembler,
+                hash_map!(ItemType::ConveyorComponent => 2),
+            ),
             Building::new([1, 6], BuildingType::Furnace),
         ];
         for building in &buildings {

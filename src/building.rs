@@ -8,7 +8,6 @@ use rand::Rng;
 use serde::Serialize;
 
 use crate::{
-    console_log,
     task::{
         Direction, Task, BUILD_ASSEMBLER_TIME, BUILD_CREW_CABIN_TIME, BUILD_EXCAVATOR_TIME,
         BUILD_FURNACE_TIME, BUILD_POWER_PLANT_TIME, BUILD_STORAGE_TIME, IRON_INGOT_SMELT_TIME,
@@ -104,6 +103,8 @@ pub(crate) struct Building {
     /// The number of crews attending this building.
     pub crews: usize,
     pub recipe: Option<&'static Recipe>,
+    /// A path to output resources for visualization
+    pub output_path: Option<Vec<[i32; 2]>>,
 }
 
 impl Building {
@@ -115,6 +116,23 @@ impl Building {
             inventory: HashMap::new(),
             crews: type_.max_crews(),
             recipe: None,
+            output_path: None,
+        }
+    }
+
+    pub fn new_inventory(
+        pos: [i32; 2],
+        type_: BuildingType,
+        inventory: HashMap<ItemType, usize>,
+    ) -> Self {
+        Self {
+            pos,
+            type_,
+            task: Task::None,
+            inventory,
+            crews: type_.max_crews(),
+            recipe: None,
+            output_path: None,
         }
     }
 
@@ -180,18 +198,17 @@ impl Building {
         }
         match this.type_ {
             BuildingType::Furnace => {
-                let dest = first.iter_mut().chain(last.iter_mut()).find(|b| {
+                let dest = first.iter_mut().chain(last.iter_mut()).find_map(|b| {
                     if !matches!(b.type_, BuildingType::Storage)
                         || b.type_.capacity() <= b.inventory_size()
                     {
-                        return false;
+                        return None;
                     }
-                    let path = find_path(cells, this.pos, b.pos);
-                    console_log!("path: {:?}", path);
-                    path.is_some()
+                    let path = find_path(cells, this.pos, b.pos)?;
+                    Some((b, path))
                 });
                 // Push away outputs
-                if let Some(dest) = dest {
+                if let Some((dest, path)) = dest {
                     let product = this
                         .inventory
                         .iter_mut()
@@ -199,6 +216,7 @@ impl Building {
                     if let Some(product) = product {
                         *dest.inventory.entry(*product.0).or_default() += 1;
                         *product.1 -= 1;
+                        this.output_path = Some(path);
                     }
                 }
                 if !matches!(this.task, Task::None) {
