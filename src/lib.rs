@@ -157,7 +157,7 @@ impl AsteroidColonies {
             Building::new([2, 2], BuildingType::CrewCabin),
             Building::new([3, 4], BuildingType::Power),
             Building::new([4, 4], BuildingType::Excavator),
-            Building::new([3, 5], BuildingType::Storage),
+            Building::new([5, 5], BuildingType::Storage),
             Building::new([3, 6], BuildingType::Assembler),
             Building::new([1, 6], BuildingType::Furnace),
         ];
@@ -263,7 +263,7 @@ impl AsteroidColonies {
         // A buffer to avoid borrow checker
         let mut moving_items = vec![];
         for i in 0..self.buildings.len() {
-            if let Err(e) = Building::tick(&mut self.buildings, i) {
+            if let Err(e) = Building::tick(&mut self.buildings, i, &self.cells) {
                 console_log!("Building::tick error: {}", e);
             };
         }
