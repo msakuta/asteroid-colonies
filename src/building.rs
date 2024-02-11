@@ -11,7 +11,7 @@ use crate::{
         IRON_INGOT_SMELT_TIME,
     },
     transport::{expected_deliveries, find_path},
-    Cell, ItemType, Transport,
+    Cell, ItemType, Pos, Transport,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize)]
@@ -170,31 +170,15 @@ impl Building {
         let mut ret = vec![];
         if matches!(this.task, Task::None) {
             if let Some(recipe) = &this.recipe {
-                let expected = expected_deliveries(transports, this.pos);
-                for (ty, count) in &recipe.inputs {
-                    let this_count = this.inventory.get(ty).copied().unwrap_or(0)
-                        + expected.get(ty).copied().unwrap_or(0);
-                    if this_count < *count {
-                        let src = find_from_other_inventory_mut(*ty, first, last);
-                        if let Some((src, path)) = src.and_then(|src| {
-                            if src.1 == 0 {
-                                return None;
-                            }
-                            let path = find_path(cells, src.0.pos, this.pos)?;
-                            Some((src.0, path))
-                        }) {
-                            ret.push(Transport {
-                                src: src.pos,
-                                dest: this.pos,
-                                path,
-                                item: *ty,
-                                amount: *count - this_count,
-                            });
-                            let src_count = src.inventory.entry(*ty).or_default();
-                            *src_count = src_count.saturating_sub(*count - this_count);
-                        }
-                    }
-                }
+                ret.extend_from_slice(&pull_inputs(
+                    recipe,
+                    cells,
+                    transports,
+                    this.pos,
+                    &mut this.inventory,
+                    first,
+                    last,
+                ));
                 for (ty, recipe_count) in &recipe.inputs {
                     let actual_count = *this.inventory.get(&ty).unwrap_or(&0);
                     if actual_count < *recipe_count {
@@ -221,39 +205,15 @@ impl Building {
             }
         }
         match this.type_ {
+            BuildingType::Excavator => {
+                ret.extend_from_slice(&push_outputs(cells, transports, this, first, last, &|t| {
+                    matches!(t, ItemType::RawOre)
+                }));
+            }
             BuildingType::Furnace => {
-                let dest = first.iter_mut().chain(last.iter_mut()).find_map(|b| {
-                    if !b.type_.is_storage()
-                        || b.type_.capacity()
-                            <= b.inventory_size()
-                                + expected_deliveries(&transports, b.pos)
-                                    .values()
-                                    .sum::<usize>()
-                    {
-                        return None;
-                    }
-                    let path = find_path(cells, this.pos, b.pos)?;
-                    Some((b, path))
-                });
-                // Push away outputs
-                if let Some((dest, path)) = dest {
-                    let product = this
-                        .inventory
-                        .iter_mut()
-                        .find(|(t, count)| !matches!(t, ItemType::RawOre) && 0 < **count);
-                    if let Some(product) = product {
-                        ret.push(Transport {
-                            src: this.pos,
-                            dest: dest.pos,
-                            path,
-                            item: *product.0,
-                            amount: 1,
-                        });
-                        // *dest.inventory.entry(*product.0).or_default() += 1;
-                        *product.1 -= 1;
-                        // this.output_path = Some(path);
-                    }
-                }
+                ret.extend_from_slice(&push_outputs(cells, transports, this, first, last, &|t| {
+                    !matches!(t, ItemType::RawOre)
+                }));
                 if !matches!(this.task, Task::None) {
                     return Ok(ret);
                 }
@@ -287,6 +247,88 @@ impl Building {
         }
         Ok(ret)
     }
+}
+
+fn pull_inputs(
+    recipe: &Recipe,
+    cells: &[Cell],
+    transports: &[Transport],
+    this_pos: Pos,
+    this_inventory: &mut HashMap<ItemType, usize>,
+    first: &mut [Building],
+    last: &mut [Building],
+) -> Vec<Transport> {
+    let mut ret = vec![];
+    let expected = expected_deliveries(transports, this_pos);
+    for (ty, count) in &recipe.inputs {
+        let this_count =
+            this_inventory.get(ty).copied().unwrap_or(0) + expected.get(ty).copied().unwrap_or(0);
+        if this_count < *count {
+            let src = find_from_other_inventory_mut(*ty, first, last);
+            if let Some((src, path)) = src.and_then(|src| {
+                if src.1 == 0 {
+                    return None;
+                }
+                let path = find_path(cells, src.0.pos, this_pos)?;
+                Some((src.0, path))
+            }) {
+                ret.push(Transport {
+                    src: src.pos,
+                    dest: this_pos,
+                    path,
+                    item: *ty,
+                    amount: *count - this_count,
+                });
+                let src_count = src.inventory.entry(*ty).or_default();
+                *src_count = src_count.saturating_sub(*count - this_count);
+            }
+        }
+    }
+    ret
+}
+
+fn push_outputs(
+    cells: &[Cell],
+    transports: &[Transport],
+    this: &mut Building,
+    first: &mut [Building],
+    last: &mut [Building],
+    is_output: &impl Fn(ItemType) -> bool,
+) -> Vec<Transport> {
+    let mut ret = vec![];
+    let dest = first.iter_mut().chain(last.iter_mut()).find_map(|b| {
+        if !b.type_.is_storage()
+            || b.type_.capacity()
+                <= b.inventory_size()
+                    + expected_deliveries(&transports, b.pos)
+                        .values()
+                        .sum::<usize>()
+        {
+            return None;
+        }
+        let path = find_path(cells, this.pos, b.pos)?;
+        Some((b, path))
+    });
+    // Push away outputs
+    if let Some((dest, path)) = dest {
+        let product = this
+            .inventory
+            .iter_mut()
+            .find(|(t, count)| is_output(**t) && 0 < **count);
+        if let Some(product) = product {
+            ret.push(Transport {
+                src: this.pos,
+                dest: dest.pos,
+                path,
+                item: *product.0,
+                amount: 1,
+            });
+            // *dest.inventory.entry(*product.0).or_default() += 1;
+            *product.1 -= 1;
+            // this.output_path = Some(path);
+        }
+    }
+    ret
 }
 
 fn _find_from_all_inventories(
