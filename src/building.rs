@@ -157,39 +157,51 @@ impl Building {
         let Some((this, last)) = rest.split_first_mut() else {
             return Ok(vec![]);
         };
-        // let mut others = || first.iter_mut().chain(last.iter_mut());
+        let mut ret = vec![];
         if matches!(this.task, Task::None) {
             if let Some(recipe) = &this.recipe {
-                for (ty, count) in recipe.inputs.iter() {
-                    if first
-                        .iter()
-                        .chain(last.iter())
-                        .chain(std::iter::once(this as &_))
-                        .map(|o| o.inventory.get(ty).copied().unwrap_or(0))
-                        .sum::<usize>()
-                        < *count
-                    {
-                        return Err(format!(
-                            "An ingredient {ty:?} is missing for recipe {:?}",
-                            recipe.outputs
-                        ));
+                let expected = expected_deliveries(transports, this.pos);
+                for (ty, count) in &recipe.inputs {
+                    let this_count = this.inventory.get(ty).copied().unwrap_or(0)
+                        + expected.get(ty).copied().unwrap_or(0);
+                    if this_count < *count {
+                        let src = find_from_other_inventory_mut(*ty, first, last);
+                        crate::console_log!("find: {:?}", src.as_ref().map(|s| s.1));
+                        if let Some((src, path)) = src.and_then(|src| {
+                            if src.1 == 0 {
+                                return None;
+                            }
+                            let path = find_path(cells, src.0.pos, this.pos)?;
+                            Some((src.0, path))
+                        }) {
+                            ret.push(Transport {
+                                src: src.pos,
+                                dest: this.pos,
+                                path,
+                                item: *ty,
+                                amount: *count - this_count,
+                            });
+                            let src_count = src.inventory.entry(*ty).or_default();
+                            *src_count = src_count.saturating_sub(*count - this_count);
+                        }
                     }
                 }
-                for (ty, count) in &recipe.inputs {
+                for (ty, recipe_count) in &recipe.inputs {
+                    let actual_count = *this.inventory.get(&ty).unwrap_or(&0);
+                    if actual_count < *recipe_count {
+                        crate::console_log!(
+                            "An ingredient {:?} is missing for recipe {:?}",
+                            ty,
+                            recipe.outputs
+                        );
+                        return Ok(ret);
+                    }
+                }
+                for (ty, recipe_count) in &recipe.inputs {
                     if let Some(entry) = this.inventory.get_mut(&ty) {
-                        *entry -= *count;
-                    } else if let Some(entry) =
-                        first.iter_mut().chain(last.iter_mut()).find_map(|o| {
-                            let cand = o.inventory.get_mut(ty);
-                            if let Some(cand) = &cand {
-                                if **cand == 0 {
-                                    return None;
-                                }
-                            }
-                            cand
-                        })
-                    {
-                        *entry -= *count;
+                        if *recipe_count <= *entry {
+                            *entry = entry.saturating_sub(*recipe_count);
+                        }
                     }
                 }
                 this.task = Task::Assemble {
@@ -199,7 +211,6 @@ impl Building {
                 };
             }
         }
-        let mut ret = vec![];
         match this.type_ {
             BuildingType::Furnace => {
                 let dest = first.iter_mut().chain(last.iter_mut()).find_map(|b| {
@@ -267,4 +278,40 @@ impl Building {
         }
         Ok(ret)
     }
+}
+
+fn _find_from_all_inventories(
+    item: ItemType,
+    this: &Building,
+    first: &[Building],
+    last: &[Building],
+) -> usize {
+    first
+        .iter()
+        .chain(last.iter())
+        .chain(std::iter::once(this as &_))
+        .map(|o| o.inventory.get(&item).copied().unwrap_or(0))
+        .sum::<usize>()
+}
+
+fn _find_from_other_inventory<'a>(
+    item: ItemType,
+    first: &'a [Building],
+    last: &'a [Building],
+) -> Option<(&'a Building, usize)> {
+    first
+        .iter()
+        .chain(last.iter())
+        .find_map(|o| Some((o, *o.inventory.get(&item)?)))
+}
+
+fn find_from_other_inventory_mut<'a>(
+    item: ItemType,
+    first: &'a mut [Building],
+    last: &'a mut [Building],
+) -> Option<(&'a mut Building, usize)> {
+    first.iter_mut().chain(last.iter_mut()).find_map(|o| {
+        let count = *o.inventory.get(&item)?;
+        Some((o, count))
+    })
 }

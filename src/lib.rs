@@ -162,9 +162,9 @@ impl AsteroidColonies {
             Building::new([2, 2], BuildingType::CrewCabin),
             Building::new([3, 4], BuildingType::Power),
             Building::new([4, 4], BuildingType::Excavator),
-            Building::new([5, 5], BuildingType::Storage),
+            Building::new([5, 4], BuildingType::Storage),
             Building::new_inventory(
-                [3, 6],
+                [1, 10],
                 BuildingType::Assembler,
                 hash_map!(ItemType::ConveyorComponent => 2, ItemType::PowerGridComponent => 2),
             ),
@@ -180,6 +180,10 @@ impl AsteroidColonies {
                     cells[x + y * WIDTH] = Cell::building();
                 }
             }
+        }
+        for [x, y] in [[1, 8], [1, 9]] {
+            cells[x + y * WIDTH].state = CellState::Empty;
+            cells[x + y * WIDTH].conveyor = true;
         }
         Ok(Self {
             cells,

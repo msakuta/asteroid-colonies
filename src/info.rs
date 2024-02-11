@@ -24,6 +24,7 @@ struct GetInfoResult {
     building: Option<GetBuildingInfoResult>,
     power_consumed: usize,
     power_capacity: usize,
+    transports: usize,
 }
 
 #[wasm_bindgen]
@@ -66,6 +67,7 @@ impl AsteroidColonies {
             building: bldg_result,
             power_consumed,
             power_capacity,
+            transports: self.transports.len(),
         };
 
         serde_wasm_bindgen::to_value(&result).map_err(JsValue::from)

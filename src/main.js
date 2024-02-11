@@ -182,7 +182,8 @@ function formatInfo(result) {
     Recipe: ${result.building?.recipe ? formatRecipe(result.building.recipe) : ""}
     Inventory: ${result.building?.inventory ? formatInventory(result.building.inventory) : ""}
     Power capacity: ${result.power_capacity} kW
-    Used power: ${result.power_consumed} kW`;
+    Used power: ${result.power_consumed} kW
+    Transports: ${result.transports}`;
 }
 
 function toLogicalCoords(clientX, clientY) {
