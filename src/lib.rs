@@ -163,6 +163,7 @@ impl AsteroidColonies {
             Building::new([3, 4], BuildingType::Power),
             Building::new([4, 4], BuildingType::Excavator),
             Building::new([5, 4], BuildingType::Storage),
+            Building::new([6, 3], BuildingType::MediumStorage),
             Building::new_inventory(
                 [1, 10],
                 BuildingType::Assembler,

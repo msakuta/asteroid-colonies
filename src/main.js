@@ -10,6 +10,7 @@ import conveyor from '../images/conveyor.png';
 import power from '../images/power.png';
 import excavator from '../images/excavator.png';
 import storage from '../images/storage.png';
+import mediumStorage from '../images/mediumStorage.png';
 import crew_cabin from '../images/crew_cabin.png';
 import assembler from '../images/assembler.png';
 import assemblerComponent from '../images/assemblerComponent.png';
@@ -30,6 +31,7 @@ const canvas = document.getElementById('canvas');
         ["power", power],
         ["excavator", excavator],
         ["storage", storage],
+        ["medium_storage", mediumStorage],
         ["crew_cabin", crew_cabin],
         ["assembler", assembler],
         ["furnace", furnace],

@@ -76,6 +76,7 @@ impl AsteroidColonies {
                 BuildingType::Power => &self.assets.img_power,
                 BuildingType::Excavator => &self.assets.img_excavator,
                 BuildingType::Storage => &self.assets.img_storage,
+                BuildingType::MediumStorage => &self.assets.img_medium_storage,
                 BuildingType::CrewCabin => &self.assets.img_crew_cabin,
                 BuildingType::Assembler => &self.assets.img_assembler,
                 BuildingType::Furnace => &self.assets.img_furnace,

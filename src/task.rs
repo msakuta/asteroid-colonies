@@ -16,6 +16,7 @@ pub(crate) const BUILD_POWER_PLANT_TIME: usize = 50;
 pub(crate) const BUILD_EXCAVATOR_TIME: usize = 100;
 pub(crate) const BUILD_CREW_CABIN_TIME: usize = 500;
 pub(crate) const BUILD_STORAGE_TIME: usize = 20;
+pub(crate) const BUILD_MEDIUM_STORAGE_TIME: usize = 100;
 pub(crate) const BUILD_ASSEMBLER_TIME: usize = 100;
 pub(crate) const BUILD_FURNACE_TIME: usize = 100;
 pub(crate) const IRON_INGOT_SMELT_TIME: usize = 50;

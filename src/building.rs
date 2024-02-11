@@ -7,7 +7,8 @@ use serde::Serialize;
 use crate::{
     task::{
         Task, BUILD_ASSEMBLER_TIME, BUILD_CREW_CABIN_TIME, BUILD_EXCAVATOR_TIME,
-        BUILD_FURNACE_TIME, BUILD_POWER_PLANT_TIME, BUILD_STORAGE_TIME, IRON_INGOT_SMELT_TIME,
+        BUILD_FURNACE_TIME, BUILD_MEDIUM_STORAGE_TIME, BUILD_POWER_PLANT_TIME, BUILD_STORAGE_TIME,
+        IRON_INGOT_SMELT_TIME,
     },
     transport::{expected_deliveries, find_path},
     Cell, ItemType, Transport,
@@ -18,6 +19,7 @@ pub(crate) enum BuildingType {
     Power,
     Excavator,
     Storage,
+    MediumStorage,
     CrewCabin,
     Assembler,
     Furnace,
@@ -29,6 +31,7 @@ impl BuildingType {
             Self::Power => 3,
             Self::Excavator => 3,
             Self::Storage => 10,
+            Self::MediumStorage => 50,
             Self::CrewCabin => 10,
             Self::Assembler => 30,
             Self::Furnace => 20,
@@ -37,7 +40,7 @@ impl BuildingType {
 
     pub fn size(&self) -> [usize; 2] {
         match self {
-            Self::CrewCabin | Self::Assembler | Self::Furnace => [2, 2],
+            Self::MediumStorage | Self::CrewCabin | Self::Assembler | Self::Furnace => [2, 2],
             _ => [1, 1],
         }
     }
@@ -56,6 +59,7 @@ impl BuildingType {
             Self::CrewCabin => -100,
             Self::Excavator => -10,
             Self::Storage => 0,
+            Self::MediumStorage => 0,
             Self::Assembler => -20,
             Self::Furnace => -10,
         }
@@ -67,9 +71,14 @@ impl BuildingType {
             Self::CrewCabin => BUILD_CREW_CABIN_TIME,
             Self::Excavator => BUILD_EXCAVATOR_TIME,
             Self::Storage => BUILD_STORAGE_TIME,
+            Self::MediumStorage => BUILD_MEDIUM_STORAGE_TIME,
             Self::Assembler => BUILD_ASSEMBLER_TIME,
             Self::Furnace => BUILD_FURNACE_TIME,
         }
+    }
+
+    pub fn is_storage(&self) -> bool {
+        matches!(self, Self::Storage | Self::MediumStorage)
     }
 }
 
@@ -79,6 +88,7 @@ impl Display for BuildingType {
             Self::Power => write!(f, "Power"),
             Self::Excavator => write!(f, "Excavator"),
             Self::Storage => write!(f, "Storage"),
+            Self::MediumStorage => write!(f, "MediumStorage"),
             Self::CrewCabin => write!(f, "CrewCabin"),
             Self::Assembler => write!(f, "Assembler"),
             Self::Furnace => write!(f, "Furnace"),
@@ -166,7 +176,6 @@ impl Building {
                         + expected.get(ty).copied().unwrap_or(0);
                     if this_count < *count {
                         let src = find_from_other_inventory_mut(*ty, first, last);
-                        crate::console_log!("find: {:?}", src.as_ref().map(|s| s.1));
                         if let Some((src, path)) = src.and_then(|src| {
                             if src.1 == 0 {
                                 return None;
@@ -214,7 +223,7 @@ impl Building {
         match this.type_ {
             BuildingType::Furnace => {
                 let dest = first.iter_mut().chain(last.iter_mut()).find_map(|b| {
-                    if !matches!(b.type_, BuildingType::Storage)
+                    if !b.type_.is_storage()
                         || b.type_.capacity()
                             <= b.inventory_size()
                                 + expected_deliveries(&transports, b.pos)
