@@ -137,6 +137,18 @@ fn recipes() -> &'static [Recipe] {
     })
 }
 
+type Pos = [i32; 2];
+
+/// Transporting item
+#[derive(Clone, Debug)]
+struct Transport {
+    src: Pos,
+    dest: Pos,
+    item: ItemType,
+    amount: usize,
+    path: Vec<Pos>,
+}
+
 #[wasm_bindgen]
 pub struct AsteroidColonies {
     cells: Vec<Cell>,
@@ -146,6 +158,7 @@ pub struct AsteroidColonies {
     /// Used power for the last tick, in kW
     used_power: usize,
     global_time: usize,
+    transports: Vec<Transport>,
 }
 
 #[wasm_bindgen]
@@ -161,7 +174,7 @@ impl AsteroidColonies {
             Building::new_inventory(
                 [3, 6],
                 BuildingType::Assembler,
-                hash_map!(ItemType::ConveyorComponent => 2),
+                hash_map!(ItemType::ConveyorComponent => 2, ItemType::PowerGridComponent => 2),
             ),
             Building::new([1, 6], BuildingType::Furnace),
         ];
@@ -183,6 +196,7 @@ impl AsteroidColonies {
             global_tasks: vec![],
             used_power: 0,
             global_time: 0,
+            transports: vec![],
         })
     }
 
@@ -267,8 +281,9 @@ impl AsteroidColonies {
         // A buffer to avoid borrow checker
         let mut moving_items = vec![];
         for i in 0..self.buildings.len() {
-            if let Err(e) = Building::tick(&mut self.buildings, i, &self.cells) {
-                console_log!("Building::tick error: {}", e);
+            match Building::tick(&mut self.buildings, i, &self.cells) {
+                Ok(tpts) => self.transports.extend_from_slice(&tpts),
+                Err(e) => console_log!("Building::tick error: {}", e),
             };
         }
         for building in &mut self.buildings {
@@ -285,6 +300,27 @@ impl AsteroidColonies {
         }
 
         self.process_global_tasks();
+
+        let intersects = |b: &Building, [ix, iy]: Pos| {
+            let size = b.type_.size();
+            b.pos[0] <= ix
+                && ix < size[0] as i32 + b.pos[0]
+                && b.pos[1] <= iy
+                && iy < size[1] as i32 + b.pos[1]
+        };
+
+        for t in &mut self.transports {
+            if t.path.len() <= 1 {
+                if let Some(building) = self.buildings.iter_mut().find(|b| intersects(b, t.dest)) {
+                    *building.inventory.entry(t.item).or_default() += t.amount;
+                    t.path.clear();
+                }
+            } else {
+                t.path.pop();
+            }
+        }
+
+        self.transports.retain(|t| !t.path.is_empty());
 
         self.global_time += 1;
 

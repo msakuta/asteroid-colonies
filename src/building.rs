@@ -12,7 +12,7 @@ use crate::{
         Direction, Task, BUILD_ASSEMBLER_TIME, BUILD_CREW_CABIN_TIME, BUILD_EXCAVATOR_TIME,
         BUILD_FURNACE_TIME, BUILD_POWER_PLANT_TIME, BUILD_STORAGE_TIME, IRON_INGOT_SMELT_TIME,
     },
-    Cell, ItemType, WIDTH,
+    Cell, ItemType, Transport, WIDTH,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize)]
@@ -149,10 +149,14 @@ impl Building {
         self.inventory.iter().map(|(_, v)| *v).sum()
     }
 
-    pub fn tick(bldgs: &mut [Building], idx: usize, cells: &[Cell]) -> Result<(), String> {
+    pub fn tick(
+        bldgs: &mut [Building],
+        idx: usize,
+        cells: &[Cell],
+    ) -> Result<Vec<Transport>, String> {
         let (first, rest) = bldgs.split_at_mut(idx);
         let Some((this, last)) = rest.split_first_mut() else {
-            return Ok(());
+            return Ok(vec![]);
         };
         // let mut others = || first.iter_mut().chain(last.iter_mut());
         if matches!(this.task, Task::None) {
@@ -196,6 +200,7 @@ impl Building {
                 };
             }
         }
+        let mut transports = vec![];
         match this.type_ {
             BuildingType::Furnace => {
                 let dest = first.iter_mut().chain(last.iter_mut()).find_map(|b| {
@@ -214,13 +219,20 @@ impl Building {
                         .iter_mut()
                         .find(|(t, count)| !matches!(t, ItemType::RawOre) && 0 < **count);
                     if let Some(product) = product {
-                        *dest.inventory.entry(*product.0).or_default() += 1;
+                        transports.push(Transport {
+                            src: this.pos,
+                            dest: dest.pos,
+                            path,
+                            item: *product.0,
+                            amount: 1,
+                        });
+                        // *dest.inventory.entry(*product.0).or_default() += 1;
                         *product.1 -= 1;
-                        this.output_path = Some(path);
+                        // this.output_path = Some(path);
                     }
                 }
                 if !matches!(this.task, Task::None) {
-                    return Ok(());
+                    return Ok(transports);
                 }
                 let source = first
                     .iter_mut()
@@ -228,7 +240,7 @@ impl Building {
                     .find(|b| 0 < *b.inventory.get(&ItemType::RawOre).unwrap_or(&0));
                 if let Some(source) = source {
                     let Some(entry) = source.inventory.get_mut(&ItemType::RawOre) else {
-                        return Ok(());
+                        return Ok(transports);
                     };
                     *entry -= 1;
                     let mut outputs = HashMap::new();
@@ -250,7 +262,7 @@ impl Building {
             }
             _ => {}
         }
-        Ok(())
+        Ok(transports)
     }
 }
 
@@ -322,7 +334,6 @@ fn find_path(cells: &[Cell], start: [i32; 2], goal: [i32; 2]) -> Option<Vec<[i32
                 nodes.push(cursor_entry.pos);
                 cursor = cursor_entry.from.and_then(|pos| visited.get(&pos)).copied();
             }
-            nodes.reverse();
             return Some(nodes);
         }
         let cell = &cells[next.pos[0] as usize + next.pos[1] as usize * WIDTH];

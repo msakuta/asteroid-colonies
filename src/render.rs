@@ -8,10 +8,11 @@ use crate::{
         GlobalTask, Task, BUILD_CONVEYOR_TIME, BUILD_POWER_GRID_TIME, EXCAVATE_TIME,
         LABOR_EXCAVATE_TIME, MOVE_ITEM_TIME, MOVE_TIME,
     },
-    BuildingType, CellState, WIDTH,
+    BuildingType, CellState, ItemType, WIDTH,
 };
 
 const TILE_SIZE: f64 = 32.;
+const ITEM_SIZE: f64 = 16.;
 const BAR_MARGIN: f64 = 4.;
 const BAR_WIDTH: f64 = TILE_SIZE - BAR_MARGIN * 2.;
 const BAR_HEIGHT: f64 = 6.;
@@ -166,6 +167,34 @@ impl AsteroidColonies {
                 render_global_task_bar(context, pos, t, max_time);
             }
         }
+
+        for t in &self.transports {
+            context.set_stroke_style(&JsValue::from("#ffff00"));
+            context.set_line_width(2.);
+            context.begin_path();
+            for node in &t.path {
+                context.line_to(
+                    (node[0] as f64 + 0.5) * TILE_SIZE,
+                    (node[1] as f64 + 0.5) * TILE_SIZE,
+                );
+            }
+            context.stroke();
+            if let Some(pos) = t.path.last() {
+                let (img, sw, sh) = match t.item {
+                    ItemType::IronIngot => (&self.assets.img_iron_ingot, 16., 16.),
+                    ItemType::CopperIngot => (&self.assets.img_copper_ingot, 16., 16.),
+                    _ => (&self.assets.img_iron_ingot, 16., 16.),
+                };
+                let offset = (TILE_SIZE as f64 - ITEM_SIZE as f64) / 2.;
+                let x = pos[0] as f64 * TILE_SIZE + offset;
+                let y = pos[1] as f64 * TILE_SIZE + offset;
+                context
+                    .draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+                        img, 0., 0., sw, sh, x, y, ITEM_SIZE, ITEM_SIZE,
+                    )?;
+            }
+        }
+
         Ok(())
     }
 }
