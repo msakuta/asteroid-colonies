@@ -1,7 +1,4 @@
-use std::{
-    collections::{BinaryHeap, HashMap},
-    fmt::Display,
-};
+use std::{collections::HashMap, fmt::Display};
 
 use rand::Rng;
 
@@ -9,11 +6,11 @@ use serde::Serialize;
 
 use crate::{
     task::{
-        Direction, Task, BUILD_ASSEMBLER_TIME, BUILD_CREW_CABIN_TIME, BUILD_EXCAVATOR_TIME,
+        Task, BUILD_ASSEMBLER_TIME, BUILD_CREW_CABIN_TIME, BUILD_EXCAVATOR_TIME,
         BUILD_FURNACE_TIME, BUILD_POWER_PLANT_TIME, BUILD_STORAGE_TIME, IRON_INGOT_SMELT_TIME,
     },
-    transport::find_path,
-    Cell, ItemType, Transport, WIDTH,
+    transport::{expected_deliveries, find_path},
+    Cell, ItemType, Transport,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize)]
@@ -154,6 +151,7 @@ impl Building {
         bldgs: &mut [Building],
         idx: usize,
         cells: &[Cell],
+        transports: &[Transport],
     ) -> Result<Vec<Transport>, String> {
         let (first, rest) = bldgs.split_at_mut(idx);
         let Some((this, last)) = rest.split_first_mut() else {
@@ -201,12 +199,16 @@ impl Building {
                 };
             }
         }
-        let mut transports = vec![];
+        let mut ret = vec![];
         match this.type_ {
             BuildingType::Furnace => {
                 let dest = first.iter_mut().chain(last.iter_mut()).find_map(|b| {
                     if !matches!(b.type_, BuildingType::Storage)
-                        || b.type_.capacity() <= b.inventory_size()
+                        || b.type_.capacity()
+                            <= b.inventory_size()
+                                + expected_deliveries(&transports, b.pos)
+                                    .values()
+                                    .sum::<usize>()
                     {
                         return None;
                     }
@@ -220,7 +222,7 @@ impl Building {
                         .iter_mut()
                         .find(|(t, count)| !matches!(t, ItemType::RawOre) && 0 < **count);
                     if let Some(product) = product {
-                        transports.push(Transport {
+                        ret.push(Transport {
                             src: this.pos,
                             dest: dest.pos,
                             path,
@@ -233,7 +235,7 @@ impl Building {
                     }
                 }
                 if !matches!(this.task, Task::None) {
-                    return Ok(transports);
+                    return Ok(ret);
                 }
                 let source = first
                     .iter_mut()
@@ -241,7 +243,7 @@ impl Building {
                     .find(|b| 0 < *b.inventory.get(&ItemType::RawOre).unwrap_or(&0));
                 if let Some(source) = source {
                     let Some(entry) = source.inventory.get_mut(&ItemType::RawOre) else {
-                        return Ok(transports);
+                        return Ok(ret);
                     };
                     *entry -= 1;
                     let mut outputs = HashMap::new();
@@ -263,6 +265,6 @@ impl Building {
             }
             _ => {}
         }
-        Ok(transports)
+        Ok(ret)
     }
 }

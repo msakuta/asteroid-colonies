@@ -273,7 +273,7 @@ impl AsteroidColonies {
         // A buffer to avoid borrow checker
         let mut moving_items = vec![];
         for i in 0..self.buildings.len() {
-            match Building::tick(&mut self.buildings, i, &self.cells) {
+            match Building::tick(&mut self.buildings, i, &self.cells, &self.transports) {
                 Ok(tpts) => self.transports.extend_from_slice(&tpts),
                 Err(e) => console_log!("Building::tick error: {}", e),
             };

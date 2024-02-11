@@ -48,6 +48,17 @@ impl AsteroidColonies {
     }
 }
 
+/// Count all items in delivery flight and sum up in a single HashMap.
+pub(crate) fn expected_deliveries(transports: &[Transport], dest: Pos) -> HashMap<ItemType, usize> {
+    transports
+        .iter()
+        .filter(|t| t.dest == dest)
+        .fold(HashMap::new(), |mut acc, cur| {
+            *acc.entry(cur.item).or_default() += cur.amount;
+            acc
+        })
+}
+
 pub(crate) fn find_path(cells: &[Cell], start: [i32; 2], goal: [i32; 2]) -> Option<Vec<[i32; 2]>> {
     #[derive(Clone, Copy)]
     struct Entry {
