@@ -1,6 +1,6 @@
 use std::collections::{BinaryHeap, HashMap};
 
-use crate::{task::Direction, AsteroidColonies, Cell, ItemType, Pos, WIDTH};
+use crate::{task::Direction, AsteroidColonies, ItemType, Pos, WIDTH};
 
 /// Transporting item
 #[derive(Clone, Debug)]
@@ -56,7 +56,11 @@ impl AsteroidColonies {
                     }
                 }
                 if !delivered {
-                    let return_path = find_path(&self.cells, t.dest, t.src);
+                    let cells = &self.cells;
+                    let return_path = find_path(t.dest, t.src, |pos| {
+                        let cell = &cells[pos[0] as usize + pos[1] as usize * WIDTH];
+                        cell.conveyor
+                    });
                     if let Some(return_path) = return_path {
                         std::mem::swap(&mut t.src, &mut t.dest);
                         t.path = return_path;
@@ -82,7 +86,11 @@ pub(crate) fn expected_deliveries(transports: &[Transport], dest: Pos) -> HashMa
         })
 }
 
-pub(crate) fn find_path(cells: &[Cell], start: [i32; 2], goal: [i32; 2]) -> Option<Vec<[i32; 2]>> {
+pub(crate) fn find_path(
+    start: [i32; 2],
+    goal: [i32; 2],
+    is_passable: impl Fn([i32; 2]) -> bool,
+) -> Option<Vec<[i32; 2]>> {
     #[derive(Clone, Copy)]
     struct Entry {
         pos: [i32; 2],
@@ -100,7 +108,7 @@ pub(crate) fn find_path(cells: &[Cell], start: [i32; 2], goal: [i32; 2]) -> Opti
 
     impl std::cmp::PartialOrd for Entry {
         fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-            Some(self.dist.cmp(&other.dist))
+            Some(self.dist.cmp(&other.dist).reverse())
         }
     }
 
@@ -152,8 +160,7 @@ pub(crate) fn find_path(cells: &[Cell], start: [i32; 2], goal: [i32; 2]) -> Opti
             }
             return Some(nodes);
         }
-        let cell = &cells[next.pos[0] as usize + next.pos[1] as usize * WIDTH];
-        if cell.conveyor {
+        if is_passable(next.pos) {
             visited.insert(next.pos, next);
             insert_neighbors(&mut next_set, &visited, next.pos, next.dist);
         }

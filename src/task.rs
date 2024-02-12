@@ -4,7 +4,7 @@ use wasm_bindgen::JsValue;
 
 use crate::{
     building::Recipe, construction::BuildMenuItem, AsteroidColonies, Building, BuildingType, Cell,
-    CellState, ItemType, WIDTH,
+    CellState, ItemType, Pos, WIDTH,
 };
 
 pub(crate) const EXCAVATE_TIME: f64 = 10.;
@@ -19,7 +19,7 @@ pub(crate) const RAW_ORE_SMELT_TIME: f64 = 30.;
 pub(crate) enum Task {
     None,
     Excavate(f64, Direction),
-    Move(f64, Direction),
+    Move(f64, Vec<Pos>),
     MoveItem {
         t: f64,
         item_type: ItemType,
@@ -95,39 +95,6 @@ impl AsteroidColonies {
         }
         self.global_tasks
             .push(GlobalTask::Excavate(LABOR_EXCAVATE_TIME, [ix, iy]));
-        Ok(JsValue::from(true))
-    }
-
-    pub(crate) fn move_(&mut self, ix: i32, iy: i32) -> Result<JsValue, JsValue> {
-        let cell = &self.cells[ix as usize + iy as usize * WIDTH];
-        if matches!(cell.state, CellState::Solid) {
-            return Err(JsValue::from("Needs excavation before moving"));
-        }
-        if !cell.power_grid {
-            return Err(JsValue::from("Power grid is required to move"));
-        }
-
-        let intersects = |b: &Building| {
-            let size = b.type_.size();
-            b.pos[0] <= ix
-                && ix < size[0] as i32 + b.pos[0]
-                && b.pos[1] <= iy
-                && iy < size[1] as i32 + b.pos[1]
-        };
-
-        if self.buildings.iter().any(intersects) {
-            return Err(JsValue::from(
-                "The destination is already occupied by a building",
-            ));
-        }
-        for building in &mut self.buildings {
-            if building.type_ != BuildingType::Excavator {
-                continue;
-            }
-            if let Some(dir) = choose_direction(&building.pos, ix, iy) {
-                building.task = Task::Move(MOVE_TIME, dir);
-            }
-        }
         Ok(JsValue::from(true))
     }
 
@@ -237,7 +204,7 @@ impl AsteroidColonies {
         Err(JsValue::from("No structure to send from"))
     }
 
-    fn _is_clear(&self, ix: i32, iy: i32, size: [usize; 2]) -> bool {
+    pub(super) fn _is_clear(&self, ix: i32, iy: i32, size: [usize; 2]) -> bool {
         for jy in iy..iy + size[1] as i32 {
             for jx in ix..ix + size[0] as i32 {
                 let j_cell = &self.cells[jx as usize + jy as usize * WIDTH];
@@ -294,12 +261,14 @@ impl AsteroidColonies {
                     *t = (*t - power_ratio).max(0.);
                 }
             }
-            Task::Move(ref mut t, dir) => {
+            Task::Move(ref mut t, ref mut path) => {
                 if *t <= 0. {
-                    building.task = Task::None;
-                    let dir_vec = dir.to_vec();
-                    building.pos[0] += dir_vec[0];
-                    building.pos[1] += dir_vec[1];
+                    if let Some(next) = path.pop() {
+                        building.pos = next;
+                        *t = MOVE_TIME;
+                    } else {
+                        building.task = Task::None;
+                    }
                 } else {
                     *t = (*t - power_ratio).max(0.);
                 }

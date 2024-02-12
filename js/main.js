@@ -56,24 +56,47 @@ const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     game.render(ctx);
     let mousePos = null;
+    let moving = null;
 
     canvas.addEventListener('mousemove', evt => {
         const [x, y] = mousePos = toLogicalCoords(evt.clientX, evt.clientY);
-        game.set_cursor(x, y);
-        const info = game.get_info(x, y);
-        document.getElementById('info').innerHTML = formatInfo(info);
+        if (!moving) {
+            game.set_cursor(x, y);
+            const info = game.get_info(x, y);
+            document.getElementById('info').innerHTML = formatInfo(info);
+        }
     });
 
     canvas.addEventListener('mouseleave', evt => mousePos = null);
 
     canvas.addEventListener('click', evt => {
+        const [x, y] = toLogicalCoords(evt.clientX, evt.clientY);
+        const messageOverlayElem = document.getElementById("messageOverlay");
+        if (moving) {
+            game.move_building(moving[0], moving[1], x, y);
+            messageOverlayElem.style.display = "none";
+            moving = null;
+            return;
+        }
+
         for (let name of ["excavate", "move", "power", "conveyor", "moveItem", "build", "recipe"]) {
             const elem = document.getElementById(name);
             if (elem?.checked) {
-                const [x, y] = toLogicalCoords(evt.clientX, evt.clientY);
                 const buildMenuElem = document.getElementById("buildMenu");
                 const recipesElem = document.getElementById("recipes");
-                if (name === "build") {
+                if (name === "move") {
+                    recipesElem.style.display = "none";
+                    try {
+                        messageOverlayElem.innerHTML = "Choose move destination";
+                        messageOverlayElem.style.display = "block";
+                        moving = [x, y];
+                    }
+                    catch (e) {
+                        console.error(e);
+                        messageOverlayElem.style.display = "none";
+                    }
+                }
+                else if (name === "build") {
                     recipesElem.style.display = "none";
                     try {
                         const buildMenu = game.get_build_menu(x, y);
@@ -271,6 +294,7 @@ function formatConstruction(construction) {
 
 function formatInfo(result) {
     return `Building: ${result.building?.type_}
+    Task: ${result.building?.task}
     Recipe: ${result.building?.recipe ? formatRecipe(result.building.recipe) : ""}
     Inventory: ${result.building?.inventory ? formatInventory(result.building.inventory) : ""}
     Construction: ${result.construction ? formatConstruction(result.construction) : ""}

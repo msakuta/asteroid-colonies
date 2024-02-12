@@ -8,7 +8,7 @@ use crate::{
     hash_map,
     task::{Task, RAW_ORE_SMELT_TIME},
     transport::{expected_deliveries, find_path},
-    Cell, ItemType, Pos, Transport,
+    Cell, ItemType, Pos, Transport, WIDTH,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -64,6 +64,11 @@ impl BuildingType {
 
     pub fn is_storage(&self) -> bool {
         matches!(self, Self::Storage | Self::MediumStorage)
+    }
+
+    /// Is it a movable building?
+    pub fn is_mobile(&self) -> bool {
+        matches!(self, Self::Excavator)
     }
 }
 
@@ -265,7 +270,10 @@ pub(crate) fn pull_inputs(
                 if src.1 == 0 {
                     return None;
                 }
-                let path = find_path(cells, src.0.pos, this_pos)?;
+                let path = find_path(src.0.pos, this_pos, |pos| {
+                    let cell = &cells[pos[0] as usize + pos[1] as usize * WIDTH];
+                    cell.conveyor
+                })?;
                 Some((src.0, path))
             }) {
                 let src_count = src.inventory.entry(*ty).or_default();
@@ -305,7 +313,10 @@ fn push_outputs(
         {
             return None;
         }
-        let path = find_path(cells, this.pos, b.pos)?;
+        let path = find_path(this.pos, b.pos, |pos| {
+            let cell = &cells[pos[0] as usize + pos[1] as usize * WIDTH];
+            cell.conveyor
+        })?;
         Some((b, path))
     });
     // Push away outputs

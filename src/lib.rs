@@ -8,7 +8,7 @@ mod transport;
 mod utils;
 
 use construction::get_build_menu;
-use render::TILE_SIZE;
+
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
 use web_sys::js_sys;
@@ -18,8 +18,8 @@ use crate::{
     building::{Building, BuildingType, Recipe},
     construction::Construction,
     render::TILE_SIZE_I,
-    task::GlobalTask,
-    transport::Transport,
+    task::{GlobalTask, Task, MOVE_TIME},
+    transport::{find_path, Transport},
 };
 
 #[macro_export]
@@ -194,6 +194,7 @@ impl AsteroidColonies {
         for [x, y] in [[1, 7], [1, 8], [1, 9], [4, 4], [4, 5], [4, 6]] {
             cells[x + y * WIDTH].state = CellState::Empty;
             cells[x + y * WIDTH].conveyor = true;
+            cells[x + y * WIDTH].power_grid = true;
         }
         Ok(Self {
             cursor: None,
@@ -222,11 +223,50 @@ impl AsteroidColonies {
         }
         match com {
             "excavate" => self.excavate(ix, iy),
-            "move" => self.move_(ix, iy),
+            // "move" => self.move_(ix, iy),
             "power" => self.build_power_grid(ix, iy),
             "conveyor" => self.conveyor(ix, iy),
             "moveItem" => self.move_item(ix, iy),
             _ => Err(JsValue::from(format!("Unknown command: {}", com))),
+        }
+    }
+
+    pub fn move_building(&mut self, src_x: i32, src_y: i32, dst_x: i32, dst_y: i32) {
+        let ix = src_x.div_euclid(TILE_SIZE_I);
+        let iy = src_y.div_euclid(TILE_SIZE_I);
+        let dx = dst_x.div_euclid(TILE_SIZE_I);
+        let dy = dst_y.div_euclid(TILE_SIZE_I);
+        let Some(building) = self.buildings.iter_mut().find(|b| b.pos == [ix, iy]) else {
+            return;
+        };
+        if !building.type_.is_mobile() {
+            return;
+        }
+        if matches!(building.task, Task::None) {
+            let cells = &self.cells;
+            let buildings = &self.buildings;
+
+            let intersects = |pos: [i32; 2]| {
+                buildings.iter().any(|b| {
+                    let size = b.type_.size();
+                    b.pos[0] <= pos[0]
+                        && pos[0] < size[0] as i32 + b.pos[0]
+                        && b.pos[1] <= pos[1]
+                        && pos[1] < size[1] as i32 + b.pos[1]
+                })
+            };
+
+            let path = find_path([ix, iy], [dx, dy], |pos| {
+                let cell = &cells[pos[0] as usize + pos[1] as usize * WIDTH];
+                !intersects(pos) && matches!(cell.state, CellState::Empty) && cell.power_grid
+            });
+            if let Some(mut path) = path {
+                // Re-borrow to avoid borrow checker
+                if let Some(building) = self.buildings.iter_mut().find(|b| b.pos == [ix, iy]) {
+                    path.pop();
+                    building.task = Task::Move(MOVE_TIME, path);
+                }
+            }
         }
     }
 
