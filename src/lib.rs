@@ -91,11 +91,11 @@ enum ItemType {
     RawOre,
     IronIngot,
     CopperIngot,
-    PowerGridComponent,
-    ConveyorComponent,
     Gear,
     Wire,
     Circuit,
+    PowerGridComponent,
+    ConveyorComponent,
     AssemblerComponent,
 }
 

@@ -35,8 +35,12 @@ const canvas = document.getElementById('canvas');
         ["crew_cabin", crew_cabin],
         ["assembler", assembler],
         ["furnace", furnace],
+        ["raw_ore", rawOre],
         ["iron_ingot", ironIngot],
-        ["copper_ingot", copperIngot]
+        ["copper_ingot", copperIngot],
+        ["gear", gear],
+        ["wire", wire],
+        ["circuit", circuit],
     ].map(async ([name, src]) => {
         return [name, src, await loadImage(src)];
     });

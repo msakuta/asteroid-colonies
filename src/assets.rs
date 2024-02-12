@@ -12,8 +12,12 @@ pub(crate) struct Assets {
     pub img_crew_cabin: HtmlImageElement,
     pub img_assembler: HtmlImageElement,
     pub img_furnace: HtmlImageElement,
+    pub img_raw_ore: HtmlImageElement,
     pub img_iron_ingot: HtmlImageElement,
     pub img_copper_ingot: HtmlImageElement,
+    pub img_gear: HtmlImageElement,
+    pub img_wire: HtmlImageElement,
+    pub img_circuit: HtmlImageElement,
 }
 
 impl Assets {
@@ -50,8 +54,12 @@ impl Assets {
             img_crew_cabin: load_texture("crew_cabin")?,
             img_assembler: load_texture("assembler")?,
             img_furnace: load_texture("furnace")?,
+            img_raw_ore: load_texture("raw_ore")?,
             img_iron_ingot: load_texture("iron_ingot")?,
             img_copper_ingot: load_texture("copper_ingot")?,
+            img_gear: load_texture("gear")?,
+            img_wire: load_texture("wire")?,
+            img_circuit: load_texture("circuit")?,
         })
     }
 }
