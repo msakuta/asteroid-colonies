@@ -202,6 +202,7 @@ impl AsteroidColonies {
                     ItemType::RawOre => (&self.assets.img_raw_ore, 16., 16.),
                     ItemType::IronIngot => (&self.assets.img_iron_ingot, 16., 16.),
                     ItemType::CopperIngot => (&self.assets.img_copper_ingot, 16., 16.),
+                    ItemType::Cilicate => (&self.assets.img_cilicate, 16., 16.),
                     ItemType::Gear => (&self.assets.img_gear, 32., 32.),
                     ItemType::Wire => (&self.assets.img_wire, 32., 32.),
                     ItemType::Circuit => (&self.assets.img_circuit, 32., 32.),

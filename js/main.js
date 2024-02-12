@@ -2,6 +2,7 @@ import bg from '../images/back32.png';
 import rawOre from '../images/rawOre.png';
 import ironIngot from '../images/ironIngot.png';
 import copperIngot from '../images/copperIngot.png';
+import cilicate from '../images/cilicate.png';
 import gear from '../images/gear.png';
 import wire from '../images/wire.png';
 import circuit from '../images/circuit.png';
@@ -39,6 +40,7 @@ const canvas = document.getElementById('canvas');
         ["raw_ore", rawOre],
         ["iron_ingot", ironIngot],
         ["copper_ingot", copperIngot],
+        ["cilicate", cilicate],
         ["gear", gear],
         ["wire", wire],
         ["circuit", circuit],
@@ -164,6 +166,7 @@ function itemToIcon(item) {
         case "RawOre": return rawOre;
         case "IronIngot": return ironIngot;
         case "CopperIngot": return copperIngot;
+        case "Cilicate": return cilicate;
         case "Gear": return gear;
         case "Wire": return wire;
         case "Circuit": return circuit;

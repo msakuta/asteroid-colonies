@@ -94,6 +94,7 @@ enum ItemType {
     RawOre,
     IronIngot,
     CopperIngot,
+    Cilicate,
     Gear,
     Wire,
     Circuit,

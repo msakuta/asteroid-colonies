@@ -13,7 +13,7 @@ pub(crate) const MOVE_TIME: usize = 2;
 pub(crate) const BUILD_POWER_GRID_TIME: usize = 5;
 pub(crate) const BUILD_CONVEYOR_TIME: usize = 10;
 pub(crate) const MOVE_ITEM_TIME: usize = 2;
-pub(crate) const IRON_INGOT_SMELT_TIME: usize = 50;
+pub(crate) const RAW_ORE_SMELT_TIME: usize = 30;
 
 #[derive(Clone, Debug)]
 pub(crate) enum Task {
@@ -279,7 +279,7 @@ impl AsteroidColonies {
     ) -> Option<(ItemType, [i32; 2])> {
         match building.task {
             Task::Excavate(ref mut t, dir) => {
-                const TOTAL_AMOUNT: usize = 4;
+                const TOTAL_AMOUNT: usize = 5;
                 if *t == 0 {
                     building.task = Task::None;
                     *building

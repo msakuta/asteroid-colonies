@@ -47,7 +47,7 @@ pub(crate) fn get_build_menu() -> &'static [BuildMenuItem] {
             },
             BuildMenuItem {
                 type_: BuildingType::Storage,
-                ingredients: hash_map!(ItemType::IronIngot => 3),
+                ingredients: hash_map!(ItemType::IronIngot => 1, ItemType::Cilicate => 5),
                 time: 100,
             },
             BuildMenuItem {
@@ -57,7 +57,7 @@ pub(crate) fn get_build_menu() -> &'static [BuildMenuItem] {
             },
             BuildMenuItem {
                 type_: BuildingType::MediumStorage,
-                ingredients: hash_map!(ItemType::IronIngot => 20, ItemType::Gear => 5),
+                ingredients: hash_map!(ItemType::IronIngot => 2,  ItemType::Gear => 2, ItemType::Cilicate => 10),
                 time: 200,
             },
             BuildMenuItem {

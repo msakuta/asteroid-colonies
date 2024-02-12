@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     hash_map,
-    task::{Task, IRON_INGOT_SMELT_TIME},
+    task::{Task, RAW_ORE_SMELT_TIME},
     transport::{expected_deliveries, find_path},
     Cell, ItemType, Pos, Transport,
 };
@@ -25,13 +25,13 @@ pub(crate) enum BuildingType {
 impl BuildingType {
     pub fn capacity(&self) -> usize {
         match self {
-            Self::Power => 3,
-            Self::Excavator => 5,
-            Self::Storage => 10,
-            Self::MediumStorage => 50,
-            Self::CrewCabin => 10,
-            Self::Assembler => 30,
-            Self::Furnace => 20,
+            Self::Power => 5,
+            Self::Excavator => 10,
+            Self::Storage => 20,
+            Self::MediumStorage => 100,
+            Self::CrewCabin => 20,
+            Self::Assembler => 40,
+            Self::Furnace => 30,
         }
     }
 
@@ -211,7 +211,7 @@ impl Building {
                 let recipe = Recipe {
                     inputs: hash_map!(ItemType::RawOre => 1),
                     outputs: hash_map!(ItemType::IronIngot => 1),
-                    time: IRON_INGOT_SMELT_TIME,
+                    time: RAW_ORE_SMELT_TIME,
                 };
                 pull_inputs(
                     &recipe.inputs,
@@ -227,14 +227,14 @@ impl Building {
                         return Ok(());
                     };
                     *source -= 1;
-                    let outputs = hash_map!(if rand::thread_rng().gen_range(0..=1) == 0 {
-                        ItemType::IronIngot
-                    } else {
-                        ItemType::CopperIngot
+                    let outputs = hash_map!(match rand::thread_rng().gen_range(0..7) {
+                        0..=3 => ItemType::Cilicate,
+                        4..=5 => ItemType::IronIngot,
+                        _ => ItemType::CopperIngot,
                     } => 1);
                     this.task = Task::Assemble {
-                        t: IRON_INGOT_SMELT_TIME,
-                        max_t: IRON_INGOT_SMELT_TIME,
+                        t: RAW_ORE_SMELT_TIME,
+                        max_t: RAW_ORE_SMELT_TIME,
                         outputs,
                     };
                 }
