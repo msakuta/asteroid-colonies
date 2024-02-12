@@ -205,6 +205,17 @@ impl Building {
                 };
             }
         }
+        // Try pushing out products
+        if let Some(recipe) = this.recipe {
+            ret.extend_from_slice(&push_outputs(
+                cells,
+                transports,
+                this,
+                first,
+                last,
+                &|item| recipe.outputs.contains_key(&item),
+            ));
+        }
         match this.type_ {
             BuildingType::Excavator => {
                 ret.extend_from_slice(&push_outputs(cells, transports, this, first, last, &|t| {
