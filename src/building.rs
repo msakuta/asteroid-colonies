@@ -5,6 +5,7 @@ use rand::Rng;
 use serde::Serialize;
 
 use crate::{
+    hash_map,
     task::{
         Task, BUILD_ASSEMBLER_TIME, BUILD_CREW_CABIN_TIME, BUILD_EXCAVATOR_TIME,
         BUILD_FURNACE_TIME, BUILD_MEDIUM_STORAGE_TIME, BUILD_POWER_PLANT_TIME, BUILD_STORAGE_TIME,
@@ -29,7 +30,7 @@ impl BuildingType {
     pub fn capacity(&self) -> usize {
         match self {
             Self::Power => 3,
-            Self::Excavator => 3,
+            Self::Excavator => 5,
             Self::Storage => 10,
             Self::MediumStorage => 50,
             Self::CrewCabin => 10,
@@ -217,25 +218,31 @@ impl Building {
                 if !matches!(this.task, Task::None) {
                     return Ok(ret);
                 }
-                let source = first
-                    .iter_mut()
-                    .chain(last.iter_mut())
-                    .find(|b| 0 < *b.inventory.get(&ItemType::RawOre).unwrap_or(&0));
-                if let Some(source) = source {
-                    let Some(entry) = source.inventory.get_mut(&ItemType::RawOre) else {
+                // A tentative recipe. The output does not have to represent the actual products yet.
+                let recipe = Recipe {
+                    inputs: hash_map!(ItemType::RawOre => 1),
+                    outputs: hash_map!(ItemType::IronIngot => 1),
+                    time: IRON_INGOT_SMELT_TIME,
+                };
+                ret.extend_from_slice(&pull_inputs(
+                    &recipe,
+                    cells,
+                    transports,
+                    this.pos,
+                    &mut this.inventory,
+                    first,
+                    last,
+                ));
+                if let Some(source) = this.inventory.get_mut(&ItemType::RawOre) {
+                    if *source < 1 {
                         return Ok(ret);
                     };
-                    *entry -= 1;
-                    let mut outputs = HashMap::new();
-                    const TOTAL_AMOUNT: usize = 4;
-                    let iron = rand::thread_rng().gen_range(0..=TOTAL_AMOUNT);
-                    if 0 < iron {
-                        outputs.insert(ItemType::IronIngot, iron);
-                    }
-                    let copper = TOTAL_AMOUNT - iron;
-                    if 0 < copper {
-                        outputs.insert(ItemType::CopperIngot, copper);
-                    }
+                    *source -= 1;
+                    let outputs = hash_map!(if rand::thread_rng().gen_range(0..=1) == 0 {
+                        ItemType::IronIngot
+                    } else {
+                        ItemType::CopperIngot
+                    } => 1);
                     this.task = Task::Assemble {
                         t: IRON_INGOT_SMELT_TIME,
                         max_t: IRON_INGOT_SMELT_TIME,
@@ -363,6 +370,9 @@ fn find_from_other_inventory_mut<'a>(
 ) -> Option<(&'a mut Building, usize)> {
     first.iter_mut().chain(last.iter_mut()).find_map(|o| {
         let count = *o.inventory.get(&item)?;
+        if count == 0 {
+            return None;
+        }
         Some((o, count))
     })
 }

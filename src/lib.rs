@@ -17,6 +17,7 @@ use crate::{
     transport::Transport,
 };
 
+#[macro_export]
 macro_rules! hash_map {
     { $($key:expr => $value:expr),+ } => {
         {
@@ -163,13 +164,13 @@ impl AsteroidColonies {
             Building::new([3, 4], BuildingType::Power),
             Building::new([4, 4], BuildingType::Excavator),
             Building::new([5, 4], BuildingType::Storage),
-            Building::new([6, 3], BuildingType::MediumStorage),
             Building::new_inventory(
-                [1, 10],
-                BuildingType::Assembler,
+                [6, 3],
+                BuildingType::MediumStorage,
                 hash_map!(ItemType::ConveyorComponent => 2, ItemType::PowerGridComponent => 2),
             ),
-            Building::new([1, 6], BuildingType::Furnace),
+            Building::new([1, 10], BuildingType::Assembler),
+            Building::new([1, 5], BuildingType::Furnace),
         ];
         for building in &buildings {
             let pos = building.pos;
@@ -182,7 +183,7 @@ impl AsteroidColonies {
                 }
             }
         }
-        for [x, y] in [[1, 8], [1, 9]] {
+        for [x, y] in [[1, 7], [1, 8], [1, 9]] {
             cells[x + y * WIDTH].state = CellState::Empty;
             cells[x + y * WIDTH].conveyor = true;
         }

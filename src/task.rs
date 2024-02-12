@@ -319,12 +319,13 @@ impl AsteroidColonies {
     ) -> Option<(ItemType, [i32; 2])> {
         match building.task {
             Task::Excavate(ref mut t, dir) => {
+                const TOTAL_AMOUNT: usize = 4;
                 if *t == 0 {
                     building.task = Task::None;
                     *building
                         .inventory
                         .entry(crate::ItemType::RawOre)
-                        .or_default() += 1;
+                        .or_default() += TOTAL_AMOUNT;
                     let dir_vec = dir.to_vec();
                     let [x, y] = [building.pos[0] + dir_vec[0], building.pos[1] + dir_vec[1]];
                     cells[x as usize + y as usize * WIDTH].state = CellState::Empty;
