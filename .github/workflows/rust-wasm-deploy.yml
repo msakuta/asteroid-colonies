@@ -28,6 +28,8 @@ jobs:
       run: rustup target add wasm32-unknown-unknown
     - name: Build
       run: npm ci && npm run build
+      env:
+        DEPLOY: 1
     - name: Deploy
       uses: peaceiris/actions-gh-pages@v3
       with:

@@ -1,6 +1,8 @@
 import rust from '@wasm-tool/rollup-plugin-rust';
 import url from '@rollup/plugin-url';
 
+const deploy = !!process.env.DEPLOY;
+
 export default {
     input: "./js/main.js",
     output: {
@@ -8,7 +10,7 @@ export default {
     },
     plugins:[
         rust({
-            serverPath: "/js/",
+            serverPath: deploy ? "/asteroid-colonies/js/" : "./js/",
         }),
 		url(),
     ]
