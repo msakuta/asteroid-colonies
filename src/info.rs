@@ -31,7 +31,7 @@ struct GetConstructionInfoResult {
 struct GetInfoResult {
     building: Option<GetBuildingInfoResult>,
     construction: Option<GetConstructionInfoResult>,
-    power_consumed: usize,
+    power_demand: usize,
     power_capacity: usize,
     transports: usize,
 }
@@ -80,7 +80,7 @@ impl AsteroidColonies {
             .iter()
             .map(|b| b.power().max(0))
             .sum::<isize>() as usize;
-        let power_consumed = self
+        let power_demand = self
             .buildings
             .iter()
             .map(|b| b.power().min(0))
@@ -90,7 +90,7 @@ impl AsteroidColonies {
         let result = GetInfoResult {
             building: bldg_result,
             construction,
-            power_consumed,
+            power_demand,
             power_capacity,
             transports: self.transports.len(),
         };

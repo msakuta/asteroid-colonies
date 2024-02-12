@@ -113,32 +113,32 @@ fn recipes() -> &'static [Recipe] {
             Recipe {
                 inputs: hash_map!(ItemType::Wire => 1, ItemType::IronIngot => 1),
                 outputs: hash_map!(ItemType::PowerGridComponent => 1),
-                time: 100,
+                time: 100.,
             },
             Recipe {
                 inputs: hash_map!(ItemType::IronIngot => 2),
                 outputs: hash_map!(ItemType::ConveyorComponent => 1),
-                time: 120,
+                time: 120.,
             },
             Recipe {
                 inputs: hash_map!(ItemType::IronIngot => 1),
                 outputs: hash_map!(ItemType::Gear => 2),
-                time: 70,
+                time: 70.,
             },
             Recipe {
                 inputs: hash_map!(ItemType::CopperIngot => 1),
                 outputs: hash_map!(ItemType::Wire => 2),
-                time: 50,
+                time: 50.,
             },
             Recipe {
                 inputs: hash_map!(ItemType::Wire => 1, ItemType::IronIngot => 1),
                 outputs: hash_map!(ItemType::Circuit => 1),
-                time: 120,
+                time: 120.,
             },
             Recipe {
                 inputs: hash_map!(ItemType::Gear => 2, ItemType::Circuit => 2),
                 outputs: hash_map!(ItemType::AssemblerComponent => 1),
-                time: 200,
+                time: 200.,
             },
         ]
     })
@@ -320,6 +320,18 @@ impl AsteroidColonies {
     }
 
     pub fn tick(&mut self) -> Result<(), JsValue> {
+        let power_demand = self
+            .buildings
+            .iter()
+            .map(|b| b.power().min(0).abs() as usize)
+            .sum::<usize>();
+        let power_supply = self
+            .buildings
+            .iter()
+            .map(|b| b.power().max(0).abs() as usize)
+            .sum::<usize>();
+        // let power_load = (power_demand as f64 / power_supply as f64).min(1.);
+        let power_ratio = (power_supply as f64 / power_demand as f64).min(1.);
         // A buffer to avoid borrow checker
         let mut moving_items = vec![];
         for i in 0..self.buildings.len() {
@@ -329,7 +341,7 @@ impl AsteroidColonies {
             };
         }
         for building in &mut self.buildings {
-            if let Some((item, dest)) = Self::process_task(&mut self.cells, building) {
+            if let Some((item, dest)) = Self::process_task(&mut self.cells, building, power_ratio) {
                 moving_items.push((item, dest));
             }
         }

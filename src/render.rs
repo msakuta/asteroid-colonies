@@ -227,8 +227,8 @@ impl AsteroidColonies {
 fn render_global_task_bar(
     context: &CanvasRenderingContext2d,
     pos: &[i32; 2],
-    t: usize,
-    max_time: usize,
+    t: f64,
+    max_time: f64,
 ) {
     let x = pos[0] as f64 * TILE_SIZE;
     let y = pos[1] as f64 * TILE_SIZE;
@@ -241,7 +241,7 @@ fn render_global_task_bar(
     context.fill_rect(
         x + BAR_MARGIN,
         y + BAR_MARGIN,
-        t as f64 * BAR_WIDTH / max_time as f64,
+        t * BAR_WIDTH / max_time,
         BAR_HEIGHT,
     );
 }

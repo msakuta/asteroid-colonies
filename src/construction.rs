@@ -33,7 +33,7 @@ impl Construction {
 pub(crate) struct BuildMenuItem {
     pub type_: BuildingType,
     pub ingredients: HashMap<ItemType, usize>,
-    pub time: usize,
+    pub time: f64,
 }
 
 pub(crate) fn get_build_menu() -> &'static [BuildMenuItem] {
@@ -43,27 +43,32 @@ pub(crate) fn get_build_menu() -> &'static [BuildMenuItem] {
             BuildMenuItem {
                 type_: BuildingType::Power,
                 ingredients: hash_map!(ItemType::PowerGridComponent => 3),
-                time: 120,
+                time: 120.,
             },
             BuildMenuItem {
                 type_: BuildingType::Storage,
                 ingredients: hash_map!(ItemType::IronIngot => 1, ItemType::Cilicate => 5),
-                time: 100,
+                time: 100.,
             },
             BuildMenuItem {
                 type_: BuildingType::Excavator,
                 ingredients: hash_map!(ItemType::IronIngot => 3, ItemType::Gear => 2, ItemType::Circuit => 2),
-                time: 200,
+                time: 200.,
             },
             BuildMenuItem {
                 type_: BuildingType::MediumStorage,
                 ingredients: hash_map!(ItemType::IronIngot => 2,  ItemType::Gear => 2, ItemType::Cilicate => 10),
-                time: 200,
+                time: 200.,
+            },
+            BuildMenuItem {
+                type_: BuildingType::Furnace,
+                ingredients: hash_map!(ItemType::IronIngot => 2, ItemType::Wire => 1, ItemType::Cilicate => 6),
+                time: 300.,
             },
             BuildMenuItem {
                 type_: BuildingType::Assembler,
                 ingredients: hash_map!(ItemType::AssemblerComponent => 4),
-                time: 300,
+                time: 300.,
             },
         ]
     })

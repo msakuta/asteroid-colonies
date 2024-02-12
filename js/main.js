@@ -272,7 +272,8 @@ function formatInfo(result) {
     Inventory: ${result.building?.inventory ? formatInventory(result.building.inventory) : ""}
     Construction: ${result.construction ? formatConstruction(result.construction) : ""}
     Power capacity: ${result.power_capacity} kW
-    Used power: ${result.power_consumed} kW
+    Power demand: ${result.power_demand} kW
+    Power load: ${(result.power_demand / result.power_capacity * 100).toFixed(1)} %
     Transports: ${result.transports}`;
 }
 

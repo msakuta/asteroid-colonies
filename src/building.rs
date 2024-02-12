@@ -85,7 +85,7 @@ impl Display for BuildingType {
 pub(crate) struct Recipe {
     pub inputs: HashMap<ItemType, usize>,
     pub outputs: HashMap<ItemType, usize>,
-    pub time: usize,
+    pub time: f64,
 }
 
 pub(crate) struct Building {
@@ -133,6 +133,7 @@ impl Building {
         let base = self.type_.power();
         let task_power = match self.task {
             Task::Excavate(_, _) => 200,
+            Task::Assemble { .. } => 300,
             _ => 0,
         };
         base - task_power

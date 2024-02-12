@@ -7,27 +7,27 @@ use crate::{
     CellState, ItemType, WIDTH,
 };
 
-pub(crate) const EXCAVATE_TIME: usize = 10;
-pub(crate) const LABOR_EXCAVATE_TIME: usize = 100;
-pub(crate) const MOVE_TIME: usize = 2;
-pub(crate) const BUILD_POWER_GRID_TIME: usize = 5;
-pub(crate) const BUILD_CONVEYOR_TIME: usize = 10;
-pub(crate) const MOVE_ITEM_TIME: usize = 2;
-pub(crate) const RAW_ORE_SMELT_TIME: usize = 30;
+pub(crate) const EXCAVATE_TIME: f64 = 10.;
+pub(crate) const LABOR_EXCAVATE_TIME: f64 = 100.;
+pub(crate) const MOVE_TIME: f64 = 2.;
+pub(crate) const BUILD_POWER_GRID_TIME: f64 = 5.;
+pub(crate) const BUILD_CONVEYOR_TIME: f64 = 10.;
+pub(crate) const MOVE_ITEM_TIME: f64 = 2.;
+pub(crate) const RAW_ORE_SMELT_TIME: f64 = 30.;
 
 #[derive(Clone, Debug)]
 pub(crate) enum Task {
     None,
-    Excavate(usize, Direction),
-    Move(usize, Direction),
+    Excavate(f64, Direction),
+    Move(f64, Direction),
     MoveItem {
-        t: usize,
+        t: f64,
         item_type: ItemType,
         dest: [i32; 2],
     },
     Assemble {
-        t: usize,
-        max_t: usize,
+        t: f64,
+        max_t: f64,
         outputs: HashMap<ItemType, usize>,
     },
     // Smelt(usize),
@@ -66,11 +66,11 @@ impl Direction {
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum GlobalTask {
-    BuildPowerGrid(usize, [i32; 2]),
-    BuildConveyor(usize, [i32; 2]),
-    BuildBuilding(usize, [i32; 2], &'static BuildMenuItem),
+    BuildPowerGrid(f64, [i32; 2]),
+    BuildConveyor(f64, [i32; 2]),
+    BuildBuilding(f64, [i32; 2], &'static BuildMenuItem),
     /// Excavate using human labor. Very slow and inefficient.
-    Excavate(usize, [i32; 2]),
+    Excavate(f64, [i32; 2]),
 }
 
 impl AsteroidColonies {
@@ -276,11 +276,12 @@ impl AsteroidColonies {
     pub(super) fn process_task(
         cells: &mut [Cell],
         building: &mut Building,
+        power_ratio: f64,
     ) -> Option<(ItemType, [i32; 2])> {
         match building.task {
             Task::Excavate(ref mut t, dir) => {
                 const TOTAL_AMOUNT: usize = 5;
-                if *t == 0 {
+                if *t <= 0. {
                     building.task = Task::None;
                     *building
                         .inventory
@@ -290,17 +291,17 @@ impl AsteroidColonies {
                     let [x, y] = [building.pos[0] + dir_vec[0], building.pos[1] + dir_vec[1]];
                     cells[x as usize + y as usize * WIDTH].state = CellState::Empty;
                 } else {
-                    *t -= 1;
+                    *t = (*t - power_ratio).max(0.);
                 }
             }
             Task::Move(ref mut t, dir) => {
-                if *t == 0 {
+                if *t <= 0. {
                     building.task = Task::None;
                     let dir_vec = dir.to_vec();
                     building.pos[0] += dir_vec[0];
                     building.pos[1] += dir_vec[1];
                 } else {
-                    *t -= 1;
+                    *t = (*t - power_ratio).max(0.);
                 }
             }
             Task::MoveItem {
@@ -308,7 +309,7 @@ impl AsteroidColonies {
                 item_type,
                 dest,
             } => {
-                if *t == 0 {
+                if *t <= 0. {
                     building.task = Task::None;
                     let entry = building.inventory.entry(item_type).or_default();
                     if 0 < *entry {
@@ -316,7 +317,7 @@ impl AsteroidColonies {
                         return Some((item_type, dest));
                     }
                 } else {
-                    *t -= 1;
+                    *t = (*t - power_ratio).max(0.);
                 }
             }
             Task::Assemble {
@@ -324,7 +325,7 @@ impl AsteroidColonies {
                 ref outputs,
                 ..
             } => {
-                if *t == 0 {
+                if *t <= 0. {
                     let count = outputs.iter().map(|(_, c)| c).sum::<usize>()
                         + building.inventory.iter().map(|(_, c)| c).sum::<usize>();
                     if count < building.type_.capacity() {
@@ -334,7 +335,7 @@ impl AsteroidColonies {
                         building.task = Task::None;
                     }
                 } else {
-                    *t -= 1;
+                    *t = (*t - power_ratio).max(0.);
                 }
             }
             _ => {}
@@ -349,16 +350,16 @@ impl AsteroidColonies {
 
         for task in &self.global_tasks {
             match task {
-                GlobalTask::BuildPowerGrid(0, pos) => {
+                GlobalTask::BuildPowerGrid(t, pos) if *t <= 0. => {
                     self.cells[pos[0] as usize + pos[1] as usize * WIDTH].power_grid = true;
                 }
-                GlobalTask::BuildConveyor(0, pos) => {
+                GlobalTask::BuildConveyor(t, pos) if *t <= 0. => {
                     self.cells[pos[0] as usize + pos[1] as usize * WIDTH].conveyor = true;
                 }
-                GlobalTask::BuildBuilding(0, pos, recipe) => {
+                GlobalTask::BuildBuilding(t, pos, recipe) if *t <= 0. => {
                     self.buildings.push(Building::new(*pos, recipe.type_));
                 }
-                GlobalTask::Excavate(0, pos) => {
+                GlobalTask::Excavate(t, pos) if *t <= 0. => {
                     self.cells[pos[0] as usize + pos[1] as usize * WIDTH].state = CellState::Empty;
                     let cabin = self.buildings.iter_mut().find(|b| {
                         matches!(b.type_, BuildingType::CrewCabin)
@@ -379,11 +380,12 @@ impl AsteroidColonies {
             | GlobalTask::BuildConveyor(ref mut t, _)
             | GlobalTask::BuildBuilding(ref mut t, _, _)
             | GlobalTask::Excavate(ref mut t, _) => {
-                if *t == 0 {
+                // TODO: use power_ratio
+                if *t <= 0. {
                     false
                 } else {
                     if 0 < workforce && POWER_CONSUMPTION as isize <= power {
-                        *t -= 1;
+                        *t -= 1.;
                         power -= POWER_CONSUMPTION as isize;
                         workforce -= 1;
                     }
