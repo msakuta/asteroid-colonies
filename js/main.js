@@ -1,4 +1,5 @@
 import bg from '../images/back32.png';
+import cursor from '../images/cursor.png';
 import rawOre from '../images/rawOre.png';
 import ironIngot from '../images/ironIngot.png';
 import copperIngot from '../images/copperIngot.png';
@@ -28,6 +29,7 @@ const canvas = document.getElementById('canvas');
 
     const loadImages = [
         ["bg32", bg],
+        ["cursor", cursor],
         ["power_grid", power_grid],
         ["conveyor", conveyor],
         ["power", power],
@@ -57,6 +59,7 @@ const canvas = document.getElementById('canvas');
 
     canvas.addEventListener('mousemove', evt => {
         const [x, y] = mousePos = toLogicalCoords(evt.clientX, evt.clientY);
+        game.set_cursor(x, y);
         const info = game.get_info(x, y);
         document.getElementById('info').innerHTML = formatInfo(info);
     });

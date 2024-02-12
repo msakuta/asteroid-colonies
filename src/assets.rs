@@ -3,6 +3,7 @@ use web_sys::{js_sys, HtmlImageElement};
 
 pub(crate) struct Assets {
     pub img_bg: HtmlImageElement,
+    pub img_cursor: HtmlImageElement,
     pub img_power_grid: HtmlImageElement,
     pub img_conveyor: HtmlImageElement,
     pub img_power: HtmlImageElement,
@@ -47,6 +48,7 @@ impl Assets {
 
         Ok(Self {
             img_bg: load_texture("bg32")?,
+            img_cursor: load_texture("cursor")?,
             img_power_grid: load_texture("power_grid")?,
             img_conveyor: load_texture("conveyor")?,
             img_power: load_texture("power")?,

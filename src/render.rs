@@ -11,7 +11,8 @@ use crate::{
     BuildingType, CellState, ItemType, WIDTH,
 };
 
-const TILE_SIZE: f64 = 32.;
+pub(crate) const TILE_SIZE: f64 = 32.;
+pub(crate) const TILE_SIZE_I: i32 = TILE_SIZE as i32;
 const ITEM_SIZE: f64 = 16.;
 const BAR_MARGIN: f64 = 4.;
 const BAR_WIDTH: f64 = TILE_SIZE - BAR_MARGIN * 2.;
@@ -218,6 +219,15 @@ impl AsteroidColonies {
                         img, 0., 0., sw, sh, x, y, ITEM_SIZE, ITEM_SIZE,
                     )?;
             }
+        }
+
+        if let Some(cursor) = self.cursor {
+            let img = &self.assets.img_cursor;
+            let x = cursor[0] as f64 * TILE_SIZE;
+            let y = cursor[1] as f64 * TILE_SIZE;
+            context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+                img, 0., 0., TILE_SIZE, TILE_SIZE, x, y, TILE_SIZE, TILE_SIZE,
+            )?;
         }
 
         Ok(())

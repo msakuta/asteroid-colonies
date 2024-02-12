@@ -8,6 +8,7 @@ mod transport;
 mod utils;
 
 use construction::get_build_menu;
+use render::TILE_SIZE;
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
 use web_sys::js_sys;
@@ -16,6 +17,7 @@ use crate::{
     assets::Assets,
     building::{Building, BuildingType, Recipe},
     construction::Construction,
+    render::TILE_SIZE_I,
     task::GlobalTask,
     transport::Transport,
 };
@@ -148,6 +150,7 @@ type Pos = [i32; 2];
 
 #[wasm_bindgen]
 pub struct AsteroidColonies {
+    cursor: Option<Pos>,
     cells: Vec<Cell>,
     buildings: Vec<Building>,
     assets: Assets,
@@ -188,11 +191,12 @@ impl AsteroidColonies {
                 }
             }
         }
-        for [x, y] in [[1, 7], [1, 8], [1, 9]] {
+        for [x, y] in [[1, 7], [1, 8], [1, 9], [4, 4], [4, 5], [4, 6]] {
             cells[x + y * WIDTH].state = CellState::Empty;
             cells[x + y * WIDTH].conveyor = true;
         }
         Ok(Self {
+            cursor: None,
             cells,
             buildings,
             assets: Assets::new(image_assets)?,
@@ -204,9 +208,15 @@ impl AsteroidColonies {
         })
     }
 
+    pub fn set_cursor(&mut self, x: i32, y: i32) {
+        let ix = x.div_euclid(TILE_SIZE_I);
+        let iy = y.div_euclid(TILE_SIZE_I);
+        self.cursor = Some([ix, iy]);
+    }
+
     pub fn command(&mut self, com: &str, x: i32, y: i32) -> Result<JsValue, JsValue> {
-        let ix = x.div_euclid(32);
-        let iy = y.div_euclid(32);
+        let ix = x.div_euclid(TILE_SIZE_I);
+        let iy = y.div_euclid(TILE_SIZE_I);
         if ix < 0 || WIDTH as i32 <= ix || iy < 0 || HEIGHT as i32 <= iy {
             return Err(JsValue::from("Point outside cell"));
         }
