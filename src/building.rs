@@ -2,20 +2,16 @@ use std::{collections::HashMap, fmt::Display};
 
 use rand::Rng;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     hash_map,
-    task::{
-        Task, BUILD_ASSEMBLER_TIME, BUILD_CREW_CABIN_TIME, BUILD_EXCAVATOR_TIME,
-        BUILD_FURNACE_TIME, BUILD_MEDIUM_STORAGE_TIME, BUILD_POWER_PLANT_TIME, BUILD_STORAGE_TIME,
-        IRON_INGOT_SMELT_TIME,
-    },
+    task::{Task, IRON_INGOT_SMELT_TIME},
     transport::{expected_deliveries, find_path},
     Cell, ItemType, Pos, Transport,
 };
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub(crate) enum BuildingType {
     Power,
     Excavator,
@@ -63,18 +59,6 @@ impl BuildingType {
             Self::MediumStorage => 0,
             Self::Assembler => -20,
             Self::Furnace => -10,
-        }
-    }
-
-    pub fn build_time(&self) -> usize {
-        match self {
-            Self::Power => BUILD_POWER_PLANT_TIME,
-            Self::CrewCabin => BUILD_CREW_CABIN_TIME,
-            Self::Excavator => BUILD_EXCAVATOR_TIME,
-            Self::Storage => BUILD_STORAGE_TIME,
-            Self::MediumStorage => BUILD_MEDIUM_STORAGE_TIME,
-            Self::Assembler => BUILD_ASSEMBLER_TIME,
-            Self::Furnace => BUILD_FURNACE_TIME,
         }
     }
 
@@ -177,7 +161,7 @@ impl Building {
         if matches!(this.task, Task::None) {
             if let Some(recipe) = &this.recipe {
                 pull_inputs(
-                    recipe,
+                    &recipe.inputs,
                     cells,
                     transports,
                     this.pos,
@@ -230,7 +214,7 @@ impl Building {
                     time: IRON_INGOT_SMELT_TIME,
                 };
                 pull_inputs(
-                    &recipe,
+                    &recipe.inputs,
                     cells,
                     transports,
                     this.pos,
@@ -261,8 +245,8 @@ impl Building {
     }
 }
 
-fn pull_inputs(
-    recipe: &Recipe,
+pub(crate) fn pull_inputs(
+    inputs: &HashMap<ItemType, usize>,
     cells: &[Cell],
     transports: &mut Vec<Transport>,
     this_pos: Pos,
@@ -271,7 +255,7 @@ fn pull_inputs(
     last: &mut [Building],
 ) {
     let expected = expected_deliveries(transports, this_pos);
-    for (ty, count) in &recipe.inputs {
+    for (ty, count) in inputs {
         let this_count =
             this_inventory.get(ty).copied().unwrap_or(0) + expected.get(ty).copied().unwrap_or(0);
         if this_count < *count {

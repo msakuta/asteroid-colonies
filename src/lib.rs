@@ -1,11 +1,13 @@
 mod assets;
 mod building;
+mod construction;
 mod info;
 mod render;
 mod task;
 mod transport;
 mod utils;
 
+use construction::get_build_menu;
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
 use web_sys::js_sys;
@@ -13,6 +15,7 @@ use web_sys::js_sys;
 use crate::{
     assets::Assets,
     building::{Building, BuildingType, Recipe},
+    construction::Construction,
     task::GlobalTask,
     transport::Transport,
 };
@@ -152,6 +155,7 @@ pub struct AsteroidColonies {
     used_power: usize,
     global_time: usize,
     transports: Vec<Transport>,
+    constructions: Vec<Construction>,
 }
 
 #[wasm_bindgen]
@@ -195,6 +199,7 @@ impl AsteroidColonies {
             used_power: 0,
             global_time: 0,
             transports: vec![],
+            constructions: vec![],
         })
     }
 
@@ -210,11 +215,49 @@ impl AsteroidColonies {
             "power" => self.build_power_grid(ix, iy),
             "conveyor" => self.conveyor(ix, iy),
             "moveItem" => self.move_item(ix, iy),
-            "buildPowerPlant" => self.build_building(ix, iy, BuildingType::Power),
-            "buildStorage" => self.build_building(ix, iy, BuildingType::Storage),
-            "buildAssembler" => self.build_building(ix, iy, BuildingType::Assembler),
             _ => Err(JsValue::from(format!("Unknown command: {}", com))),
         }
+    }
+
+    pub fn build(&mut self, x: i32, y: i32, type_: JsValue) -> Result<(), JsValue> {
+        let ix = x.div_euclid(32);
+        let iy = y.div_euclid(32);
+        if ix < 0 || WIDTH as i32 <= ix || iy < 0 || HEIGHT as i32 <= iy {
+            return Err(JsValue::from("Point outside cell"));
+        }
+        let cell = &self.cells[ix as usize + iy as usize * WIDTH];
+        if matches!(cell.state, CellState::Solid) {
+            return Err(JsValue::from("Needs excavation before building"));
+        }
+        if !cell.power_grid {
+            return Err(JsValue::from("Power grid is required to build"));
+        }
+        if !cell.conveyor {
+            return Err(JsValue::from(
+                "Conveyor infrastructure is required to build",
+            ));
+        }
+
+        let intersects = |b: &Building| {
+            let size = b.type_.size();
+            b.pos[0] <= ix
+                && ix < size[0] as i32 + b.pos[0]
+                && b.pos[1] <= iy
+                && iy < size[1] as i32 + b.pos[1]
+        };
+
+        if self.buildings.iter().any(intersects) {
+            return Err(JsValue::from(
+                "The destination is already occupied by a building",
+            ));
+        }
+
+        let type_ = serde_wasm_bindgen::from_value(type_)?;
+        if let Some(build) = get_build_menu().iter().find(|it| it.type_ == type_) {
+            self.constructions.push(Construction::new(build, [ix, iy]));
+            // self.build_building(ix, iy, type_)?;
+        }
+        Ok(())
     }
 
     pub fn get_recipes(&self, x: i32, y: i32) -> Result<Vec<JsValue>, JsValue> {
@@ -299,6 +342,7 @@ impl AsteroidColonies {
 
         self.process_global_tasks();
         self.process_transports();
+        self.process_constructions();
 
         self.global_time += 1;
 

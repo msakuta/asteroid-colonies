@@ -160,13 +160,30 @@ impl AsteroidColonies {
             let task_target = match task {
                 GlobalTask::BuildPowerGrid(t, pos) => Some((*t, pos, BUILD_POWER_GRID_TIME)),
                 GlobalTask::BuildConveyor(t, pos) => Some((*t, pos, BUILD_CONVEYOR_TIME)),
-                GlobalTask::BuildBuilding(t, pos, ty) => Some((*t, pos, ty.build_time())),
+                GlobalTask::BuildBuilding(t, pos, recipe) => Some((*t, pos, recipe.time)),
                 GlobalTask::Excavate(t, pos) => Some((*t, pos, LABOR_EXCAVATE_TIME)),
             };
 
             if let Some((t, pos, max_time)) = task_target {
                 render_global_task_bar(context, pos, t, max_time);
             }
+        }
+
+        for construction in &self.constructions {
+            let img = &self.assets.img_construction;
+            let x = construction.pos[0] as f64 * TILE_SIZE;
+            let y = construction.pos[1] as f64 * TILE_SIZE;
+            let size = construction.type_.size();
+            let width = size[0] as f64 * TILE_SIZE;
+            let height = size[1] as f64 * TILE_SIZE;
+            const SRC_WIDTH: f64 = 64.;
+            const SRC_HEIGHT: f64 = 64.;
+            context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+                img, 0., 0., SRC_WIDTH, SRC_HEIGHT, x, y, width, height,
+            )?;
+            // if let Some((t, pos, max_time)) = task_target {
+            //     render_global_task_bar(context, pos, t, max_time);
+            // }
         }
 
         for t in &self.transports {

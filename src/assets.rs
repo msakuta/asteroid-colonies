@@ -18,6 +18,7 @@ pub(crate) struct Assets {
     pub img_gear: HtmlImageElement,
     pub img_wire: HtmlImageElement,
     pub img_circuit: HtmlImageElement,
+    pub img_construction: HtmlImageElement,
 }
 
 impl Assets {
@@ -60,6 +61,7 @@ impl Assets {
             img_gear: load_texture("gear")?,
             img_wire: load_texture("wire")?,
             img_circuit: load_texture("circuit")?,
+            img_construction: load_texture("construction")?,
         })
     }
 }

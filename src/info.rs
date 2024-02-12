@@ -2,10 +2,11 @@ use std::collections::HashMap;
 
 use crate::{
     building::{BuildingType, Recipe},
-    ItemType,
+    construction::BuildMenuItem,
+    ItemType, Pos,
 };
 
-use super::{AsteroidColonies, Building};
+use super::AsteroidColonies;
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
@@ -20,8 +21,16 @@ struct GetBuildingInfoResult {
 }
 
 #[derive(Serialize)]
+struct GetConstructionInfoResult {
+    type_: BuildingType,
+    recipe: &'static BuildMenuItem,
+    ingredients: HashMap<ItemType, usize>,
+}
+
+#[derive(Serialize)]
 struct GetInfoResult {
     building: Option<GetBuildingInfoResult>,
+    construction: Option<GetConstructionInfoResult>,
     power_consumed: usize,
     power_capacity: usize,
     transports: usize,
@@ -32,24 +41,39 @@ impl AsteroidColonies {
     pub fn get_info(&self, x: i32, y: i32) -> Result<JsValue, JsValue> {
         let ix = x.div_euclid(32);
         let iy = y.div_euclid(32);
-        let intersects = |b: &&Building| {
-            let size = b.type_.size();
-            b.pos[0] <= ix
-                && ix < size[0] as i32 + b.pos[0]
-                && b.pos[1] <= iy
-                && iy < size[1] as i32 + b.pos[1]
+        let intersects = |pos: Pos, size: [usize; 2]| {
+            pos[0] <= ix
+                && ix < size[0] as i32 + pos[0]
+                && pos[1] <= iy
+                && iy < size[1] as i32 + pos[1]
         };
-        let bldg_result = self.buildings.iter().find(intersects).map(|building| {
-            let recipe = building.recipe.cloned();
-            GetBuildingInfoResult {
-                type_: building.type_,
-                recipe,
-                task: format!("{:?}", building.task),
-                inventory: building.inventory.clone(),
-                crews: building.crews,
-                max_crews: building.type_.max_crews(),
-            }
-        });
+        let bldg_result = self
+            .buildings
+            .iter()
+            .find(|b| intersects(b.pos, b.type_.size()))
+            .map(|building| {
+                let recipe = building.recipe.cloned();
+                GetBuildingInfoResult {
+                    type_: building.type_,
+                    recipe,
+                    task: format!("{:?}", building.task),
+                    inventory: building.inventory.clone(),
+                    crews: building.crews,
+                    max_crews: building.type_.max_crews(),
+                }
+            });
+        let construction = self
+            .constructions
+            .iter()
+            .find(|c| intersects(c.pos, c.type_.size()))
+            .map(|construction| {
+                let recipe = construction.recipe;
+                GetConstructionInfoResult {
+                    type_: construction.type_,
+                    recipe,
+                    ingredients: construction.ingredients.clone(),
+                }
+            });
         // We want to count power generation and consumption separately
         let power_capacity = self
             .buildings
@@ -65,6 +89,7 @@ impl AsteroidColonies {
 
         let result = GetInfoResult {
             building: bldg_result,
+            construction,
             power_consumed,
             power_capacity,
             transports: self.transports.len(),

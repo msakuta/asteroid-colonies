@@ -3,7 +3,8 @@ use std::{collections::HashMap, fmt::Display};
 use wasm_bindgen::JsValue;
 
 use crate::{
-    building::Recipe, AsteroidColonies, Building, BuildingType, Cell, CellState, ItemType, WIDTH,
+    building::Recipe, construction::BuildMenuItem, AsteroidColonies, Building, BuildingType, Cell,
+    CellState, ItemType, WIDTH,
 };
 
 pub(crate) const EXCAVATE_TIME: usize = 10;
@@ -12,13 +13,6 @@ pub(crate) const MOVE_TIME: usize = 2;
 pub(crate) const BUILD_POWER_GRID_TIME: usize = 5;
 pub(crate) const BUILD_CONVEYOR_TIME: usize = 10;
 pub(crate) const MOVE_ITEM_TIME: usize = 2;
-pub(crate) const BUILD_POWER_PLANT_TIME: usize = 50;
-pub(crate) const BUILD_EXCAVATOR_TIME: usize = 100;
-pub(crate) const BUILD_CREW_CABIN_TIME: usize = 500;
-pub(crate) const BUILD_STORAGE_TIME: usize = 20;
-pub(crate) const BUILD_MEDIUM_STORAGE_TIME: usize = 100;
-pub(crate) const BUILD_ASSEMBLER_TIME: usize = 100;
-pub(crate) const BUILD_FURNACE_TIME: usize = 100;
 pub(crate) const IRON_INGOT_SMELT_TIME: usize = 50;
 
 #[derive(Clone, Debug)]
@@ -74,7 +68,7 @@ impl Direction {
 pub(crate) enum GlobalTask {
     BuildPowerGrid(usize, [i32; 2]),
     BuildConveyor(usize, [i32; 2]),
-    BuildBuilding(usize, [i32; 2], BuildingType),
+    BuildBuilding(usize, [i32; 2], &'static BuildMenuItem),
     /// Excavate using human labor. Very slow and inefficient.
     Excavate(usize, [i32; 2]),
 }
@@ -243,7 +237,7 @@ impl AsteroidColonies {
         Err(JsValue::from("No structure to send from"))
     }
 
-    fn is_clear(&self, ix: i32, iy: i32, size: [usize; 2]) -> bool {
+    fn _is_clear(&self, ix: i32, iy: i32, size: [usize; 2]) -> bool {
         for jy in iy..iy + size[1] as i32 {
             for jx in ix..ix + size[0] as i32 {
                 let j_cell = &self.cells[jx as usize + jy as usize * WIDTH];
@@ -253,40 +247,6 @@ impl AsteroidColonies {
             }
         }
         true
-    }
-
-    pub(super) fn build_building(
-        &mut self,
-        ix: i32,
-        iy: i32,
-        type_: BuildingType,
-    ) -> Result<JsValue, JsValue> {
-        let size = type_.size();
-        if !self.is_clear(ix, iy, size) {
-            return Err(JsValue::from("Needs excavation before building a building"));
-        }
-        let cell = &self.cells[ix as usize + iy as usize * WIDTH];
-        if !cell.conveyor {
-            return Err(JsValue::from("Conveyor is needed to build a building"));
-        }
-
-        let intersects = |b: &Building| {
-            let j_size = b.type_.size();
-            b.pos[0] < ix + size[0] as i32
-                && ix < b.pos[0] + j_size[0] as i32
-                && b.pos[1] < iy + size[1] as i32
-                && iy < size[1] as i32 + b.pos[1]
-        };
-
-        if self.buildings.iter().any(intersects) {
-            return Err(JsValue::from("A building already exists at the target"));
-        }
-        self.global_tasks.push(GlobalTask::BuildBuilding(
-            type_.build_time(),
-            [ix, iy],
-            type_,
-        ));
-        Ok(JsValue::from(true))
     }
 
     pub(super) fn set_building_recipe(
@@ -395,8 +355,8 @@ impl AsteroidColonies {
                 GlobalTask::BuildConveyor(0, pos) => {
                     self.cells[pos[0] as usize + pos[1] as usize * WIDTH].conveyor = true;
                 }
-                GlobalTask::BuildBuilding(0, pos, type_) => {
-                    self.buildings.push(Building::new(*pos, *type_));
+                GlobalTask::BuildBuilding(0, pos, recipe) => {
+                    self.buildings.push(Building::new(*pos, recipe.type_));
                 }
                 GlobalTask::Excavate(0, pos) => {
                     self.cells[pos[0] as usize + pos[1] as usize * WIDTH].state = CellState::Empty;

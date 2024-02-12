@@ -15,6 +15,7 @@ import crew_cabin from '../images/crew_cabin.png';
 import assembler from '../images/assembler.png';
 import assemblerComponent from '../images/assemblerComponent.png';
 import furnace from '../images/furnace.png';
+import construction from '../images/construction.png';
 
 const canvas = document.getElementById('canvas');
 
@@ -41,6 +42,7 @@ const canvas = document.getElementById('canvas');
         ["gear", gear],
         ["wire", wire],
         ["circuit", circuit],
+        ["construction", construction],
     ].map(async ([name, src]) => {
         return [name, src, await loadImage(src)];
     });
@@ -60,12 +62,43 @@ const canvas = document.getElementById('canvas');
     canvas.addEventListener('mouseleave', evt => mousePos = null);
 
     canvas.addEventListener('click', evt => {
-        for (let name of ["excavate", "move", "power", "conveyor", "moveItem", "buildPowerPlant", "buildStorage", "buildAssembler", "recipe"]) {
+        for (let name of ["excavate", "move", "power", "conveyor", "moveItem", "build", "recipe"]) {
             const elem = document.getElementById(name);
             if (elem?.checked) {
                 const [x, y] = toLogicalCoords(evt.clientX, evt.clientY);
+                const buildMenuElem = document.getElementById("buildMenu");
                 const recipesElem = document.getElementById("recipes");
-                if (name === "recipe") {
+                if (name === "build") {
+                    recipesElem.style.display = "none";
+                    try {
+                        const buildMenu = game.get_build_menu(x, y);
+                        while (buildMenuElem.firstChild) buildMenuElem.removeChild(buildMenuElem.firstChild);
+                        buildMenuElem.style.position = "absolute";
+                        buildMenuElem.style.display = "block";
+                        buildMenuElem.style.left = `${x}px`;
+                        buildMenuElem.style.top = `${y}px`;
+                        const headerElem = document.createElement("div");
+                        headerElem.innerHTML = "Select a building";
+                        headerElem.style.fontWeight = "bold";
+                        buildMenuElem.appendChild(headerElem);
+                        for (let buildItem of buildMenu) {
+                            const buildItemElem = document.createElement("div");
+                            const buildingType = buildItem.type_;
+                            buildItemElem.innerHTML = formatBuildItem(buildItem);
+                            buildItemElem.addEventListener("click", evt => {
+                                game.build(x, y, buildingType);
+                                buildMenuElem.style.display = "none";
+                            })
+                            buildMenuElem.appendChild(buildItemElem);
+                        }
+                    }
+                    catch (e) {
+                        console.error(e);
+                        buildMenuElem.style.display = "none";
+                    }
+                }
+                else if (name === "recipe") {
+                    buildMenuElem.style.display = "none";
                     try {
                         const recipes = game.get_recipes(x, y);
                         while (recipesElem.firstChild) recipesElem.removeChild(recipesElem.firstChild);
@@ -87,7 +120,6 @@ const canvas = document.getElementById('canvas');
                             })
                             recipesElem.appendChild(recipeElem);
                         }
-                        container.appendChild(recipesElem);
                     }
                     catch (e) {
                         console.error(e);
@@ -95,6 +127,7 @@ const canvas = document.getElementById('canvas');
                     }
                 }
                 else {
+                    buildMenuElem.style.display = "none";
                     recipesElem.style.display = "none";
                     if (game.command(name, x, y)) {
                         requestAnimationFrame(() => game.render(ctx));
@@ -140,6 +173,18 @@ function itemToIcon(item) {
     }
 }
 
+function buildingToIcon(building) {
+    switch(building){
+        case "Power": return power;
+        case "Excavator": return excavator;
+        case "Storage": return storage;
+        case "MediumStorage": return mediumStorage;
+        case "CrewCabin": return crew_cabin;
+        case "Assembler": return assemblerComponent;
+        case "Furnace": return furnace;
+    }
+}
+
 function iconWithCount(itemUrl, count) {
     const widthFactor = 1;
     const heightFactor = 1;
@@ -155,6 +200,31 @@ function iconWithCount(itemUrl, count) {
         ${count}
         </div>
       </div>`;
+}
+
+function iconWithoutCount(itemUrl) {
+    const widthFactor = 1;
+    const heightFactor = 1;
+    return `<div class="item" style="
+        display: inline-block;
+        position: relative;
+        background-image: url(${itemUrl});
+        background-size: ${32 * widthFactor}px ${32 * heightFactor}px;
+        width: 32px;
+        height: 32px;
+      "></div>`;
+}
+
+function formatBuildItem(buildItem) {
+    let inputs = "";
+    for (let [input, count] of buildItem.ingredients.entries()) {
+        const icon = iconWithCount(itemToIcon(input), count);
+        if (inputs) inputs += " " + icon;
+        else inputs += icon;
+    }
+    const output = buildItem.type_;
+    const icon = iconWithoutCount(buildingToIcon(output));
+    return `<div class="recipe">${icon} <= ${inputs}</div>`;
 }
 
 function formatRecipe(recipe) {
@@ -183,10 +253,21 @@ function formatInventory(inventory) {
     return result;
 }
 
+function formatConstruction(construction) {
+    let result = `Type: ${construction.type_}`;
+    for (let [input, count] of construction.ingredients.entries()) {
+        const icon = iconWithCount(itemToIcon(input), count);
+        if (result) result += " " + icon;
+        else result += icon;
+    }
+    return result;
+}
+
 function formatInfo(result) {
     return `Building: ${result.building?.type_}
     Recipe: ${result.building?.recipe ? formatRecipe(result.building.recipe) : ""}
     Inventory: ${result.building?.inventory ? formatInventory(result.building.inventory) : ""}
+    Construction: ${result.construction ? formatConstruction(result.construction) : ""}
     Power capacity: ${result.power_capacity} kW
     Used power: ${result.power_consumed} kW
     Transports: ${result.transports}`;
