@@ -17,7 +17,7 @@ use crate::{
     assets::Assets,
     building::{Building, BuildingType, Recipe},
     construction::Construction,
-    render::TILE_SIZE_I,
+    render::{calculate_back_image, TILE_SIZE_I},
     task::{GlobalTask, Task, MOVE_TIME},
     transport::{find_path, Transport},
 };
@@ -70,6 +70,11 @@ struct Cell {
     state: CellState,
     power_grid: bool,
     conveyor: bool,
+    /// The index into the background image for quick rendering
+    image_lt: u8,
+    image_lb: u8,
+    image_rb: u8,
+    image_rt: u8,
 }
 
 impl Cell {
@@ -78,6 +83,10 @@ impl Cell {
             state: CellState::Solid,
             power_grid: false,
             conveyor: false,
+            image_lt: 0,
+            image_lb: 0,
+            image_rb: 0,
+            image_rt: 0,
         }
     }
 
@@ -86,6 +95,10 @@ impl Cell {
             state: CellState::Empty,
             power_grid: true,
             conveyor: true,
+            image_lt: 8,
+            image_lb: 8,
+            image_rb: 8,
+            image_rt: 8,
         }
     }
 }
@@ -196,6 +209,7 @@ impl AsteroidColonies {
             cells[x + y * WIDTH].conveyor = true;
             cells[x + y * WIDTH].power_grid = true;
         }
+        calculate_back_image(&mut cells);
         Ok(Self {
             cursor: None,
             cells,

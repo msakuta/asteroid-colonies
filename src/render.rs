@@ -8,7 +8,7 @@ use crate::{
         GlobalTask, Task, BUILD_CONVEYOR_TIME, BUILD_POWER_GRID_TIME, EXCAVATE_TIME,
         LABOR_EXCAVATE_TIME, MOVE_ITEM_TIME, MOVE_TIME,
     },
-    BuildingType, CellState, ItemType, WIDTH,
+    BuildingType, Cell, CellState, ItemType, HEIGHT, WIDTH,
 };
 
 pub(crate) const TILE_SIZE: f64 = 32.;
@@ -42,6 +42,38 @@ impl AsteroidColonies {
                 TILE_SIZE,
                 TILE_SIZE,
             )?;
+
+            let render_quarter_tile = |image, xofs, yofs| -> Result<(), JsValue> {
+                let srcx = image % 4;
+                let srcy = image / 4;
+                context
+                    .draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+                        &self.assets.img_bg,
+                        srcx as f64 * TILE_SIZE / 2.,
+                        srcy as f64 * TILE_SIZE / 2.,
+                        TILE_SIZE / 2.,
+                        TILE_SIZE / 2.,
+                        x + xofs,
+                        y + yofs,
+                        TILE_SIZE / 2.,
+                        TILE_SIZE / 2.,
+                    )?;
+                Ok(())
+            };
+
+            if cell.image_lt != 0 {
+                render_quarter_tile(cell.image_lt, 0., 0.)?;
+            }
+            if cell.image_lb != 0 {
+                render_quarter_tile(cell.image_lb, 0., TILE_SIZE / 2.)?;
+            }
+            if cell.image_rb != 0 {
+                render_quarter_tile(cell.image_rb, TILE_SIZE / 2., TILE_SIZE / 2.)?;
+            }
+            if cell.image_rt != 0 {
+                render_quarter_tile(cell.image_rt, TILE_SIZE / 2., 0.)?;
+            }
+
             if cell.power_grid {
                 context
                     .draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
@@ -286,5 +318,67 @@ impl<'a> RenderBar<'a> {
             self.v * BAR_WIDTH * self.scale / self.max,
             BAR_HEIGHT,
         );
+    }
+}
+
+#[allow(clippy::many_single_char_names)]
+pub(crate) fn calculate_back_image(ret: &mut [Cell]) {
+    for uy in 0..HEIGHT {
+        let y = uy as i32;
+        for ux in 0..WIDTH {
+            let x = ux as i32;
+            if matches!(ret[(ux + uy * WIDTH) as usize].state, CellState::Empty) {
+                let cell = &mut ret[(ux + uy * WIDTH) as usize];
+                cell.image_lt = 8;
+                cell.image_lb = 8;
+                cell.image_rb = 8;
+                cell.image_rt = 8;
+                continue;
+            }
+            let get_at = |x: i32, y: i32| {
+                if x < 0 || WIDTH as i32 <= x || y < 0 || HEIGHT as i32 <= y {
+                    false
+                } else {
+                    matches!(ret[x as usize + y as usize * WIDTH].state, CellState::Empty)
+                }
+            };
+            let l = get_at(x - 1, y) as u8;
+            let t = get_at(x, y - 1) as u8;
+            let r = get_at(x + 1, y) as u8;
+            let b = get_at(x, y + 1) as u8;
+            let lt = get_at(x - 1, y - 1) as u8;
+            let rt = get_at(x + 1, y - 1) as u8;
+            let rb = get_at(x + 1, y + 1) as u8;
+            let lb = get_at(x - 1, y + 1) as u8;
+            let cell = &mut ret[(ux + uy * WIDTH) as usize];
+            cell.image_lt = match (l, lt, t) {
+                (1, _, 1) => 2,
+                (0, _, 1) => 3 + 4 * 4,
+                (1, _, 0) => 2 + 4 * 4,
+                (0, 1, 0) => 3 + 3 * 4,
+                _ => 0,
+            };
+            cell.image_lb = match (b, lb, l) {
+                (1, _, 1) => 2 + 4,
+                (0, _, 1) => 2 + 4 * 4,
+                (1, _, 0) => 2 + 5 * 4,
+                (0, 1, 0) => 3 + 2 * 4,
+                _ => 0,
+            };
+            cell.image_rb = match (b, rb, r) {
+                (1, _, 1) => 3 + 4,
+                (0, _, 1) => 3 + 5 * 4,
+                (1, _, 0) => 2 + 5 * 4,
+                (0, 1, 0) => 2 + 2 * 4,
+                _ => 0,
+            };
+            cell.image_rt = match (r, rt, t) {
+                (1, _, 1) => 3,
+                (0, _, 1) => 3 + 4 * 4,
+                (1, _, 0) => 3 + 5 * 4,
+                (0, 1, 0) => 2 + 3 * 4,
+                _ => 0,
+            };
+        }
     }
 }

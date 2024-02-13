@@ -3,8 +3,8 @@ use std::{collections::HashMap, fmt::Display};
 use wasm_bindgen::JsValue;
 
 use crate::{
-    building::Recipe, construction::BuildMenuItem, AsteroidColonies, Building, BuildingType, Cell,
-    CellState, ItemType, Pos, WIDTH,
+    building::Recipe, construction::BuildMenuItem, render::calculate_back_image, AsteroidColonies,
+    Building, BuildingType, Cell, CellState, ItemType, Pos, WIDTH,
 };
 
 pub(crate) const EXCAVATE_TIME: f64 = 10.;
@@ -14,6 +14,7 @@ pub(crate) const BUILD_POWER_GRID_TIME: f64 = 5.;
 pub(crate) const BUILD_CONVEYOR_TIME: f64 = 10.;
 pub(crate) const MOVE_ITEM_TIME: f64 = 2.;
 pub(crate) const RAW_ORE_SMELT_TIME: f64 = 30.;
+const EXCAVATE_ORE_AMOUNT: usize = 5;
 
 #[derive(Clone, Debug)]
 pub(crate) enum Task {
@@ -247,16 +248,16 @@ impl AsteroidColonies {
     ) -> Option<(ItemType, [i32; 2])> {
         match building.task {
             Task::Excavate(ref mut t, dir) => {
-                const TOTAL_AMOUNT: usize = 5;
                 if *t <= 0. {
                     building.task = Task::None;
                     *building
                         .inventory
                         .entry(crate::ItemType::RawOre)
-                        .or_default() += TOTAL_AMOUNT;
+                        .or_default() += EXCAVATE_ORE_AMOUNT;
                     let dir_vec = dir.to_vec();
                     let [x, y] = [building.pos[0] + dir_vec[0], building.pos[1] + dir_vec[1]];
                     cells[x as usize + y as usize * WIDTH].state = CellState::Empty;
+                    calculate_back_image(cells);
                 } else {
                     *t = (*t - power_ratio).max(0.);
                 }
@@ -335,8 +336,10 @@ impl AsteroidColonies {
                             && b.inventory_size() < b.type_.capacity()
                     });
                     if let Some(cabin) = cabin {
-                        *cabin.inventory.entry(ItemType::RawOre).or_default() += 1;
+                        *cabin.inventory.entry(ItemType::RawOre).or_default() +=
+                            EXCAVATE_ORE_AMOUNT;
                     }
+                    calculate_back_image(&mut self.cells);
                 }
                 _ => {}
             }
