@@ -143,11 +143,11 @@ impl AsteroidColonies {
                 .render_bar();
             }
 
-            if let Some(path) = &building.output_path {
-                context.set_stroke_style(&JsValue::from("#ffff00"));
-                context.set_line_width(2.);
+            if let Task::Move(_, path) = &building.task {
+                context.set_stroke_style(&JsValue::from("#ff7f00"));
+                context.set_line_width(3.);
                 context.begin_path();
-                for node in path {
+                for node in std::iter::once(&building.pos).chain(path.iter()) {
                     context.line_to(
                         (node[0] as f64 + 0.5) * TILE_SIZE,
                         (node[1] as f64 + 0.5) * TILE_SIZE,

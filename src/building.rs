@@ -101,8 +101,6 @@ pub(crate) struct Building {
     /// The number of crews attending this building.
     pub crews: usize,
     pub recipe: Option<&'static Recipe>,
-    /// A path to output resources for visualization
-    pub output_path: Option<Vec<[i32; 2]>>,
 }
 
 impl Building {
@@ -114,7 +112,6 @@ impl Building {
             inventory: HashMap::new(),
             crews: type_.max_crews(),
             recipe: None,
-            output_path: None,
         }
     }
 
@@ -130,7 +127,6 @@ impl Building {
             inventory,
             crews: type_.max_crews(),
             recipe: None,
-            output_path: None,
         }
     }
 
