@@ -63,6 +63,7 @@ extern "C" {
 enum CellState {
     Solid,
     Empty,
+    Space,
 }
 
 #[derive(Clone, Copy)]
@@ -192,18 +193,29 @@ impl AsteroidColonies {
         vp_height: f64,
     ) -> Result<AsteroidColonies, JsValue> {
         let mut cells = vec![Cell::new(); WIDTH * HEIGHT];
+        let r2_thresh = (WIDTH as f64 * 3. / 8.).powi(2);
+        for y in 0..HEIGHT {
+            for x in 0..WIDTH {
+                let r2 = ((x as f64 - WIDTH as f64 / 2.) as f64).powi(2)
+                    + ((y as f64 - HEIGHT as f64 / 2.) as f64).powi(2);
+                if r2_thresh < r2 {
+                    cells[x + y * WIDTH].state = CellState::Space;
+                }
+            }
+        }
+        let start_ofs = |pos: [i32; 2]| [pos[0] + 8, pos[1] + 20];
         let buildings = vec![
-            Building::new([2, 2], BuildingType::CrewCabin),
-            Building::new([3, 4], BuildingType::Power),
-            Building::new([4, 4], BuildingType::Excavator),
-            Building::new([5, 4], BuildingType::Storage),
+            Building::new(start_ofs([2, 2]), BuildingType::CrewCabin),
+            Building::new(start_ofs([3, 4]), BuildingType::Power),
+            Building::new(start_ofs([4, 4]), BuildingType::Excavator),
+            Building::new(start_ofs([5, 4]), BuildingType::Storage),
             Building::new_inventory(
-                [6, 3],
+                start_ofs([6, 3]),
                 BuildingType::MediumStorage,
                 hash_map!(ItemType::ConveyorComponent => 2, ItemType::PowerGridComponent => 2),
             ),
-            Building::new([1, 10], BuildingType::Assembler),
-            Building::new([1, 5], BuildingType::Furnace),
+            Building::new(start_ofs([1, 10]), BuildingType::Assembler),
+            Building::new(start_ofs([1, 5]), BuildingType::Furnace),
         ];
         for building in &buildings {
             let pos = building.pos;
@@ -216,7 +228,9 @@ impl AsteroidColonies {
                 }
             }
         }
-        for [x, y] in [[1, 7], [1, 8], [1, 9], [4, 4], [4, 5], [4, 6]] {
+        for pos in [[1, 7], [1, 8], [1, 9], [4, 4], [4, 5], [4, 6]] {
+            let [x, y] = start_ofs(pos);
+            let [x, y] = [x as usize, y as usize];
             cells[x + y * WIDTH].state = CellState::Empty;
             cells[x + y * WIDTH].conveyor = true;
             cells[x + y * WIDTH].power_grid = true;

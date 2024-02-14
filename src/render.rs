@@ -17,6 +17,8 @@ const ITEM_SIZE: f64 = 16.;
 const BAR_MARGIN: f64 = 4.;
 const BAR_WIDTH: f64 = TILE_SIZE - BAR_MARGIN * 2.;
 const BAR_HEIGHT: f64 = 6.;
+const SPACE_BIT: u8 = 32;
+const NEIGHBOR_BITS: u8 = 0x1f;
 
 #[wasm_bindgen]
 impl AsteroidColonies {
@@ -36,8 +38,9 @@ impl AsteroidColonies {
             // let ix = i % WIDTH;
             let x = ix as f64 * TILE_SIZE + self.viewport.offset[0];
             let (sx, sy) = match cell.state {
-                CellState::Empty => (3. * TILE_SIZE, 3. * TILE_SIZE),
+                CellState::Empty => (0., TILE_SIZE),
                 CellState::Solid => (0., 0.),
+                CellState::Space => (0., 2. * TILE_SIZE),
             };
             context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
                 &self.assets.img_bg,
@@ -51,9 +54,26 @@ impl AsteroidColonies {
                 TILE_SIZE,
             )?;
 
-            let mut render_quarter_tile = |image, xofs, yofs| -> Result<(), JsValue> {
-                let srcx = image % 4;
-                let srcy = image / 4;
+            let mut render_quarter_tile = |image: u8, xofs, yofs| -> Result<(), JsValue> {
+                let srcx = (image & NEIGHBOR_BITS) % 4;
+                let srcy = (image & NEIGHBOR_BITS) / 4;
+                let bg_y = if image & SPACE_BIT != 0 {
+                    2. * TILE_SIZE
+                } else {
+                    TILE_SIZE
+                };
+                context
+                    .draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+                        &self.assets.img_bg,
+                        0.,
+                        bg_y,
+                        TILE_SIZE / 2.,
+                        TILE_SIZE / 2.,
+                        x + xofs,
+                        y + yofs,
+                        TILE_SIZE / 2.,
+                        TILE_SIZE / 2.,
+                    )?;
                 context
                     .draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
                         &self.assets.img_bg,
@@ -70,16 +90,16 @@ impl AsteroidColonies {
                 Ok(())
             };
 
-            if cell.image_lt != 0 {
+            if cell.image_lt & NEIGHBOR_BITS != 0 {
                 render_quarter_tile(cell.image_lt, 0., 0.)?;
             }
-            if cell.image_lb != 0 {
+            if cell.image_lb & NEIGHBOR_BITS != 0 {
                 render_quarter_tile(cell.image_lb, 0., TILE_SIZE / 2.)?;
             }
-            if cell.image_rb != 0 {
+            if cell.image_rb & NEIGHBOR_BITS != 0 {
                 render_quarter_tile(cell.image_rb, TILE_SIZE / 2., TILE_SIZE / 2.)?;
             }
-            if cell.image_rt != 0 {
+            if cell.image_rt & NEIGHBOR_BITS != 0 {
                 render_quarter_tile(cell.image_rt, TILE_SIZE / 2., 0.)?;
             }
 
@@ -350,58 +370,70 @@ pub(crate) fn calculate_back_image(ret: &mut [Cell]) {
         let y = uy as i32;
         for ux in 0..WIDTH {
             let x = ux as i32;
-            if matches!(ret[(ux + uy * WIDTH) as usize].state, CellState::Empty) {
+            if !matches!(ret[(ux + uy * WIDTH) as usize].state, CellState::Solid) {
                 let cell = &mut ret[(ux + uy * WIDTH) as usize];
-                cell.image_lt = 8;
-                cell.image_lb = 8;
-                cell.image_rb = 8;
-                cell.image_rt = 8;
+                cell.image_lt = 0;
+                cell.image_lb = 0;
+                cell.image_rb = 0;
+                cell.image_rt = 0;
                 continue;
             }
             let get_at = |x: i32, y: i32| {
                 if x < 0 || WIDTH as i32 <= x || y < 0 || HEIGHT as i32 <= y {
-                    false
+                    (0u8, 0u8)
                 } else {
-                    matches!(ret[x as usize + y as usize * WIDTH].state, CellState::Empty)
+                    let state = ret[x as usize + y as usize * WIDTH].state;
+                    (
+                        !matches!(state, CellState::Solid) as u8,
+                        matches!(state, CellState::Space) as u8,
+                    )
                 }
             };
-            let l = get_at(x - 1, y) as u8;
-            let t = get_at(x, y - 1) as u8;
-            let r = get_at(x + 1, y) as u8;
-            let b = get_at(x, y + 1) as u8;
-            let lt = get_at(x - 1, y - 1) as u8;
-            let rt = get_at(x + 1, y - 1) as u8;
-            let rb = get_at(x + 1, y + 1) as u8;
-            let lb = get_at(x - 1, y + 1) as u8;
+            let l = get_at(x - 1, y);
+            let t = get_at(x, y - 1);
+            let r = get_at(x + 1, y);
+            let b = get_at(x, y + 1);
+            let lt = get_at(x - 1, y - 1);
+            let rt = get_at(x + 1, y - 1);
+            let rb = get_at(x + 1, y + 1);
+            let lb = get_at(x - 1, y + 1);
+
+            // Voting filter. If 2 neighboring tiles out of 3 around a corner is space, its background
+            // should be space too.
+            let vote = |a, b, c| if 2 <= a + b + c { SPACE_BIT } else { 0 };
+
+            // Encode information of neighboring tiles around a quater piece of a tile into a byte.
+            // Lower 5 bits (0-31) contains the offset of the image coordinates,
+            // and the 6th bit indicates if it's Space (or Empty if unset)
             let cell = &mut ret[(ux + uy * WIDTH) as usize];
-            cell.image_lt = match (l, lt, t) {
+            cell.image_lt = match (l.0, lt.0, t.0) {
                 (1, _, 1) => 2,
                 (0, _, 1) => 3 + 4 * 4,
                 (1, _, 0) => 2 + 4 * 4,
                 (0, 1, 0) => 3 + 3 * 4,
                 _ => 0,
-            };
-            cell.image_lb = match (b, lb, l) {
+            } | vote(l.1, lt.1, t.1);
+            cell.image_lb = match (b.0, lb.0, l.0) {
                 (1, _, 1) => 2 + 4,
                 (0, _, 1) => 2 + 4 * 4,
                 (1, _, 0) => 2 + 5 * 4,
                 (0, 1, 0) => 3 + 2 * 4,
                 _ => 0,
-            };
-            cell.image_rb = match (b, rb, r) {
+            } | vote(b.1, lb.1, l.1);
+            cell.image_rb = match (b.0, rb.0, r.0) {
                 (1, _, 1) => 3 + 4,
                 (0, _, 1) => 3 + 5 * 4,
                 (1, _, 0) => 2 + 5 * 4,
                 (0, 1, 0) => 2 + 2 * 4,
                 _ => 0,
-            };
-            cell.image_rt = match (r, rt, t) {
+            } | vote(b.1, rb.1, r.1);
+            cell.image_rt = match (r.0, rt.0, t.0) {
                 (1, _, 1) => 3,
                 (0, _, 1) => 3 + 4 * 4,
                 (1, _, 0) => 3 + 5 * 4,
                 (0, 1, 0) => 2 + 3 * 4,
                 _ => 0,
-            };
+            } | vote(r.1, rt.1, t.1);
         }
     }
 }
