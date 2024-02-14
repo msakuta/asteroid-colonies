@@ -76,9 +76,9 @@ pub(crate) enum GlobalTask {
 
 impl AsteroidColonies {
     pub(crate) fn excavate(&mut self, ix: i32, iy: i32) -> Result<JsValue, JsValue> {
-        if matches!(
+        if !matches!(
             self.cells[ix as usize + iy as usize * WIDTH].state,
-            CellState::Empty
+            CellState::Solid
         ) {
             return Err(JsValue::from("Already excavated"));
         }
@@ -103,6 +103,9 @@ impl AsteroidColonies {
         let cell = &self.cells[ix as usize + iy as usize * WIDTH];
         if matches!(cell.state, CellState::Solid) {
             return Err(JsValue::from("Needs excavation before building power grid"));
+        }
+        if matches!(cell.state, CellState::Space) {
+            return Err(JsValue::from("You cannot build power grid in space!"));
         }
         if cell.power_grid {
             return Err(JsValue::from(
@@ -143,6 +146,9 @@ impl AsteroidColonies {
         let cell = &self.cells[ix as usize + iy as usize * WIDTH];
         if matches!(cell.state, CellState::Solid) {
             return Err(JsValue::from("Needs excavation before building conveyor"));
+        }
+        if matches!(cell.state, CellState::Space) {
+            return Err(JsValue::from("You cannot build conveyor in space!"));
         }
         if cell.conveyor {
             return Err(JsValue::from("Conveyor is already installed in this cell"));

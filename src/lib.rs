@@ -324,6 +324,9 @@ impl AsteroidColonies {
         if matches!(cell.state, CellState::Solid) {
             return Err(JsValue::from("Needs excavation before building"));
         }
+        if matches!(cell.state, CellState::Space) {
+            return Err(JsValue::from("You cannot build in space!"));
+        }
         if !cell.power_grid {
             return Err(JsValue::from("Power grid is required to build"));
         }
