@@ -52,7 +52,8 @@ const canvas = document.getElementById('canvas');
     });
     const loadedImages = await Promise.all(loadImages);
 
-    const game = new AsteroidColonies(loadedImages);
+    const canvasRect = canvas.getBoundingClientRect();
+    const game = new AsteroidColonies(loadedImages, canvasRect.width, canvasRect.height);
     const ctx = canvas.getContext('2d');
     game.render(ctx);
     let mousePos = null;

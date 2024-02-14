@@ -118,8 +118,8 @@ enum ItemType {
     AssemblerComponent,
 }
 
-const WIDTH: usize = 20;
-const HEIGHT: usize = 15;
+const WIDTH: usize = 50;
+const HEIGHT: usize = 50;
 
 static RECIPES: std::sync::OnceLock<Vec<Recipe>> = std::sync::OnceLock::new();
 fn recipes() -> &'static [Recipe] {
@@ -161,6 +161,13 @@ fn recipes() -> &'static [Recipe] {
 
 type Pos = [i32; 2];
 
+struct Viewport {
+    /// View offset in pixels
+    offset: [f64; 2],
+    /// Viewport size in pixels
+    size: [f64; 2],
+}
+
 #[wasm_bindgen]
 pub struct AsteroidColonies {
     cursor: Option<Pos>,
@@ -173,14 +180,17 @@ pub struct AsteroidColonies {
     global_time: usize,
     transports: Vec<Transport>,
     constructions: Vec<Construction>,
-    /// View offset in pixels
-    offset: [f64; 2],
+    viewport: Viewport,
 }
 
 #[wasm_bindgen]
 impl AsteroidColonies {
     #[wasm_bindgen(constructor)]
-    pub fn new(image_assets: js_sys::Array) -> Result<AsteroidColonies, JsValue> {
+    pub fn new(
+        image_assets: js_sys::Array,
+        vp_width: f64,
+        vp_height: f64,
+    ) -> Result<AsteroidColonies, JsValue> {
         let mut cells = vec![Cell::new(); WIDTH * HEIGHT];
         let buildings = vec![
             Building::new([2, 2], BuildingType::CrewCabin),
@@ -222,19 +232,22 @@ impl AsteroidColonies {
             global_time: 0,
             transports: vec![],
             constructions: vec![],
-            offset: [0.; 2],
+            viewport: Viewport {
+                offset: [0.; 2],
+                size: [vp_width, vp_height],
+            },
         })
     }
 
     pub fn set_cursor(&mut self, x: f64, y: f64) {
-        let ix = (x - self.offset[0]).div_euclid(TILE_SIZE) as i32;
-        let iy = (y - self.offset[1]).div_euclid(TILE_SIZE) as i32;
+        let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
+        let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
         self.cursor = Some([ix, iy]);
     }
 
     pub fn command(&mut self, com: &str, x: f64, y: f64) -> Result<JsValue, JsValue> {
-        let ix = (x - self.offset[0]).div_euclid(TILE_SIZE) as i32;
-        let iy = (y - self.offset[1]).div_euclid(TILE_SIZE) as i32;
+        let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
+        let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
         if ix < 0 || WIDTH as i32 <= ix || iy < 0 || HEIGHT as i32 <= iy {
             return Err(JsValue::from("Point outside cell"));
         }
@@ -249,10 +262,10 @@ impl AsteroidColonies {
     }
 
     pub fn move_building(&mut self, src_x: f64, src_y: f64, dst_x: f64, dst_y: f64) {
-        let ix = (src_x - self.offset[0]).div_euclid(TILE_SIZE) as i32;
-        let iy = (src_y - self.offset[1]).div_euclid(TILE_SIZE) as i32;
-        let dx = (dst_x - self.offset[0]).div_euclid(TILE_SIZE) as i32;
-        let dy = (dst_y - self.offset[1]).div_euclid(TILE_SIZE) as i32;
+        let ix = (src_x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
+        let iy = (src_y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
+        let dx = (dst_x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
+        let dy = (dst_y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
         let Some(building) = self.buildings.iter_mut().find(|b| b.pos == [ix, iy]) else {
             return;
         };
@@ -387,8 +400,8 @@ impl AsteroidColonies {
     }
 
     pub fn pan(&mut self, x: f64, y: f64) {
-        self.offset[0] += x;
-        self.offset[1] += y;
+        self.viewport.offset[0] += x;
+        self.viewport.offset[1] += y;
     }
 
     pub fn tick(&mut self) -> Result<(), JsValue> {
