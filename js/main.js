@@ -61,11 +61,13 @@ const canvas = document.getElementById('canvas');
     let dragStart = null;
     let dragLast = null;
 
-    canvas.addEventListener('mousedown', evt => {
-        dragStart = toLogicalCoords(evt.clientX, evt.clientY);
+    canvas.addEventListener('pointerdown', evt => {
+        const touch = dragStart = toLogicalCoords(evt.clientX, evt.clientY);
+        document.getElementById("touchDebug").innerHTML = `touchstart ${touch[0]}, ${touch[1]}`;
+        evt.preventDefault();
     });
 
-    canvas.addEventListener('mousemove', evt => {
+    function pointerMove(evt) {
         const [x, y] = mousePos = toLogicalCoords(evt.clientX, evt.clientY);
         if (!moving) {
             game.set_cursor(x, y);
@@ -86,11 +88,17 @@ const canvas = document.getElementById('canvas');
                 }
             }
         }
+    }
+
+    canvas.addEventListener('pointermove', evt => {
+        const touch = toLogicalCoords(evt.clientX, evt.clientY);
+        document.getElementById("touchDebug").innerHTML = `touchmove ${touch[0]}, ${touch[1]}`;
+        pointerMove(evt);
     });
 
-    canvas.addEventListener('mouseleave', _ => mousePos = dragStart = null);
+    canvas.addEventListener('pointerleave', _ => mousePos = dragStart = null);
 
-    canvas.addEventListener('mouseup', evt => {
+    canvas.addEventListener('pointerup', evt => {
         const [x, y] = toLogicalCoords(evt.clientX, evt.clientY);
         if (dragStart) {
             dragStart = null;
