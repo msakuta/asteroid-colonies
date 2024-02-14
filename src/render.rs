@@ -27,6 +27,7 @@ impl AsteroidColonies {
         context.clear_rect(0., 0., WIDTH as f64 * TILE_SIZE, HEIGHT as f64 * TILE_SIZE);
         context.set_fill_style(&JsValue::from("#ff0000"));
         let vp = &self.viewport;
+        let offset = [vp.offset[0].round(), vp.offset[1].round()];
         let mut rendered_cells = 0;
         let mut render_cell = |ix: i32, iy: i32| -> Result<(), JsValue> {
             if ix < 0 || (WIDTH as i32) < ix || iy < 0 || (HEIGHT as i32) < iy {
@@ -34,9 +35,9 @@ impl AsteroidColonies {
             }
             let cell = &self.cells[ix as usize + iy as usize * WIDTH];
             // let iy = i / WIDTH;
-            let y = iy as f64 * TILE_SIZE + self.viewport.offset[1];
+            let y = iy as f64 * TILE_SIZE + offset[1];
             // let ix = i % WIDTH;
-            let x = ix as f64 * TILE_SIZE + self.viewport.offset[0];
+            let x = ix as f64 * TILE_SIZE + offset[0];
             let (sx, sy) = match cell.state {
                 CellState::Empty => (0., TILE_SIZE),
                 CellState::Solid => (0., 0.),
@@ -135,12 +136,12 @@ impl AsteroidColonies {
             Ok(())
         };
 
-        let ymin = ((-vp.offset[1]).div_euclid(TILE_SIZE)).max(0.) as i32;
-        let ymax = ((-vp.offset[1] + vp.size[1] + TILE_SIZE).div_euclid(TILE_SIZE) as i32)
-            .min(HEIGHT as i32);
-        let xmin = ((-vp.offset[0]).div_euclid(TILE_SIZE)).max(0.) as i32;
-        let xmax = ((-vp.offset[0] + vp.size[0] + TILE_SIZE).div_euclid(TILE_SIZE) as i32)
-            .min(WIDTH as i32);
+        let ymin = ((-offset[1]).div_euclid(TILE_SIZE)).max(0.) as i32;
+        let ymax =
+            ((-offset[1] + vp.size[1] + TILE_SIZE).div_euclid(TILE_SIZE) as i32).min(HEIGHT as i32);
+        let xmin = ((-offset[0]).div_euclid(TILE_SIZE)).max(0.) as i32;
+        let xmax =
+            ((-offset[0] + vp.size[0] + TILE_SIZE).div_euclid(TILE_SIZE) as i32).min(WIDTH as i32);
         for iy in ymin..ymax {
             for ix in xmin..xmax {
                 render_cell(ix, iy)?;
@@ -175,8 +176,8 @@ impl AsteroidColonies {
                 }
                 _ => (0., 0.),
             };
-            let x = building.pos[0] as f64 * TILE_SIZE + vp.offset[0];
-            let y = building.pos[1] as f64 * TILE_SIZE + vp.offset[1];
+            let x = building.pos[0] as f64 * TILE_SIZE + offset[0];
+            let y = building.pos[1] as f64 * TILE_SIZE + offset[1];
             let size = building.type_.size();
             let width = size[0] as f64 * TILE_SIZE;
             let height = size[1] as f64 * TILE_SIZE;
@@ -225,8 +226,8 @@ impl AsteroidColonies {
                 context.begin_path();
                 for node in std::iter::once(&building.pos).chain(path.iter()) {
                     context.line_to(
-                        (node[0] as f64 + 0.5) * TILE_SIZE + vp.offset[0],
-                        (node[1] as f64 + 0.5) * TILE_SIZE + vp.offset[1],
+                        (node[0] as f64 + 0.5) * TILE_SIZE + offset[0],
+                        (node[1] as f64 + 0.5) * TILE_SIZE + offset[1],
                     );
                 }
                 context.stroke();
@@ -242,16 +243,16 @@ impl AsteroidColonies {
             };
 
             if let Some((t, pos, max_time)) = task_target {
-                let x = pos[0] as f64 * TILE_SIZE + vp.offset[0];
-                let y = pos[1] as f64 * TILE_SIZE + vp.offset[1];
+                let x = pos[0] as f64 * TILE_SIZE + offset[0];
+                let y = pos[1] as f64 * TILE_SIZE + offset[1];
                 render_global_task_bar(context, [x, y], t, max_time);
             }
         }
 
         for construction in &self.constructions {
             let img = &self.assets.img_construction;
-            let x = construction.pos[0] as f64 * TILE_SIZE + vp.offset[0];
-            let y = construction.pos[1] as f64 * TILE_SIZE + vp.offset[1];
+            let x = construction.pos[0] as f64 * TILE_SIZE + offset[0];
+            let y = construction.pos[1] as f64 * TILE_SIZE + offset[1];
             let size = construction.type_.size();
             let width = size[0] as f64 * TILE_SIZE;
             let height = size[1] as f64 * TILE_SIZE;
@@ -271,8 +272,8 @@ impl AsteroidColonies {
             context.begin_path();
             for node in &t.path {
                 context.line_to(
-                    (node[0] as f64 + 0.5) * TILE_SIZE + vp.offset[0],
-                    (node[1] as f64 + 0.5) * TILE_SIZE + vp.offset[1],
+                    (node[0] as f64 + 0.5) * TILE_SIZE + offset[0],
+                    (node[1] as f64 + 0.5) * TILE_SIZE + offset[1],
                 );
             }
             context.stroke();
@@ -289,9 +290,9 @@ impl AsteroidColonies {
                     ItemType::ConveyorComponent => (&self.assets.img_conveyor, 32., 32.),
                     ItemType::AssemblerComponent => (&self.assets.img_assembler, 32., 32.),
                 };
-                let offset = (TILE_SIZE as f64 - ITEM_SIZE as f64) / 2.;
-                let x = pos[0] as f64 * TILE_SIZE + offset + vp.offset[0];
-                let y = pos[1] as f64 * TILE_SIZE + offset + vp.offset[1];
+                let tile_offset = (TILE_SIZE as f64 - ITEM_SIZE as f64) / 2.;
+                let x = pos[0] as f64 * TILE_SIZE + tile_offset + offset[0];
+                let y = pos[1] as f64 * TILE_SIZE + tile_offset + offset[1];
                 context
                     .draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
                         img, 0., 0., sw, sh, x, y, ITEM_SIZE, ITEM_SIZE,
@@ -301,8 +302,8 @@ impl AsteroidColonies {
 
         if let Some(cursor) = self.cursor {
             let img = &self.assets.img_cursor;
-            let x = cursor[0] as f64 * TILE_SIZE + vp.offset[0];
-            let y = cursor[1] as f64 * TILE_SIZE + vp.offset[1];
+            let x = cursor[0] as f64 * TILE_SIZE + offset[0];
+            let y = cursor[1] as f64 * TILE_SIZE + offset[1];
             context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
                 img, 0., 0., TILE_SIZE, TILE_SIZE, x, y, TILE_SIZE, TILE_SIZE,
             )?;
