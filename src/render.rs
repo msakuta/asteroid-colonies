@@ -12,7 +12,6 @@ use crate::{
 };
 
 pub(crate) const TILE_SIZE: f64 = 32.;
-pub(crate) const TILE_SIZE_I: i32 = TILE_SIZE as i32;
 const ITEM_SIZE: f64 = 16.;
 const BAR_MARGIN: f64 = 4.;
 const BAR_WIDTH: f64 = TILE_SIZE - BAR_MARGIN * 2.;
@@ -21,12 +20,14 @@ const BAR_HEIGHT: f64 = 6.;
 #[wasm_bindgen]
 impl AsteroidColonies {
     pub fn render(&self, context: &CanvasRenderingContext2d) -> Result<(), JsValue> {
+        context.set_fill_style(&JsValue::from("#000000"));
+        context.clear_rect(0., 0., WIDTH as f64 * TILE_SIZE, HEIGHT as f64 * TILE_SIZE);
         context.set_fill_style(&JsValue::from("#ff0000"));
         for (i, cell) in self.cells.iter().enumerate() {
             let iy = i / WIDTH;
-            let y = iy as f64 * TILE_SIZE;
+            let y = iy as f64 * TILE_SIZE + self.offset[1];
             let ix = i % WIDTH;
-            let x = ix as f64 * TILE_SIZE;
+            let x = ix as f64 * TILE_SIZE + self.offset[0];
             let (sx, sy) = match cell.state {
                 CellState::Empty => (3. * TILE_SIZE, 3. * TILE_SIZE),
                 CellState::Solid => (0., 0.),
@@ -131,8 +132,8 @@ impl AsteroidColonies {
                 }
                 _ => (0., 0.),
             };
-            let x = building.pos[0] as f64 * TILE_SIZE;
-            let y = building.pos[1] as f64 * TILE_SIZE;
+            let x = building.pos[0] as f64 * TILE_SIZE + self.offset[0];
+            let y = building.pos[1] as f64 * TILE_SIZE + self.offset[1];
             let size = building.type_.size();
             let width = size[0] as f64 * TILE_SIZE;
             let height = size[1] as f64 * TILE_SIZE;
@@ -181,8 +182,8 @@ impl AsteroidColonies {
                 context.begin_path();
                 for node in std::iter::once(&building.pos).chain(path.iter()) {
                     context.line_to(
-                        (node[0] as f64 + 0.5) * TILE_SIZE,
-                        (node[1] as f64 + 0.5) * TILE_SIZE,
+                        (node[0] as f64 + 0.5) * TILE_SIZE + self.offset[0],
+                        (node[1] as f64 + 0.5) * TILE_SIZE + self.offset[1],
                     );
                 }
                 context.stroke();
@@ -198,14 +199,16 @@ impl AsteroidColonies {
             };
 
             if let Some((t, pos, max_time)) = task_target {
-                render_global_task_bar(context, pos, t, max_time);
+                let x = pos[0] as f64 * TILE_SIZE + self.offset[0];
+                let y = pos[1] as f64 * TILE_SIZE + self.offset[1];
+                render_global_task_bar(context, [x, y], t, max_time);
             }
         }
 
         for construction in &self.constructions {
             let img = &self.assets.img_construction;
-            let x = construction.pos[0] as f64 * TILE_SIZE;
-            let y = construction.pos[1] as f64 * TILE_SIZE;
+            let x = construction.pos[0] as f64 * TILE_SIZE + self.offset[0];
+            let y = construction.pos[1] as f64 * TILE_SIZE + self.offset[1];
             let size = construction.type_.size();
             let width = size[0] as f64 * TILE_SIZE;
             let height = size[1] as f64 * TILE_SIZE;
@@ -244,8 +247,8 @@ impl AsteroidColonies {
                     ItemType::AssemblerComponent => (&self.assets.img_assembler, 32., 32.),
                 };
                 let offset = (TILE_SIZE as f64 - ITEM_SIZE as f64) / 2.;
-                let x = pos[0] as f64 * TILE_SIZE + offset;
-                let y = pos[1] as f64 * TILE_SIZE + offset;
+                let x = pos[0] as f64 * TILE_SIZE + offset + self.offset[0];
+                let y = pos[1] as f64 * TILE_SIZE + offset + self.offset[1];
                 context
                     .draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
                         img, 0., 0., sw, sh, x, y, ITEM_SIZE, ITEM_SIZE,
@@ -255,8 +258,8 @@ impl AsteroidColonies {
 
         if let Some(cursor) = self.cursor {
             let img = &self.assets.img_cursor;
-            let x = cursor[0] as f64 * TILE_SIZE;
-            let y = cursor[1] as f64 * TILE_SIZE;
+            let x = cursor[0] as f64 * TILE_SIZE + self.offset[0];
+            let y = cursor[1] as f64 * TILE_SIZE + self.offset[1];
             context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
                 img, 0., 0., TILE_SIZE, TILE_SIZE, x, y, TILE_SIZE, TILE_SIZE,
             )?;
@@ -268,13 +271,10 @@ impl AsteroidColonies {
 
 fn render_global_task_bar(
     context: &CanvasRenderingContext2d,
-    pos: &[i32; 2],
+    [x, y]: [f64; 2],
     t: f64,
     max_time: f64,
 ) {
-    let x = pos[0] as f64 * TILE_SIZE;
-    let y = pos[1] as f64 * TILE_SIZE;
-
     context.set_stroke_style(&JsValue::from("#000"));
     context.set_fill_style(&JsValue::from("#7f0000"));
     context.fill_rect(x + BAR_MARGIN, y + BAR_MARGIN, BAR_WIDTH, BAR_HEIGHT);

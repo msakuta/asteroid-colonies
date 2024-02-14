@@ -57,6 +57,12 @@ const canvas = document.getElementById('canvas');
     game.render(ctx);
     let mousePos = null;
     let moving = null;
+    let dragStart = null;
+    let dragLast = null;
+
+    canvas.addEventListener('mousedown', evt => {
+        dragStart = toLogicalCoords(evt.clientX, evt.clientY);
+    });
 
     canvas.addEventListener('mousemove', evt => {
         const [x, y] = mousePos = toLogicalCoords(evt.clientX, evt.clientY);
@@ -65,12 +71,33 @@ const canvas = document.getElementById('canvas');
             const info = game.get_info(x, y);
             document.getElementById('info').innerHTML = formatInfo(info);
         }
+        if (dragStart) {
+            if (dragLast) {
+                game.pan(x - dragLast[0], y - dragLast[1]);
+                dragLast = [x, y];
+            }
+            else {
+                const dragDX = Math.abs(x - dragStart[0]);
+                const dragDY = Math.abs(y - dragStart[1]);
+                // Determine mouse drag (or panning with a touch panel) or a click (or a tap) by checking moved distance
+                if (10 < Math.max(dragDX, dragDY)) {
+                    dragLast = dragStart;
+                }
+            }
+        }
     });
 
-    canvas.addEventListener('mouseleave', evt => mousePos = null);
+    canvas.addEventListener('mouseleave', _ => mousePos = dragStart = null);
 
-    canvas.addEventListener('click', evt => {
+    canvas.addEventListener('mouseup', evt => {
         const [x, y] = toLogicalCoords(evt.clientX, evt.clientY);
+        if (dragStart) {
+            dragStart = null;
+            if (dragLast) {
+                dragLast = null;
+                return;
+            }
+        }
         const messageOverlayElem = document.getElementById("messageOverlay");
         if (moving) {
             game.move_building(moving[0], moving[1], x, y);

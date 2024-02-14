@@ -17,7 +17,7 @@ use crate::{
     assets::Assets,
     building::{Building, BuildingType, Recipe},
     construction::Construction,
-    render::{calculate_back_image, TILE_SIZE_I},
+    render::{calculate_back_image, TILE_SIZE},
     task::{GlobalTask, Task, MOVE_TIME},
     transport::{find_path, Transport},
 };
@@ -173,6 +173,8 @@ pub struct AsteroidColonies {
     global_time: usize,
     transports: Vec<Transport>,
     constructions: Vec<Construction>,
+    /// View offset in pixels
+    offset: [f64; 2],
 }
 
 #[wasm_bindgen]
@@ -220,18 +222,19 @@ impl AsteroidColonies {
             global_time: 0,
             transports: vec![],
             constructions: vec![],
+            offset: [0.; 2],
         })
     }
 
-    pub fn set_cursor(&mut self, x: i32, y: i32) {
-        let ix = x.div_euclid(TILE_SIZE_I);
-        let iy = y.div_euclid(TILE_SIZE_I);
+    pub fn set_cursor(&mut self, x: f64, y: f64) {
+        let ix = (x - self.offset[0]).div_euclid(TILE_SIZE) as i32;
+        let iy = (y - self.offset[1]).div_euclid(TILE_SIZE) as i32;
         self.cursor = Some([ix, iy]);
     }
 
-    pub fn command(&mut self, com: &str, x: i32, y: i32) -> Result<JsValue, JsValue> {
-        let ix = x.div_euclid(TILE_SIZE_I);
-        let iy = y.div_euclid(TILE_SIZE_I);
+    pub fn command(&mut self, com: &str, x: f64, y: f64) -> Result<JsValue, JsValue> {
+        let ix = (x - self.offset[0]).div_euclid(TILE_SIZE) as i32;
+        let iy = (y - self.offset[1]).div_euclid(TILE_SIZE) as i32;
         if ix < 0 || WIDTH as i32 <= ix || iy < 0 || HEIGHT as i32 <= iy {
             return Err(JsValue::from("Point outside cell"));
         }
@@ -245,11 +248,11 @@ impl AsteroidColonies {
         }
     }
 
-    pub fn move_building(&mut self, src_x: i32, src_y: i32, dst_x: i32, dst_y: i32) {
-        let ix = src_x.div_euclid(TILE_SIZE_I);
-        let iy = src_y.div_euclid(TILE_SIZE_I);
-        let dx = dst_x.div_euclid(TILE_SIZE_I);
-        let dy = dst_y.div_euclid(TILE_SIZE_I);
+    pub fn move_building(&mut self, src_x: f64, src_y: f64, dst_x: f64, dst_y: f64) {
+        let ix = (src_x - self.offset[0]).div_euclid(TILE_SIZE) as i32;
+        let iy = (src_y - self.offset[1]).div_euclid(TILE_SIZE) as i32;
+        let dx = (dst_x - self.offset[0]).div_euclid(TILE_SIZE) as i32;
+        let dy = (dst_y - self.offset[1]).div_euclid(TILE_SIZE) as i32;
         let Some(building) = self.buildings.iter_mut().find(|b| b.pos == [ix, iy]) else {
             return;
         };
@@ -381,6 +384,11 @@ impl AsteroidColonies {
             }
         }
         Ok(())
+    }
+
+    pub fn pan(&mut self, x: f64, y: f64) {
+        self.offset[0] += x;
+        self.offset[1] += y;
     }
 
     pub fn tick(&mut self) -> Result<(), JsValue> {
