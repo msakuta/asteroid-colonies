@@ -300,9 +300,9 @@ impl AsteroidColonies {
         }
     }
 
-    pub fn build(&mut self, x: i32, y: i32, type_: JsValue) -> Result<(), JsValue> {
-        let ix = x.div_euclid(32);
-        let iy = y.div_euclid(32);
+    pub fn build(&mut self, x: f64, y: f64, type_: JsValue) -> Result<(), JsValue> {
+        let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
+        let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
         if ix < 0 || WIDTH as i32 <= ix || iy < 0 || HEIGHT as i32 <= iy {
             return Err(JsValue::from("Point outside cell"));
         }
@@ -341,9 +341,9 @@ impl AsteroidColonies {
         Ok(())
     }
 
-    pub fn get_recipes(&self, x: i32, y: i32) -> Result<Vec<JsValue>, JsValue> {
-        let ix = x.div_euclid(32);
-        let iy = y.div_euclid(32);
+    pub fn get_recipes(&self, x: f64, y: f64) -> Result<Vec<JsValue>, JsValue> {
+        let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
+        let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
         if ix < 0 || WIDTH as i32 <= ix || iy < 0 || HEIGHT as i32 <= iy {
             return Err(JsValue::from("Point outside cell"));
         }
@@ -368,9 +368,9 @@ impl AsteroidColonies {
             .map_err(JsValue::from)
     }
 
-    pub fn set_recipe(&mut self, x: i32, y: i32, name: &str) -> Result<(), JsValue> {
-        let ix = x.div_euclid(32);
-        let iy = y.div_euclid(32);
+    pub fn set_recipe(&mut self, x: f64, y: f64, name: &str) -> Result<(), JsValue> {
+        let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
+        let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
         if ix < 0 || WIDTH as i32 <= ix || iy < 0 || HEIGHT as i32 <= iy {
             return Err(JsValue::from("Point outside cell"));
         }

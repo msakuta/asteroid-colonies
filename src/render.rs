@@ -251,8 +251,8 @@ impl AsteroidColonies {
             context.begin_path();
             for node in &t.path {
                 context.line_to(
-                    (node[0] as f64 + 0.5) * TILE_SIZE,
-                    (node[1] as f64 + 0.5) * TILE_SIZE,
+                    (node[0] as f64 + 0.5) * TILE_SIZE + vp.offset[0],
+                    (node[1] as f64 + 0.5) * TILE_SIZE + vp.offset[1],
                 );
             }
             context.stroke();

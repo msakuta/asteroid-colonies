@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::{
     building::{BuildingType, Recipe},
     construction::BuildMenuItem,
+    render::TILE_SIZE,
     ItemType, Pos,
 };
 
@@ -38,9 +39,9 @@ struct GetInfoResult {
 
 #[wasm_bindgen]
 impl AsteroidColonies {
-    pub fn get_info(&self, x: i32, y: i32) -> Result<JsValue, JsValue> {
-        let ix = x.div_euclid(32);
-        let iy = y.div_euclid(32);
+    pub fn get_info(&self, x: f64, y: f64) -> Result<JsValue, JsValue> {
+        let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
+        let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
         let intersects = |pos: Pos, size: [usize; 2]| {
             pos[0] <= ix
                 && ix < size[0] as i32 + pos[0]
