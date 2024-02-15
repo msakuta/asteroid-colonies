@@ -3,8 +3,10 @@ use std::{collections::HashMap, fmt::Display};
 use wasm_bindgen::JsValue;
 
 use crate::{
-    building::Recipe, construction::BuildMenuItem, render::calculate_back_image, AsteroidColonies,
-    Building, BuildingType, Cell, CellState, ItemType, Pos, WIDTH,
+    building::Recipe,
+    construction::{BuildMenuItem, Construction, ConstructionType},
+    render::calculate_back_image,
+    AsteroidColonies, Building, BuildingType, Cell, CellState, ItemType, Pos, WIDTH,
 };
 
 pub(crate) const EXCAVATE_TIME: f64 = 10.;
@@ -67,9 +69,7 @@ impl Direction {
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum GlobalTask {
-    BuildPowerGrid(f64, [i32; 2]),
-    BuildConveyor(f64, [i32; 2]),
-    BuildBuilding(f64, [i32; 2], &'static BuildMenuItem),
+    Build(f64, [i32; 2], &'static BuildMenuItem),
     /// Excavate using human labor. Very slow and inefficient.
     Excavate(f64, [i32; 2]),
 }
@@ -112,14 +112,6 @@ impl AsteroidColonies {
                 "Power grid is already installed in this cell",
             ));
         }
-        let no_power_grid = || JsValue::from("Power grid item does not exist in nearby structures");
-        let Some(building) = self
-            .buildings
-            .iter_mut()
-            .find(|b| 0 < *b.inventory.get(&ItemType::PowerGridComponent).unwrap_or(&0))
-        else {
-            return Err(no_power_grid());
-        };
         for dir in [
             Direction::Left,
             Direction::Up,
@@ -130,12 +122,8 @@ impl AsteroidColonies {
             let src_pos = [ix + dir_vec[0], iy + dir_vec[1]];
             let src_cell = &self.cells[src_pos[0] as usize + src_pos[1] as usize * WIDTH];
             if src_cell.power_grid {
-                *building
-                    .inventory
-                    .get_mut(&ItemType::PowerGridComponent)
-                    .ok_or_else(no_power_grid)? -= 1;
-                self.global_tasks
-                    .push(GlobalTask::BuildPowerGrid(BUILD_POWER_GRID_TIME, [ix, iy]));
+                self.constructions
+                    .push(Construction::new_power_grid([ix, iy]));
                 return Ok(JsValue::from(true));
             }
         }
@@ -153,14 +141,6 @@ impl AsteroidColonies {
         if cell.conveyor {
             return Err(JsValue::from("Conveyor is already installed in this cell"));
         }
-        let no_conveyor = || JsValue::from("Conveyor item does not exist in nearby structures");
-        let Some(building) = self
-            .buildings
-            .iter_mut()
-            .find(|b| 0 < *b.inventory.get(&ItemType::ConveyorComponent).unwrap_or(&0))
-        else {
-            return Err(no_conveyor());
-        };
         for dir in [
             Direction::Left,
             Direction::Up,
@@ -171,12 +151,8 @@ impl AsteroidColonies {
             let src_pos = [ix + dir_vec[0], iy + dir_vec[1]];
             let src_cell = &self.cells[src_pos[0] as usize + src_pos[1] as usize * WIDTH];
             if src_cell.conveyor {
-                *building
-                    .inventory
-                    .get_mut(&ItemType::ConveyorComponent)
-                    .ok_or_else(no_conveyor)? -= 1;
-                self.global_tasks
-                    .push(GlobalTask::BuildConveyor(BUILD_CONVEYOR_TIME, [ix, iy]));
+                self.constructions
+                    .push(Construction::new_conveyor([ix, iy]));
                 return Ok(JsValue::from(true));
             }
         }
@@ -326,15 +302,17 @@ impl AsteroidColonies {
 
         for task in &self.global_tasks {
             match task {
-                GlobalTask::BuildPowerGrid(t, pos) if *t <= 0. => {
-                    self.cells[pos[0] as usize + pos[1] as usize * WIDTH].power_grid = true;
-                }
-                GlobalTask::BuildConveyor(t, pos) if *t <= 0. => {
-                    self.cells[pos[0] as usize + pos[1] as usize * WIDTH].conveyor = true;
-                }
-                GlobalTask::BuildBuilding(t, pos, recipe) if *t <= 0. => {
-                    self.buildings.push(Building::new(*pos, recipe.type_));
-                }
+                GlobalTask::Build(t, pos, recipe) if *t <= 0. => match recipe.type_ {
+                    ConstructionType::Building(ty) => {
+                        self.buildings.push(Building::new(*pos, ty));
+                    }
+                    ConstructionType::PowerGrid => {
+                        self.cells[pos[0] as usize + pos[1] as usize * WIDTH].power_grid = true;
+                    }
+                    ConstructionType::Conveyor => {
+                        self.cells[pos[0] as usize + pos[1] as usize * WIDTH].conveyor = true;
+                    }
+                },
                 GlobalTask::Excavate(t, pos) if *t <= 0. => {
                     self.cells[pos[0] as usize + pos[1] as usize * WIDTH].state = CellState::Empty;
                     let cabin = self.buildings.iter_mut().find(|b| {
@@ -354,10 +332,7 @@ impl AsteroidColonies {
         const POWER_CONSUMPTION: usize = 200;
 
         self.global_tasks.retain_mut(|task| match task {
-            GlobalTask::BuildPowerGrid(ref mut t, _)
-            | GlobalTask::BuildConveyor(ref mut t, _)
-            | GlobalTask::BuildBuilding(ref mut t, _, _)
-            | GlobalTask::Excavate(ref mut t, _) => {
+            GlobalTask::Build(ref mut t, _, _) | GlobalTask::Excavate(ref mut t, _) => {
                 // TODO: use power_ratio
                 if *t <= 0. {
                     false

@@ -159,7 +159,7 @@ const canvas = document.getElementById('canvas');
                             const buildingType = buildItem.type_;
                             buildItemElem.innerHTML = formatBuildItem(buildItem);
                             buildItemElem.addEventListener("click", evt => {
-                                game.build(x, y, buildingType);
+                                game.build(x, y, buildingType.Building);
                                 buildMenuElem.style.display = "none";
                             })
                             buildMenuElem.appendChild(buildItemElem);
@@ -293,7 +293,7 @@ function formatBuildItem(buildItem) {
         if (inputs) inputs += " " + icon;
         else inputs += icon;
     }
-    const output = buildItem.type_;
+    const {Building: output} = buildItem.type_;
     const icon = iconWithoutCount(buildingToIcon(output));
     return `<div class="recipe">${icon} <= ${inputs}</div>`;
 }

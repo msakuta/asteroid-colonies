@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::OnceLock};
 
 use crate::{
     building::{pull_inputs, BuildingType},
-    task::GlobalTask,
+    task::{GlobalTask, BUILD_CONVEYOR_TIME, BUILD_POWER_GRID_TIME},
     ItemType, Pos,
 };
 
@@ -11,8 +11,15 @@ use super::{hash_map, AsteroidColonies};
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
+#[derive(Serialize, Debug, PartialEq, Eq, Clone, Copy)]
+pub(crate) enum ConstructionType {
+    PowerGrid,
+    Conveyor,
+    Building(BuildingType),
+}
+
 pub(crate) struct Construction {
-    pub type_: BuildingType,
+    type_: ConstructionType,
     pub pos: Pos,
     pub ingredients: HashMap<ItemType, usize>,
     pub recipe: &'static BuildMenuItem,
@@ -27,11 +34,45 @@ impl Construction {
             recipe: &item,
         }
     }
+
+    pub fn new_power_grid(pos: Pos) -> Self {
+        static BUILD: OnceLock<BuildMenuItem> = OnceLock::new();
+        let recipe = &*BUILD.get_or_init(|| BuildMenuItem {
+            type_: ConstructionType::PowerGrid,
+            ingredients: hash_map!(ItemType::PowerGridComponent => 1),
+            time: BUILD_POWER_GRID_TIME,
+        });
+        Self::new(recipe, pos)
+    }
+
+    pub fn new_conveyor(pos: Pos) -> Self {
+        static BUILD: OnceLock<BuildMenuItem> = OnceLock::new();
+        let recipe = &*BUILD.get_or_init(|| BuildMenuItem {
+            type_: ConstructionType::Conveyor,
+            ingredients: hash_map!(ItemType::ConveyorComponent => 1),
+            time: BUILD_CONVEYOR_TIME,
+        });
+        Self::new(recipe, pos)
+    }
+
+    pub fn building(&self) -> Option<BuildingType> {
+        match self.type_ {
+            ConstructionType::Building(b) => Some(b),
+            _ => None,
+        }
+    }
+
+    pub fn size(&self) -> [usize; 2] {
+        match self.type_ {
+            ConstructionType::Building(b) => b.size(),
+            _ => [1; 2],
+        }
+    }
 }
 
 #[derive(Serialize, Debug)]
 pub(crate) struct BuildMenuItem {
-    pub type_: BuildingType,
+    pub type_: ConstructionType,
     pub ingredients: HashMap<ItemType, usize>,
     pub time: f64,
 }
@@ -41,32 +82,32 @@ pub(crate) fn get_build_menu() -> &'static [BuildMenuItem] {
     &*BUILD_MENU.get_or_init(|| {
         vec![
             BuildMenuItem {
-                type_: BuildingType::Power,
+                type_: ConstructionType::Building(BuildingType::Power),
                 ingredients: hash_map!(ItemType::PowerGridComponent => 3),
                 time: 120.,
             },
             BuildMenuItem {
-                type_: BuildingType::Storage,
+                type_: ConstructionType::Building(BuildingType::Storage),
                 ingredients: hash_map!(ItemType::IronIngot => 1, ItemType::Cilicate => 5),
                 time: 100.,
             },
             BuildMenuItem {
-                type_: BuildingType::Excavator,
+                type_: ConstructionType::Building(BuildingType::Excavator),
                 ingredients: hash_map!(ItemType::IronIngot => 3, ItemType::Gear => 2, ItemType::Circuit => 2),
                 time: 200.,
             },
             BuildMenuItem {
-                type_: BuildingType::MediumStorage,
+                type_: ConstructionType::Building(BuildingType::MediumStorage),
                 ingredients: hash_map!(ItemType::IronIngot => 2,  ItemType::Gear => 2, ItemType::Cilicate => 10),
                 time: 200.,
             },
             BuildMenuItem {
-                type_: BuildingType::Furnace,
+                type_: ConstructionType::Building(BuildingType::Furnace),
                 ingredients: hash_map!(ItemType::IronIngot => 2, ItemType::Wire => 1, ItemType::Cilicate => 6),
                 time: 300.,
             },
             BuildMenuItem {
-                type_: BuildingType::Assembler,
+                type_: ConstructionType::Building(BuildingType::Assembler),
                 ingredients: hash_map!(ItemType::AssemblerComponent => 4),
                 time: 300.,
             },
@@ -103,7 +144,7 @@ impl AsteroidColonies {
                     continue 'outer;
                 }
             }
-            self.global_tasks.push(GlobalTask::BuildBuilding(
+            self.global_tasks.push(GlobalTask::Build(
                 construction.recipe.time,
                 construction.pos,
                 construction.recipe,

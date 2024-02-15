@@ -39,7 +39,7 @@ impl AsteroidColonies {
                     if let Some(construction) = self
                         .constructions
                         .iter_mut()
-                        .find(|c| intersects(c.pos, c.type_.size(), t.dest))
+                        .find(|c| intersects(c.pos, c.size(), t.dest))
                     {
                         let arrived = construction.ingredients.get(&t.item).copied().unwrap_or(0);
                         let demand = construction

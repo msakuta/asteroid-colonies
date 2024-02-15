@@ -63,18 +63,19 @@ impl AsteroidColonies {
                     max_crews: building.type_.max_crews(),
                 }
             });
-        let construction = self
-            .constructions
-            .iter()
-            .find(|c| intersects(c.pos, c.type_.size()))
-            .map(|construction| {
-                let recipe = construction.recipe;
-                GetConstructionInfoResult {
-                    type_: construction.type_,
-                    recipe,
-                    ingredients: construction.ingredients.clone(),
-                }
-            });
+        let construction = self.constructions.iter().find_map(|c| {
+            let Some(type_) = c.building() else {
+                return None;
+            };
+            if !intersects(c.pos, type_.size()) {
+                return None;
+            }
+            Some(GetConstructionInfoResult {
+                type_: type_,
+                recipe: c.recipe,
+                ingredients: c.ingredients.clone(),
+            })
+        });
         // We want to count power generation and consumption separately
         let power_capacity = self
             .buildings

@@ -268,7 +268,7 @@ pub(crate) fn pull_inputs(
                 }
                 let path = find_path(src.0.pos, this_pos, |pos| {
                     let cell = &cells[pos[0] as usize + pos[1] as usize * WIDTH];
-                    cell.conveyor
+                    cell.conveyor || this_pos == pos
                 })?;
                 Some((src.0, path))
             }) {

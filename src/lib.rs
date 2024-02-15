@@ -16,7 +16,7 @@ use web_sys::js_sys;
 use crate::{
     assets::Assets,
     building::{Building, BuildingType, Recipe},
-    construction::Construction,
+    construction::{Construction, ConstructionType},
     render::{calculate_back_image, TILE_SIZE},
     task::{GlobalTask, Task, MOVE_TIME},
     transport::{find_path, Transport},
@@ -365,7 +365,10 @@ impl AsteroidColonies {
         }
 
         let type_ = serde_wasm_bindgen::from_value(type_)?;
-        if let Some(build) = get_build_menu().iter().find(|it| it.type_ == type_) {
+        if let Some(build) = get_build_menu()
+            .iter()
+            .find(|it| it.type_ == ConstructionType::Building(type_))
+        {
             self.constructions.push(Construction::new(build, [ix, iy]));
             // self.build_building(ix, iy, type_)?;
         }

@@ -5,10 +5,7 @@ use web_sys::CanvasRenderingContext2d;
 
 use crate::{
     console_log,
-    task::{
-        GlobalTask, Task, BUILD_CONVEYOR_TIME, BUILD_POWER_GRID_TIME, EXCAVATE_TIME,
-        LABOR_EXCAVATE_TIME, MOVE_ITEM_TIME, MOVE_TIME,
-    },
+    task::{GlobalTask, Task, EXCAVATE_TIME, LABOR_EXCAVATE_TIME, MOVE_ITEM_TIME, MOVE_TIME},
     BuildingType, Cell, CellState, ItemType, HEIGHT, WIDTH,
 };
 
@@ -148,9 +145,9 @@ impl AsteroidColonies {
         };
 
         let ymin = ((-offset[1]).div_euclid(TILE_SIZE)) as i32;
-        let ymax = ((-offset[1] + vp.size[1] + TILE_SIZE).div_euclid(TILE_SIZE) as i32);
+        let ymax = (-offset[1] + vp.size[1] + TILE_SIZE).div_euclid(TILE_SIZE) as i32;
         let xmin = ((-offset[0]).div_euclid(TILE_SIZE)) as i32;
-        let xmax = ((-offset[0] + vp.size[0] + TILE_SIZE).div_euclid(TILE_SIZE) as i32);
+        let xmax = (-offset[0] + vp.size[0] + TILE_SIZE).div_euclid(TILE_SIZE) as i32;
         for iy in ymin..ymax {
             for ix in xmin..xmax {
                 render_cell(ix, iy)?;
@@ -245,9 +242,7 @@ impl AsteroidColonies {
 
         for task in &self.global_tasks {
             let task_target = match task {
-                GlobalTask::BuildPowerGrid(t, pos) => Some((*t, pos, BUILD_POWER_GRID_TIME)),
-                GlobalTask::BuildConveyor(t, pos) => Some((*t, pos, BUILD_CONVEYOR_TIME)),
-                GlobalTask::BuildBuilding(t, pos, recipe) => Some((*t, pos, recipe.time)),
+                GlobalTask::Build(t, pos, recipe) => Some((*t, pos, recipe.time)),
                 GlobalTask::Excavate(t, pos) => Some((*t, pos, LABOR_EXCAVATE_TIME)),
             };
 
@@ -262,7 +257,7 @@ impl AsteroidColonies {
             let img = &self.assets.img_construction;
             let x = construction.pos[0] as f64 * TILE_SIZE + offset[0];
             let y = construction.pos[1] as f64 * TILE_SIZE + offset[1];
-            let size = construction.type_.size();
+            let size = construction.size();
             let width = size[0] as f64 * TILE_SIZE;
             let height = size[1] as f64 * TILE_SIZE;
             const SRC_WIDTH: f64 = 64.;
