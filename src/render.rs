@@ -30,14 +30,25 @@ impl AsteroidColonies {
         let offset = [vp.offset[0].round(), vp.offset[1].round()];
         let mut rendered_cells = 0;
         let mut render_cell = |ix: i32, iy: i32| -> Result<(), JsValue> {
-            if ix < 0 || (WIDTH as i32) < ix || iy < 0 || (HEIGHT as i32) < iy {
+            let y = iy as f64 * TILE_SIZE + offset[1];
+            let x = ix as f64 * TILE_SIZE + offset[0];
+            if ix < 0 || (WIDTH as i32) <= ix || iy < 0 || (HEIGHT as i32) <= iy {
+                context
+                    .draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+                        &self.assets.img_bg,
+                        0.,
+                        2. * TILE_SIZE,
+                        TILE_SIZE,
+                        TILE_SIZE,
+                        x,
+                        y,
+                        TILE_SIZE,
+                        TILE_SIZE,
+                    )?;
+                rendered_cells += 1;
                 return Ok(());
             }
             let cell = &self.cells[ix as usize + iy as usize * WIDTH];
-            // let iy = i / WIDTH;
-            let y = iy as f64 * TILE_SIZE + offset[1];
-            // let ix = i % WIDTH;
-            let x = ix as f64 * TILE_SIZE + offset[0];
             let (sx, sy) = match cell.state {
                 CellState::Empty => (0., TILE_SIZE),
                 CellState::Solid => (0., 0.),
@@ -136,12 +147,10 @@ impl AsteroidColonies {
             Ok(())
         };
 
-        let ymin = ((-offset[1]).div_euclid(TILE_SIZE)).max(0.) as i32;
-        let ymax =
-            ((-offset[1] + vp.size[1] + TILE_SIZE).div_euclid(TILE_SIZE) as i32).min(HEIGHT as i32);
-        let xmin = ((-offset[0]).div_euclid(TILE_SIZE)).max(0.) as i32;
-        let xmax =
-            ((-offset[0] + vp.size[0] + TILE_SIZE).div_euclid(TILE_SIZE) as i32).min(WIDTH as i32);
+        let ymin = ((-offset[1]).div_euclid(TILE_SIZE)) as i32;
+        let ymax = ((-offset[1] + vp.size[1] + TILE_SIZE).div_euclid(TILE_SIZE) as i32);
+        let xmin = ((-offset[0]).div_euclid(TILE_SIZE)) as i32;
+        let xmax = ((-offset[0] + vp.size[0] + TILE_SIZE).div_euclid(TILE_SIZE) as i32);
         for iy in ymin..ymax {
             for ix in xmin..xmax {
                 render_cell(ix, iy)?;
