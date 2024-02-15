@@ -70,8 +70,7 @@ const canvas = document.getElementById('canvas');
     let dragLast = null;
 
     canvas.addEventListener('pointerdown', evt => {
-        const touch = dragStart = toLogicalCoords(evt.clientX, evt.clientY);
-        document.getElementById("touchDebug").innerHTML = `touchstart ${touch[0]}, ${touch[1]}`;
+        dragStart = toLogicalCoords(evt.clientX, evt.clientY);
         evt.preventDefault();
     });
 
@@ -98,11 +97,7 @@ const canvas = document.getElementById('canvas');
         }
     }
 
-    canvas.addEventListener('pointermove', evt => {
-        const touch = toLogicalCoords(evt.clientX, evt.clientY);
-        document.getElementById("touchDebug").innerHTML = `touchmove ${touch[0]}, ${touch[1]}`;
-        pointerMove(evt);
-    });
+    canvas.addEventListener('pointermove', pointerMove);
 
     canvas.addEventListener('pointerleave', _ => mousePos = dragStart = null);
 
