@@ -5,18 +5,36 @@
   <title>Asteroid Colonies</title>
   <script type="module" src="./js/main.js"></script>
   <style>
+    body {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+    }
     .container {
       position: relative;
+      margin: 0;
+      padding: 0;
     }
     #canvas {
+      display: block;
       touch-action: none;
+      width: 100%;
+      height: 100%;
     }
     #sidePanel {
       position: absolute;
-      left: 660px;
-      top: 0;
+      right: 10px;
+      top: 10px;
       border: 1px solid black;
       background-color: #afffaf;
+    }
+    #bottomPanel {
+      position: absolute;
+      left: 10px;
+      bottom: 10px;
+      border: 1px solid black;
+      background-color: #afafaf;
     }
     #info {
       border: 1px solid black;
@@ -102,8 +120,10 @@
     <div id="messageOverlay" class="messageOverlay" style="display: block"></div>
     <div id="recipes" class="recipes" style="display: none"></div>
     <div id="buildMenu" class="recipes" style="display: none"></div>
+    <div id="bottomPanel">
+      <pre id="info"></pre>
+      <pre id="touchDebug"></pre>
+    </div>
   </div>
-  <pre id="info"></pre>
-  <pre id="touchDebug"></pre>
 </body>
 </html>

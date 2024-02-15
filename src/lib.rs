@@ -253,6 +253,10 @@ impl AsteroidColonies {
         })
     }
 
+    pub fn set_size(&mut self, sx: f64, sy: f64) {
+        self.viewport.size = [sx, sy];
+    }
+
     pub fn set_cursor(&mut self, x: f64, y: f64) {
         let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
         let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;

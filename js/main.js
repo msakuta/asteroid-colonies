@@ -54,6 +54,14 @@ const canvas = document.getElementById('canvas');
 
     const canvasRect = canvas.getBoundingClientRect();
     const game = new AsteroidColonies(loadedImages, canvasRect.width, canvasRect.height);
+    function resizeHandler(evt) {
+        const bodyRect = document.body.getBoundingClientRect();
+        canvas.setAttribute("width", bodyRect.width);
+        canvas.setAttribute("height", bodyRect.height);
+        game.set_size(bodyRect.width, bodyRect.height);
+    }
+    window.addEventListener("resize", resizeHandler);
+    resizeHandler();
     const ctx = canvas.getContext('2d');
     game.render(ctx);
     let mousePos = null;

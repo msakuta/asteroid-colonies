@@ -24,7 +24,7 @@ const NEIGHBOR_BITS: u8 = 0x1f;
 impl AsteroidColonies {
     pub fn render(&self, context: &CanvasRenderingContext2d) -> Result<(), JsValue> {
         context.set_fill_style(&JsValue::from("#000000"));
-        context.clear_rect(0., 0., WIDTH as f64 * TILE_SIZE, HEIGHT as f64 * TILE_SIZE);
+        context.clear_rect(0., 0., self.viewport.size[0], self.viewport.size[1]);
         context.set_fill_style(&JsValue::from("#ff0000"));
         let vp = &self.viewport;
         let offset = [vp.offset[0].round(), vp.offset[1].round()];
