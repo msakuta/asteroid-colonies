@@ -107,6 +107,7 @@ const canvas = document.getElementById('canvas');
             dragStart = null;
             if (dragLast) {
                 dragLast = null;
+                evt.preventDefault();
                 return;
             }
         }
@@ -174,10 +175,7 @@ const canvas = document.getElementById('canvas');
                     try {
                         const recipes = game.get_recipes(x, y);
                         while (recipesElem.firstChild) recipesElem.removeChild(recipesElem.firstChild);
-                        recipesElem.style.position = "absolute";
                         recipesElem.style.display = "block";
-                        recipesElem.style.left = `${x}px`;
-                        recipesElem.style.top = `${y}px`;
                         const headerElem = document.createElement("div");
                         headerElem.innerHTML = "Select a recipe";
                         headerElem.style.fontWeight = "bold";
