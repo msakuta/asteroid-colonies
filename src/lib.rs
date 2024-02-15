@@ -271,7 +271,6 @@ impl AsteroidColonies {
         }
         match com {
             "excavate" => self.excavate(ix, iy),
-            // "move" => self.move_(ix, iy),
             "power" => self.build_power_grid(ix, iy),
             "conveyor" => self.conveyor(ix, iy),
             "moveItem" => self.move_item(ix, iy),
@@ -279,43 +278,54 @@ impl AsteroidColonies {
         }
     }
 
-    pub fn move_building(&mut self, src_x: f64, src_y: f64, dst_x: f64, dst_y: f64) {
+    pub fn move_building(
+        &mut self,
+        src_x: f64,
+        src_y: f64,
+        dst_x: f64,
+        dst_y: f64,
+    ) -> Result<(), JsValue> {
         let ix = (src_x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
         let iy = (src_y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
         let dx = (dst_x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
         let dy = (dst_y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
         let Some(building) = self.buildings.iter_mut().find(|b| b.pos == [ix, iy]) else {
-            return;
+            return Err(JsValue::from("Building does not exist at that position"));
         };
         if !building.type_.is_mobile() {
-            return;
+            return Err(JsValue::from("Building at that position is not mobile"));
         }
-        if matches!(building.task, Task::None) {
-            let cells = &self.cells;
-            let buildings = &self.buildings;
-
-            let intersects = |pos: [i32; 2]| {
-                buildings.iter().any(|b| {
-                    let size = b.type_.size();
-                    b.pos[0] <= pos[0]
-                        && pos[0] < size[0] as i32 + b.pos[0]
-                        && b.pos[1] <= pos[1]
-                        && pos[1] < size[1] as i32 + b.pos[1]
-                })
-            };
-
-            let path = find_path([ix, iy], [dx, dy], |pos| {
-                let cell = &cells[pos[0] as usize + pos[1] as usize * WIDTH];
-                !intersects(pos) && matches!(cell.state, CellState::Empty) && cell.power_grid
-            });
-            if let Some(mut path) = path {
-                // Re-borrow to avoid borrow checker
-                if let Some(building) = self.buildings.iter_mut().find(|b| b.pos == [ix, iy]) {
-                    path.pop();
-                    building.task = Task::Move(MOVE_TIME, path);
-                }
-            }
+        if !matches!(building.task, Task::None) {
+            return Err(JsValue::from(
+                "The building is busy; wait for the building to finish the current task",
+            ));
         }
+        let cells = &self.cells;
+        let buildings = &self.buildings;
+
+        let intersects = |pos: [i32; 2]| {
+            buildings.iter().any(|b| {
+                let size = b.type_.size();
+                b.pos[0] <= pos[0]
+                    && pos[0] < size[0] as i32 + b.pos[0]
+                    && b.pos[1] <= pos[1]
+                    && pos[1] < size[1] as i32 + b.pos[1]
+            })
+        };
+
+        let mut path = find_path([ix, iy], [dx, dy], |pos| {
+            let cell = &cells[pos[0] as usize + pos[1] as usize * WIDTH];
+            !intersects(pos) && matches!(cell.state, CellState::Empty) && cell.power_grid
+        })
+        .ok_or_else(|| JsValue::from("Failed to find the path"))?;
+
+        // Re-borrow to avoid borrow checker
+        let Some(building) = self.buildings.iter_mut().find(|b| b.pos == [ix, iy]) else {
+            return Err(JsValue::from("Building does not exist at that position"));
+        };
+        path.pop();
+        building.task = Task::Move(MOVE_TIME, path);
+        Ok(())
     }
 
     pub fn build(&mut self, x: f64, y: f64, type_: JsValue) -> Result<(), JsValue> {

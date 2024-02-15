@@ -112,7 +112,12 @@ const canvas = document.getElementById('canvas');
         }
         const messageOverlayElem = document.getElementById("messageOverlay");
         if (moving) {
-            game.move_building(moving[0], moving[1], x, y);
+            try {
+                game.move_building(moving[0], moving[1], x, y);
+            }
+            catch (e) {
+                console.error(`move_building: ${e}`);
+            }
             messageOverlayElem.style.display = "none";
             moving = null;
             return;

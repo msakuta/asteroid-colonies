@@ -151,6 +151,9 @@ pub(crate) fn find_path(
         };
     insert_neighbors(&mut next_set, &visited, start, 0);
     while let Some(next) = next_set.pop() {
+        if !is_passable(next.pos) {
+            continue;
+        }
         if next.pos == goal {
             let mut cursor = Some(next);
             let mut nodes = vec![];
@@ -160,10 +163,8 @@ pub(crate) fn find_path(
             }
             return Some(nodes);
         }
-        if is_passable(next.pos) {
-            visited.insert(next.pos, next);
-            insert_neighbors(&mut next_set, &visited, next.pos, next.dist);
-        }
+        visited.insert(next.pos, next);
+        insert_neighbors(&mut next_set, &visited, next.pos, next.dist);
     }
     None
 }
