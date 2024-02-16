@@ -6,6 +6,7 @@ use crate::{
     building::Recipe,
     construction::{BuildMenuItem, Construction, ConstructionType},
     render::calculate_back_image,
+    transport::find_path,
     AsteroidColonies, Building, BuildingType, Cell, CellState, ItemType, Pos, WIDTH,
 };
 
@@ -93,6 +94,25 @@ impl AsteroidColonies {
                 building.task = Task::Excavate(EXCAVATE_TIME, dir);
                 return Ok(JsValue::from(true));
             }
+        }
+        if self
+            .buildings
+            .iter()
+            .find(|b| {
+                matches!(b.type_, BuildingType::CrewCabin)
+                    && find_path(b.pos, [ix, iy], |pos| {
+                        matches!(
+                            self.cells[pos[0] as usize + pos[1] as usize * WIDTH].state,
+                            CellState::Empty
+                        ) || pos == [ix, iy]
+                    })
+                    .is_some()
+            })
+            .is_none()
+        {
+            return Err(JsValue::from(
+                "No crew cabin that can reach the position found",
+            ));
         }
         self.global_tasks
             .push(GlobalTask::Excavate(LABOR_EXCAVATE_TIME, [ix, iy]));
