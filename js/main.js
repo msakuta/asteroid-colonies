@@ -146,10 +146,7 @@ const canvas = document.getElementById('canvas');
                     try {
                         const buildMenu = game.get_build_menu(x, y);
                         while (buildMenuElem.firstChild) buildMenuElem.removeChild(buildMenuElem.firstChild);
-                        buildMenuElem.style.position = "absolute";
                         buildMenuElem.style.display = "block";
-                        buildMenuElem.style.left = `${x}px`;
-                        buildMenuElem.style.top = `${y}px`;
                         const headerElem = document.createElement("div");
                         headerElem.innerHTML = "Select a building";
                         headerElem.style.fontWeight = "bold";
