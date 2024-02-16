@@ -352,7 +352,7 @@ impl AsteroidColonies {
         const POWER_CONSUMPTION: usize = 200;
 
         self.global_tasks.retain_mut(|task| match task {
-            GlobalTask::Build(ref mut t, _, _) | GlobalTask::Excavate(ref mut t, _) => {
+            GlobalTask::Build(ref mut t, _, _) => {
                 // TODO: use power_ratio
                 if *t <= 0. {
                     false
@@ -365,6 +365,7 @@ impl AsteroidColonies {
                     true
                 }
             }
+            GlobalTask::Excavate(ref mut t, _) => !(*t <= 0.),
         });
 
         self.used_power = (power_cap - power) as usize;

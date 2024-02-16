@@ -1,6 +1,7 @@
 mod assets;
 mod building;
 mod construction;
+mod crew;
 mod info;
 mod render;
 mod task;
@@ -17,6 +18,7 @@ use crate::{
     assets::Assets,
     building::{Building, BuildingType, Recipe},
     construction::{Construction, ConstructionType},
+    crew::Crew,
     render::{calculate_back_image, TILE_SIZE},
     task::{GlobalTask, Task, MOVE_TIME},
     transport::{find_path, Transport},
@@ -174,6 +176,7 @@ pub struct AsteroidColonies {
     cursor: Option<Pos>,
     cells: Vec<Cell>,
     buildings: Vec<Building>,
+    crews: Vec<Crew>,
     assets: Assets,
     global_tasks: Vec<GlobalTask>,
     /// Used power for the last tick, in kW
@@ -240,6 +243,7 @@ impl AsteroidColonies {
             cursor: None,
             cells,
             buildings,
+            crews: vec![],
             assets: Assets::new(image_assets)?,
             global_tasks: vec![],
             used_power: 0,
@@ -454,7 +458,14 @@ impl AsteroidColonies {
         // A buffer to avoid borrow checker
         let mut moving_items = vec![];
         for i in 0..self.buildings.len() {
-            let res = Building::tick(&mut self.buildings, i, &self.cells, &mut self.transports);
+            let res = Building::tick(
+                &mut self.buildings,
+                i,
+                &self.cells,
+                &mut self.transports,
+                &mut self.crews,
+                &self.global_tasks,
+            );
             if let Err(e) = res {
                 console_log!("Building::tick error: {}", e);
             };
@@ -475,6 +486,7 @@ impl AsteroidColonies {
         self.process_global_tasks();
         self.process_transports();
         self.process_constructions();
+        self.process_crews();
 
         self.global_time += 1;
 

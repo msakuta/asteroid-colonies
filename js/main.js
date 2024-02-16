@@ -1,6 +1,7 @@
 import closeButton from '../images/close.png';
 import bg from '../images/back32.png';
 import cursor from '../images/cursor.png';
+import crew from '../images/crew.png';
 import rawOre from '../images/rawOre.png';
 import ironIngot from '../images/ironIngot.png';
 import copperIngot from '../images/copperIngot.png';
@@ -31,6 +32,7 @@ const canvas = document.getElementById('canvas');
     const loadImages = [
         ["bg32", bg],
         ["cursor", cursor],
+        ["crew", crew],
         ["power_grid", power_grid],
         ["conveyor", conveyor],
         ["power", power],
@@ -324,6 +326,10 @@ function formatInventory(inventory) {
     return result;
 }
 
+function formatCrews(building) {
+    return `${building.crews} / ${building.max_crews}`;
+}
+
 function formatConstruction(construction) {
     let result = `Type: ${construction.type_}`;
     for (let [input, count] of construction.ingredients.entries()) {
@@ -339,6 +345,7 @@ function formatInfo(result) {
     Task: ${result.building?.task}
     Recipe: ${result.building?.recipe ? formatRecipe(result.building.recipe) : ""}
     Inventory: ${result.building?.inventory ? formatInventory(result.building.inventory) : ""}
+    Crews: ${result.building ? formatCrews(result.building) : ""}
     Construction: ${result.construction ? formatConstruction(result.construction) : ""}
     Power capacity: ${result.power_capacity} kW
     Power demand: ${result.power_demand} kW

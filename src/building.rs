@@ -6,9 +6,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     hash_map,
-    task::{Task, RAW_ORE_SMELT_TIME},
+    task::{GlobalTask, Task, RAW_ORE_SMELT_TIME},
     transport::{expected_deliveries, find_path},
-    Cell, ItemType, Pos, Transport, WIDTH,
+    Cell, Crew, ItemType, Pos, Transport, WIDTH,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -149,6 +149,8 @@ impl Building {
         idx: usize,
         cells: &[Cell],
         transports: &mut Vec<Transport>,
+        crews: &mut Vec<Crew>,
+        gtasks: &[GlobalTask],
     ) -> Result<(), String> {
         let (first, rest) = bldgs.split_at_mut(idx);
         let Some((this, last)) = rest.split_first_mut() else {
@@ -201,6 +203,24 @@ impl Building {
                 push_outputs(cells, transports, this, first, last, &|t| {
                     matches!(t, ItemType::RawOre)
                 });
+            }
+            BuildingType::CrewCabin => {
+                if this.crews == 0 {
+                    return Ok(());
+                }
+                for gtask in gtasks {
+                    if let GlobalTask::Excavate(_, goal_pos) = gtask {
+                        // crate::console_log!("building::tick: goal_pos: {:?}, crew: {:?}", goal_pos, crews.iter().map(|c| c.target()).collect::<Vec<_>>());
+                        if crews.iter().any(|crew| crew.target() == Some(*goal_pos)) {
+                            continue;
+                        }
+                        if let Some(crew) = Crew::new(this.pos, *goal_pos, cells) {
+                            crews.push(crew);
+                            this.crews -= 1;
+                            break;
+                        }
+                    }
+                }
             }
             BuildingType::Furnace => {
                 push_outputs(cells, transports, this, first, last, &|t| {

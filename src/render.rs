@@ -240,6 +240,36 @@ impl AsteroidColonies {
             }
         }
 
+        const CREW_SIZE: f64 = 16.;
+        const CREW_OFFSET: f64 = (TILE_SIZE - CREW_SIZE) * 0.5;
+
+        for crew in &self.crews {
+            let x = crew.pos[0] as f64 * TILE_SIZE + CREW_OFFSET + offset[0];
+            let y = crew.pos[1] as f64 * TILE_SIZE + CREW_OFFSET + offset[1];
+            let img = &self.assets.img_crew;
+            context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+                img, 0., 0., CREW_SIZE, CREW_SIZE, x, y, CREW_SIZE, CREW_SIZE,
+            )?;
+
+            if let Some(path) = &crew.path {
+                context.set_stroke_style(&JsValue::from("#7f00ff"));
+                context.set_line_width(2.);
+                context.begin_path();
+                let mut first = true;
+                for node in path.iter().chain(std::iter::once(&crew.pos)) {
+                    let x = (node[0] as f64 + 0.5) * TILE_SIZE + offset[0];
+                    let y = (node[1] as f64 + 0.5) * TILE_SIZE + offset[1];
+                    if first {
+                        first = false;
+                        context.move_to(x, y);
+                    } else {
+                        context.line_to(x, y);
+                    }
+                }
+                context.stroke();
+            }
+        }
+
         for task in &self.global_tasks {
             let task_target = match task {
                 GlobalTask::Build(t, pos, recipe) => Some((*t, pos, recipe.time)),
