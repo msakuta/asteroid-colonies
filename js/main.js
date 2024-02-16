@@ -1,3 +1,4 @@
+import closeButton from '../images/close.png';
 import bg from '../images/back32.png';
 import cursor from '../images/cursor.png';
 import rawOre from '../images/rawOre.png';
@@ -149,6 +150,7 @@ const canvas = document.getElementById('canvas');
                         buildMenuElem.style.display = "block";
                         const headerElem = document.createElement("div");
                         headerElem.innerHTML = "Select a building";
+                        buildMenuElem.appendChild(addCloseButton(() => buildMenuElem.style.display = "none"));
                         headerElem.style.fontWeight = "bold";
                         buildMenuElem.appendChild(headerElem);
                         for (let buildItem of buildMenu) {
@@ -176,6 +178,7 @@ const canvas = document.getElementById('canvas');
                         const headerElem = document.createElement("div");
                         headerElem.innerHTML = "Select a recipe";
                         headerElem.style.fontWeight = "bold";
+                        recipesElem.appendChild(addCloseButton(() => recipesElem.style.display = "none"));
                         recipesElem.appendChild(headerElem);
                         for (let recipe of recipes) {
                             const recipeElem = document.createElement("div");
@@ -348,4 +351,16 @@ function toLogicalCoords(clientX, clientY) {
     const x = clientX - r.left;
     const y = clientY - r.top;
     return [x, y];
+}
+
+function addCloseButton(onclose) {
+    const closeButtonElem = document.createElement("span");
+    closeButtonElem.style.position = "absolute";
+    closeButtonElem.style.right = '5px';
+    closeButtonElem.style.top = '5px';
+    closeButtonElem.style.width = '16px';
+    closeButtonElem.style.height = '16px';
+    closeButtonElem.style.backgroundImage = `url(${closeButton})`;
+    closeButtonElem.addEventListener('click', onclose);
+    return closeButtonElem;
 }
