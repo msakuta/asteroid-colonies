@@ -21,40 +21,46 @@ impl AsteroidColonies {
                 && iy < size[1] as i32 + pos[1]
         };
 
+        let mut check_construction = |t: &mut Transport| {
+            if let Some(construction) = self
+                .constructions
+                .iter_mut()
+                .find(|c| intersects(c.pos, c.size(), t.dest))
+            {
+                let arrived = construction.ingredients.get(&t.item).copied().unwrap_or(0);
+                let demand = construction
+                    .recipe
+                    .ingredients
+                    .get(&t.item)
+                    .copied()
+                    .unwrap_or(0);
+                if arrived + t.amount <= demand {
+                    *construction.ingredients.entry(t.item).or_default() += t.amount;
+                    t.path.clear();
+                    return true;
+                }
+            }
+            false
+        };
+
+        let mut check_building = |t: &mut Transport| {
+            if let Some(building) = self
+                .buildings
+                .iter_mut()
+                .find(|b| intersects(b.pos, b.type_.size(), t.dest))
+            {
+                if building.inventory_size() + t.amount <= building.type_.capacity() {
+                    *building.inventory.entry(t.item).or_default() += t.amount;
+                    t.path.clear();
+                    return true;
+                }
+            }
+            false
+        };
+
         for t in &mut self.transports {
             if t.path.len() <= 1 {
-                let mut delivered = false;
-                if let Some(building) = self
-                    .buildings
-                    .iter_mut()
-                    .find(|b| intersects(b.pos, b.type_.size(), t.dest))
-                {
-                    if building.inventory_size() + t.amount <= building.type_.capacity() {
-                        *building.inventory.entry(t.item).or_default() += t.amount;
-                        t.path.clear();
-                        delivered = true;
-                    }
-                }
-                if !delivered {
-                    if let Some(construction) = self
-                        .constructions
-                        .iter_mut()
-                        .find(|c| intersects(c.pos, c.size(), t.dest))
-                    {
-                        let arrived = construction.ingredients.get(&t.item).copied().unwrap_or(0);
-                        let demand = construction
-                            .recipe
-                            .ingredients
-                            .get(&t.item)
-                            .copied()
-                            .unwrap_or(0);
-                        if arrived + t.amount <= demand {
-                            *construction.ingredients.entry(t.item).or_default() += t.amount;
-                            t.path.clear();
-                            delivered = true;
-                        }
-                    }
-                }
+                let delivered = check_construction(t) || check_building(t);
                 if !delivered {
                     let cells = &self.cells;
                     let return_path = find_path(t.dest, t.src, |pos| {
