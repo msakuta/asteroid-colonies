@@ -97,6 +97,14 @@ pub(crate) fn find_path(
     goal: [i32; 2],
     is_passable: impl Fn([i32; 2]) -> bool,
 ) -> Option<Vec<[i32; 2]>> {
+    find_multipath([start].into_iter(), |pos| pos == goal, is_passable)
+}
+
+pub(crate) fn find_multipath(
+    start: impl Iterator<Item = [i32; 2]>,
+    goal: impl Fn([i32; 2]) -> bool,
+    is_passable: impl Fn([i32; 2]) -> bool,
+) -> Option<Vec<[i32; 2]>> {
     #[derive(Clone, Copy)]
     struct Entry {
         pos: [i32; 2],
@@ -126,14 +134,6 @@ pub(crate) fn find_path(
 
     type VisitedMap = HashMap<[i32; 2], Entry>;
     let mut visited = VisitedMap::new();
-    visited.insert(
-        start,
-        Entry {
-            pos: start,
-            dist: 0,
-            from: None,
-        },
-    );
     let mut next_set = BinaryHeap::new();
     let insert_neighbors =
         |next_set: &mut BinaryHeap<Entry>, visited: &VisitedMap, pos: [i32; 2], dist: usize| {
@@ -155,12 +155,22 @@ pub(crate) fn find_path(
                 });
             }
         };
-    insert_neighbors(&mut next_set, &visited, start, 0);
+    for s_pos in start {
+        visited.insert(
+            s_pos,
+            Entry {
+                pos: s_pos,
+                dist: 0,
+                from: None,
+            },
+        );
+        insert_neighbors(&mut next_set, &visited, s_pos, 0);
+    }
     while let Some(next) = next_set.pop() {
         if !is_passable(next.pos) {
             continue;
         }
-        if next.pos == goal {
+        if goal(next.pos) {
             let mut cursor = Some(next);
             let mut nodes = vec![];
             while let Some(cursor_entry) = cursor {

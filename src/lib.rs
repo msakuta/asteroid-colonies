@@ -238,6 +238,11 @@ impl AsteroidColonies {
             cells[x + y * WIDTH].conveyor = true;
             cells[x + y * WIDTH].power_grid = true;
         }
+        for pos in [[4, 7], [4, 8]] {
+            let [x, y] = start_ofs(pos);
+            let [x, y] = [x as usize, y as usize];
+            cells[x + y * WIDTH].state = CellState::Empty;
+        }
         calculate_back_image(&mut cells);
         Ok(Self {
             cursor: None,
@@ -443,49 +448,10 @@ impl AsteroidColonies {
     }
 
     pub fn tick(&mut self) -> Result<(), JsValue> {
-        let power_demand = self
-            .buildings
-            .iter()
-            .map(|b| b.power().min(0).abs() as usize)
-            .sum::<usize>();
-        let power_supply = self
-            .buildings
-            .iter()
-            .map(|b| b.power().max(0).abs() as usize)
-            .sum::<usize>();
-        // let power_load = (power_demand as f64 / power_supply as f64).min(1.);
-        let power_ratio = (power_supply as f64 / power_demand as f64).min(1.);
-        // A buffer to avoid borrow checker
-        let mut moving_items = vec![];
-        for i in 0..self.buildings.len() {
-            let res = Building::tick(
-                &mut self.buildings,
-                i,
-                &self.cells,
-                &mut self.transports,
-                &mut self.crews,
-                &self.global_tasks,
-            );
-            if let Err(e) = res {
-                console_log!("Building::tick error: {}", e);
-            };
-        }
-        for building in &mut self.buildings {
-            if let Some((item, dest)) = Self::process_task(&mut self.cells, building, power_ratio) {
-                moving_items.push((item, dest));
-            }
-        }
-
-        for (item, item_pos) in moving_items {
-            let found = self.buildings.iter_mut().find(|b| b.pos == item_pos);
-            if let Some(found) = found {
-                *found.inventory.entry(item).or_default() += 1;
-            }
-        }
-
         self.process_global_tasks();
         self.process_transports();
         self.process_constructions();
+        self.process_buildings();
         self.process_crews();
 
         self.global_time += 1;

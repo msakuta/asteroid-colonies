@@ -132,22 +132,9 @@ impl AsteroidColonies {
                 "Power grid is already installed in this cell",
             ));
         }
-        for dir in [
-            Direction::Left,
-            Direction::Up,
-            Direction::Right,
-            Direction::Down,
-        ] {
-            let dir_vec = dir.to_vec();
-            let src_pos = [ix + dir_vec[0], iy + dir_vec[1]];
-            let src_cell = &self.cells[src_pos[0] as usize + src_pos[1] as usize * WIDTH];
-            if src_cell.power_grid {
-                self.constructions
-                    .push(Construction::new_power_grid([ix, iy]));
-                return Ok(JsValue::from(true));
-            }
-        }
-        Err(JsValue::from("No nearby power grid"))
+        self.constructions
+            .push(Construction::new_power_grid([ix, iy]));
+        Ok(JsValue::from(true))
     }
 
     pub(crate) fn conveyor(&mut self, ix: i32, iy: i32) -> Result<JsValue, JsValue> {
@@ -316,9 +303,8 @@ impl AsteroidColonies {
     }
 
     pub(super) fn process_global_tasks(&mut self) {
-        let mut workforce: usize = self.buildings.iter().map(|b| b.crews).sum();
         let power_cap: isize = self.buildings.iter().map(|b| b.power()).sum();
-        let mut power = power_cap;
+        let power = power_cap;
 
         for task in &self.global_tasks {
             match task {

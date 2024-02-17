@@ -5,10 +5,11 @@ use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    construction::Construction,
     hash_map,
     task::{GlobalTask, Task, RAW_ORE_SMELT_TIME},
-    transport::{expected_deliveries, find_path},
-    Cell, Crew, ItemType, Pos, Transport, WIDTH,
+    transport::{expected_deliveries, find_multipath, find_path},
+    AsteroidColonies, Cell, CellState, Crew, ItemType, Pos, Transport, WIDTH,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -149,6 +150,7 @@ impl Building {
         idx: usize,
         cells: &[Cell],
         transports: &mut Vec<Transport>,
+        constructions: &mut [Construction],
         crews: &mut Vec<Crew>,
         gtasks: &[GlobalTask],
     ) -> Result<(), String> {
@@ -223,6 +225,47 @@ impl Building {
                         break;
                     }
                 }
+                for construction in constructions {
+                    let crew = construction.required_ingredients(transports, crews).find_map(|(ty, _)| {
+                        if 0 < this.inventory.get(&ty).copied().unwrap_or(0) {
+                            Crew::new_deliver(this.pos, construction.pos, ty, cells)
+                        } else {
+                            let path_to_source = find_multipath(
+                                [this.pos].into_iter(),
+                                |pos| {
+                                    first.iter().chain(last.iter()).any(|o| {
+                                        o.pos == pos
+                                            && 0 < o.inventory.get(&ty).copied().unwrap_or(0)
+                                    })
+                                },
+                                |pos| {
+                                    matches!(
+                                        cells[pos[0] as usize + pos[1] as usize * WIDTH].state,
+                                        CellState::Empty
+                                    )
+                                },
+                            );
+                            crate::console_log!(
+                                "CrewCabin at {:?} ({} crews): Missing ingred {:?} at {:?}: path: {:?}",
+                                this.pos,
+                                this.crews,
+                                ty,
+                                construction.pos,
+                                path_to_source
+                            );
+                            path_to_source
+                                .and_then(|src| src.first().copied())
+                                .and_then(|src| {
+                                    Crew::new_pickup(this.pos, src, construction.pos, ty, cells)
+                                })
+                        }
+                    });
+                    crate::console_log!("crew: {:?}", crew);
+                    if let Some(crew) = crew {
+                        crews.push(crew);
+                        this.crews -= 1;
+                    }
+                }
             }
             BuildingType::Furnace => {
                 push_outputs(cells, transports, this, first, last, &|t| {
@@ -269,6 +312,52 @@ impl Building {
     }
 }
 
+impl AsteroidColonies {
+    pub(super) fn process_buildings(&mut self) {
+        let power_demand = self
+            .buildings
+            .iter()
+            .map(|b| b.power().min(0).abs() as usize)
+            .sum::<usize>();
+        let power_supply = self
+            .buildings
+            .iter()
+            .map(|b| b.power().max(0).abs() as usize)
+            .sum::<usize>();
+        // let power_load = (power_demand as f64 / power_supply as f64).min(1.);
+        let power_ratio = (power_supply as f64 / power_demand as f64).min(1.);
+        // A buffer to avoid borrow checker
+        let mut moving_items = vec![];
+        for i in 0..self.buildings.len() {
+            let res = Building::tick(
+                &mut self.buildings,
+                i,
+                &self.cells,
+                &mut self.transports,
+                &mut self.constructions,
+                &mut self.crews,
+                &self.global_tasks,
+            );
+            if let Err(e) = res {
+                crate::console_log!("Building::tick error: {}", e);
+            };
+        }
+        for building in &mut self.buildings {
+            if let Some((item, dest)) = Self::process_task(&mut self.cells, building, power_ratio) {
+                moving_items.push((item, dest));
+            }
+        }
+
+        for (item, item_pos) in moving_items {
+            let found = self.buildings.iter_mut().find(|b| b.pos == item_pos);
+            if let Some(found) = found {
+                *found.inventory.entry(item).or_default() += 1;
+            }
+        }
+    }
+}
+
+/// Pull inputs over transportation network
 pub(crate) fn pull_inputs(
     inputs: &HashMap<ItemType, usize>,
     cells: &[Cell],
