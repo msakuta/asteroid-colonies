@@ -8,6 +8,8 @@ mod task;
 mod transport;
 mod utils;
 
+use std::collections::HashMap;
+
 use construction::get_build_menu;
 
 use serde::Serialize;
@@ -161,6 +163,8 @@ fn recipes() -> &'static [Recipe] {
         ]
     })
 }
+
+type Inventory = HashMap<ItemType, usize>;
 
 type Pos = [i32; 2];
 
@@ -425,7 +429,7 @@ impl AsteroidColonies {
             .enumerate()
             .find(|(_, c)| c.pos == [ix, iy])
             .ok_or_else(|| JsValue::from("Building not found at given position"))?;
-        let decon = Construction::new_deconstruct(b.type_, [ix, iy])
+        let decon = Construction::new_deconstruct(b.type_, [ix, iy], &b.inventory)
             .ok_or_else(|| JsValue::from("No build recipe was found to deconstruct"))?;
 
         self.constructions.push(decon);

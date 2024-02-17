@@ -5,7 +5,7 @@ use crate::{
     crew::{expected_crew_deliveries, Crew},
     task::{GlobalTask, BUILD_CONVEYOR_TIME, BUILD_POWER_GRID_TIME},
     transport::{expected_deliveries, Transport},
-    ItemType, Pos,
+    Inventory, ItemType, Pos,
 };
 
 use super::{hash_map, AsteroidColonies};
@@ -60,13 +60,21 @@ impl Construction {
         Self::new(recipe, pos)
     }
 
-    pub fn new_deconstruct(building: BuildingType, pos: Pos) -> Option<Self> {
+    pub fn new_deconstruct(
+        building: BuildingType,
+        pos: Pos,
+        inventory: &Inventory,
+    ) -> Option<Self> {
         let con_ty = ConstructionType::Building(building);
         let recipe = get_build_menu().iter().find(|bi| bi.type_ == con_ty)?;
+        let mut ingredients = recipe.ingredients.clone();
+        for (item, amount) in inventory {
+            ingredients.insert(*item, *amount);
+        }
         Some(Self {
             type_: con_ty,
             pos,
-            ingredients: recipe.ingredients.clone(),
+            ingredients,
             recipe,
             canceling: true,
         })
