@@ -148,7 +148,8 @@ impl Construction {
     }
 
     pub fn extra_ingredients<'a>(&'a self) -> Box<dyn Iterator<Item = (ItemType, usize)> + 'a> {
-        if !self.canceling {
+        // Deconstruct first to allow retrieving ingredients
+        if !self.canceling || 0. < self.progress {
             return Box::new(std::iter::empty());
         }
         Box::new(
@@ -231,7 +232,7 @@ impl AsteroidColonies {
             if construction.canceling {
                 if construction.ingredients.is_empty() {
                     to_delete.push(i);
-                } else {
+                } else if construction.progress <= 0. {
                     push_outputs(
                         &self.cells,
                         &mut self.transports,
@@ -252,6 +253,8 @@ impl AsteroidColonies {
                     &mut self.buildings,
                     &mut [],
                 );
+                // TODO: should we always use the same amount of time to deconstruct as construction?
+                // Some buildings should be easier to deconstruct than construct.
                 if construction.progress < construction.recipe.time {
                     continue;
                 }

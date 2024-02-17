@@ -80,7 +80,6 @@ impl Crew {
                 CellState::Empty
             ) || pos == src
         })?;
-        crate::console_log!("new_deliver");
         // Just to make sure if you can reach the destination from pickup
         if find_path(src, dest, |pos| {
             matches!(
@@ -155,10 +154,19 @@ impl Crew {
 
     fn process_build_task(&mut self, constructions: &mut [Construction], ct_pos: Pos) {
         for con in constructions.iter_mut() {
+            let canceling = con.canceling();
             let t = &mut con.progress;
-            if ct_pos == con.pos && *t < con.recipe.time {
+            if canceling {
+                if ct_pos == con.pos && 0. < *t {
+                    *t = (*t - 1.).max(0.);
+                    if *t <= 0. {
+                        self.task = CrewTask::None;
+                    }
+                    return;
+                }
+            } else if ct_pos == con.pos && *t < con.recipe.time {
                 *t += 1.;
-                if *t <= 0. {
+                if con.recipe.time <= *t {
                     self.task = CrewTask::None;
                 }
                 return;
@@ -197,7 +205,10 @@ impl Crew {
             (|| process_inventory(&mut buildings.iter_mut().find(|o| o.pos == src)?.inventory))()
                 .or_else(|| {
                     process_inventory(
-                        &mut constructions.iter_mut().find(|o| o.pos == src)?.ingredients,
+                        &mut constructions
+                            .iter_mut()
+                            .find(|o| o.pos == src && (!o.canceling() || o.progress <= 0.))?
+                            .ingredients,
                     )
                 });
         if res.is_none() {
