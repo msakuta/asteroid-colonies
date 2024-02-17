@@ -44,20 +44,20 @@ impl AsteroidColonies {
 
         let render_conveyor =
             |context: &CanvasRenderingContext2d, x, y, conv: (Direction, Direction)| {
-                let sy = match conv.0 {
+                let mut sy = match conv.1 {
                     Direction::Left => 0.,
                     Direction::Up => TILE_SIZE,
                     Direction::Right => 2. * TILE_SIZE,
                     Direction::Down => 3. * TILE_SIZE,
                 };
-                let mut sx = match conv.1 {
+                let sx = match conv.0 {
                     Direction::Left => 0.,
                     Direction::Up => TILE_SIZE,
                     Direction::Right => 2. * TILE_SIZE,
                     Direction::Down => 3. * TILE_SIZE,
                 };
                 if sx <= sy {
-                    sx -= sy;
+                    sy -= TILE_SIZE;
                 }
                 context
                     .draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(

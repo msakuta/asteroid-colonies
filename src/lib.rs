@@ -237,6 +237,7 @@ impl AsteroidColonies {
             }
         }
         let convs = [
+            [3, 5],
             [3, 6],
             [3, 7],
             [3, 8],
@@ -245,10 +246,13 @@ impl AsteroidColonies {
             [4, 10],
             [5, 10],
             [5, 9],
-            [5, 8],
+            [6, 9],
+            [6, 8],
+            [6, 7],
             [5, 7],
             [5, 6],
-            [4, 6],
+            [5, 5],
+            [4, 5],
         ];
         for ((pos0, pos1), pos2) in convs
             .iter()
