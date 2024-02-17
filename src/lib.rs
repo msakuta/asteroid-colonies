@@ -405,6 +405,20 @@ impl AsteroidColonies {
         Ok(())
     }
 
+    pub fn cancel_build(&mut self, x: f64, y: f64) {
+        let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
+        let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
+
+        if let Some((i, _)) = self
+            .constructions
+            .iter()
+            .enumerate()
+            .find(|(_, c)| c.pos == [ix, iy])
+        {
+            self.constructions.remove(i);
+        }
+    }
+
     pub fn get_recipes(&self, x: f64, y: f64) -> Result<Vec<JsValue>, JsValue> {
         let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
         let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;

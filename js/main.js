@@ -127,7 +127,7 @@ const canvas = document.getElementById('canvas');
             return;
         }
 
-        for (let name of ["excavate", "move", "power", "conveyor", "moveItem", "build", "recipe"]) {
+        for (let name of ["excavate", "move", "power", "conveyor", "moveItem", "build", "cancel", "recipe"]) {
             const elem = document.getElementById(name);
             if (elem?.checked) {
                 const buildMenuElem = document.getElementById("buildMenu");
@@ -197,6 +197,9 @@ const canvas = document.getElementById('canvas');
                         console.error(e);
                         recipesElem.style.display = "none";
                     }
+                }
+                else if (name === "cancel") {
+                    game.cancel_build(x, y);
                 }
                 else {
                     buildMenuElem.style.display = "none";
