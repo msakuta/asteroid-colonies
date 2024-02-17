@@ -13,6 +13,7 @@ use std::collections::HashMap;
 use construction::get_build_menu;
 
 use serde::Serialize;
+use task::Direction;
 use wasm_bindgen::prelude::*;
 use web_sys::js_sys;
 
@@ -74,7 +75,7 @@ enum CellState {
 struct Cell {
     state: CellState,
     power_grid: bool,
-    conveyor: bool,
+    conveyor: Option<(Direction, Direction)>,
     /// The index into the background image for quick rendering
     image_lt: u8,
     image_lb: u8,
@@ -87,7 +88,7 @@ impl Cell {
         Self {
             state: CellState::Solid,
             power_grid: false,
-            conveyor: false,
+            conveyor: None,
             image_lt: 0,
             image_lb: 0,
             image_rb: 0,
@@ -99,7 +100,7 @@ impl Cell {
         Self {
             state: CellState::Empty,
             power_grid: true,
-            conveyor: true,
+            conveyor: None,
             image_lt: 8,
             image_lb: 8,
             image_rb: 8,
@@ -235,11 +236,34 @@ impl AsteroidColonies {
                 }
             }
         }
-        for pos in [[1, 7], [1, 8], [1, 9], [4, 4], [4, 5], [4, 6]] {
-            let [x, y] = start_ofs(pos);
+        let convs = [
+            [3, 6],
+            [3, 7],
+            [3, 8],
+            [3, 9],
+            [3, 10],
+            [4, 10],
+            [5, 10],
+            [5, 9],
+            [5, 8],
+            [5, 7],
+            [5, 6],
+            [4, 6],
+        ];
+        for ((pos0, pos1), pos2) in convs
+            .iter()
+            .zip(convs.iter().skip(1).chain(std::iter::once(&convs[0])))
+            .zip(convs.iter().skip(2).chain(convs.iter().take(2)))
+        {
+            let [x, y] = start_ofs(*pos1);
             let [x, y] = [x as usize, y as usize];
             cells[x + y * WIDTH].state = CellState::Empty;
-            cells[x + y * WIDTH].conveyor = true;
+            let conv = Some((
+                Direction::from_vec([pos0[0] - pos1[0], pos0[1] - pos1[1]]).unwrap(),
+                Direction::from_vec([pos2[0] - pos1[0], pos2[1] - pos1[1]]).unwrap(),
+            ));
+            console_log!("conv {:?}: {:?}", pos1, conv);
+            cells[x + y * WIDTH].conveyor = conv;
             cells[x + y * WIDTH].power_grid = true;
         }
         for pos in [[4, 7], [4, 8]] {
@@ -365,11 +389,6 @@ impl AsteroidColonies {
         let cell = &self.cells[ix as usize + iy as usize * WIDTH];
         if !cell.power_grid {
             return Err(JsValue::from("Power grid is required to build"));
-        }
-        if !cell.conveyor {
-            return Err(JsValue::from(
-                "Conveyor infrastructure is required to build",
-            ));
         }
 
         let intersects = |pos: Pos, o_size: [usize; 2]| {

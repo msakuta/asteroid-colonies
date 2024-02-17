@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::OnceLock};
 use crate::{
     building::{pull_inputs, push_outputs, Building, BuildingType, HasInventory},
     crew::{expected_crew_deliveries, Crew},
-    task::{BUILD_CONVEYOR_TIME, BUILD_POWER_GRID_TIME},
+    task::{Direction, BUILD_CONVEYOR_TIME, BUILD_POWER_GRID_TIME},
     transport::{expected_deliveries, Transport},
     Inventory, ItemType, Pos, WIDTH,
 };
@@ -267,7 +267,8 @@ impl AsteroidColonies {
                         self.cells[pos[0] as usize + pos[1] as usize * WIDTH].power_grid = true;
                     }
                     ConstructionType::Conveyor => {
-                        self.cells[pos[0] as usize + pos[1] as usize * WIDTH].conveyor = true;
+                        self.cells[pos[0] as usize + pos[1] as usize * WIDTH].conveyor =
+                            Some((Direction::Left, Direction::Up));
                     }
                 }
                 to_delete.push(i);

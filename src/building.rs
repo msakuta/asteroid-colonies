@@ -8,7 +8,7 @@ use crate::{
     construction::Construction,
     hash_map,
     task::{GlobalTask, Task, RAW_ORE_SMELT_TIME},
-    transport::{expected_deliveries, find_multipath, find_path},
+    transport::{expected_deliveries, find_multipath},
     AsteroidColonies, Cell, CellState, Crew, ItemType, Pos, Transport, WIDTH,
 };
 
@@ -239,7 +239,7 @@ impl Building {
                                                 && 0 < o.inventory.get(&ty).copied().unwrap_or(0)
                                         })
                                     },
-                                    |pos| {
+                                    |_, pos| {
                                         matches!(
                                             cells[pos[0] as usize + pos[1] as usize * WIDTH].state,
                                             CellState::Empty
@@ -262,7 +262,7 @@ impl Building {
                                             o.pos == pos && o.inventory_size() < o.type_.capacity()
                                         })
                                     },
-                                    |pos| {
+                                    |_, pos| {
                                         matches!(
                                             cells[pos[0] as usize + pos[1] as usize * WIDTH].state,
                                             CellState::Empty
@@ -407,10 +407,16 @@ pub(crate) fn pull_inputs(
                 if src.1 == 0 {
                     return None;
                 }
-                let path = find_path(src.0.pos, this_pos, |pos| {
-                    let cell = &cells[pos[0] as usize + pos[1] as usize * WIDTH];
-                    cell.conveyor || this_pos == pos
-                })?;
+                let path = find_multipath(
+                    [src.0.pos].into_iter(),
+                    |pos| pos == this_pos,
+                    |from_direction, pos| {
+                        let cell = &cells[pos[0] as usize + pos[1] as usize * WIDTH];
+                        from_direction.map(|from_direction| {
+                        matches!(cell.conveyor, Some((dir, _)) if dir == from_direction)
+                    }).unwrap_or_else(||cell.conveyor.is_some()) || this_pos == pos
+                    },
+                )?;
                 Some((src.0, path))
             }) {
                 let src_count = src.inventory.entry(*ty).or_default();
@@ -467,10 +473,16 @@ pub(crate) fn push_outputs(
         {
             return None;
         }
-        let path = find_path(pos, b.pos, |pos| {
-            let cell = &cells[pos[0] as usize + pos[1] as usize * WIDTH];
-            cell.conveyor
-        })?;
+        let path = find_multipath(
+            std::iter::once(pos),
+            |pos| pos == b.pos,
+            |from_direction, pos| {
+                let cell = &cells[pos[0] as usize + pos[1] as usize * WIDTH];
+                from_direction.map(|from_direction| {
+                matches!(cell.conveyor, Some((dir, _)) if dir == from_direction)
+            }).unwrap_or_else(||cell.conveyor.is_some()) || b.pos == pos
+            },
+        )?;
         Some((b, path))
     });
     // Push away outputs

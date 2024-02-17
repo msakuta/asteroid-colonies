@@ -47,7 +47,7 @@ impl Display for Task {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Direction {
     Left,
     Up,
@@ -63,6 +63,16 @@ impl Direction {
             Self::Right => [1, 0],
             Self::Down => [0, 1],
         }
+    }
+
+    pub(crate) fn from_vec(v: [i32; 2]) -> Option<Self> {
+        Some(match (v[0].signum(), v[1].signum()) {
+            (-1, _) => Self::Left,
+            (1, _) => Self::Right,
+            (0, -1) => Self::Up,
+            (0, 1) => Self::Down,
+            _ => return None,
+        })
     }
 }
 
@@ -142,7 +152,7 @@ impl AsteroidColonies {
         if matches!(cell.state, CellState::Space) {
             return Err(JsValue::from("You cannot build conveyor in space!"));
         }
-        if cell.conveyor {
+        if cell.conveyor.is_some() {
             return Err(JsValue::from("Conveyor is already installed in this cell"));
         }
         for dir in [
@@ -154,7 +164,7 @@ impl AsteroidColonies {
             let dir_vec = dir.to_vec();
             let src_pos = [ix + dir_vec[0], iy + dir_vec[1]];
             let src_cell = &self.cells[src_pos[0] as usize + src_pos[1] as usize * WIDTH];
-            if src_cell.conveyor {
+            if src_cell.conveyor.is_some() {
                 self.constructions
                     .push(Construction::new_conveyor([ix, iy]));
                 return Ok(JsValue::from(true));
@@ -168,7 +178,7 @@ impl AsteroidColonies {
         if matches!(cell.state, CellState::Solid) {
             return Err(JsValue::from("Needs excavation before building conveyor"));
         }
-        if !cell.conveyor {
+        if !cell.conveyor.is_some() {
             return Err(JsValue::from("Conveyor is needed to move items"));
         }
         let Some(_dest) = self

@@ -5,7 +5,9 @@ use web_sys::CanvasRenderingContext2d;
 
 use crate::{
     construction::ConstructionType,
-    task::{GlobalTask, Task, EXCAVATE_TIME, LABOR_EXCAVATE_TIME, MOVE_ITEM_TIME, MOVE_TIME},
+    task::{
+        Direction, GlobalTask, Task, EXCAVATE_TIME, LABOR_EXCAVATE_TIME, MOVE_ITEM_TIME, MOVE_TIME,
+    },
     BuildingType, Cell, CellState, ItemType, HEIGHT, WIDTH,
 };
 
@@ -40,19 +42,36 @@ impl AsteroidColonies {
             )
         };
 
-        let render_conveyor = |context: &CanvasRenderingContext2d, x, y| {
-            context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-                &self.assets.img_conveyor,
-                0.,
-                0.,
-                TILE_SIZE,
-                TILE_SIZE,
-                x,
-                y,
-                TILE_SIZE,
-                TILE_SIZE,
-            )
-        };
+        let render_conveyor =
+            |context: &CanvasRenderingContext2d, x, y, conv: (Direction, Direction)| {
+                let sy = match conv.0 {
+                    Direction::Left => 0.,
+                    Direction::Up => TILE_SIZE,
+                    Direction::Right => 2. * TILE_SIZE,
+                    Direction::Down => 3. * TILE_SIZE,
+                };
+                let mut sx = match conv.1 {
+                    Direction::Left => 0.,
+                    Direction::Up => TILE_SIZE,
+                    Direction::Right => 2. * TILE_SIZE,
+                    Direction::Down => 3. * TILE_SIZE,
+                };
+                if sx <= sy {
+                    sx -= sy;
+                }
+                context
+                    .draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+                        &self.assets.img_conveyor,
+                        sx,
+                        sy,
+                        TILE_SIZE,
+                        TILE_SIZE,
+                        x,
+                        y,
+                        TILE_SIZE,
+                        TILE_SIZE,
+                    )
+            };
 
         let mut rendered_cells = 0;
         let mut render_cell = |ix: i32, iy: i32| -> Result<(), JsValue> {
@@ -144,8 +163,8 @@ impl AsteroidColonies {
             if cell.power_grid {
                 render_power_grid(context, x, y)?;
             }
-            if cell.conveyor {
-                render_conveyor(context, x, y)?;
+            if let Some(conv) = cell.conveyor {
+                render_conveyor(context, x, y, conv)?;
             }
             rendered_cells += 1;
             Ok(())
@@ -296,7 +315,9 @@ impl AsteroidColonies {
                         )?;
                 }
                 ConstructionType::PowerGrid => render_power_grid(context, x, y)?,
-                ConstructionType::Conveyor => render_conveyor(context, x, y)?,
+                ConstructionType::Conveyor => {
+                    render_conveyor(context, x, y, (Direction::Left, Direction::Up))?
+                }
             }
             let img = if construction.canceling() {
                 &self.assets.img_deconstruction

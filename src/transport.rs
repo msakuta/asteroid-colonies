@@ -63,10 +63,19 @@ impl AsteroidColonies {
                 let delivered = check_construction(t) || check_building(t);
                 if !delivered {
                     let cells = &self.cells;
-                    let return_path = find_path(t.dest, t.src, |pos| {
-                        let cell = &cells[pos[0] as usize + pos[1] as usize * WIDTH];
-                        cell.conveyor
-                    });
+                    let return_path = find_multipath(
+                        std::iter::once(t.dest),
+                        |pos| pos == t.src,
+                        |from_direction, pos| {
+                            let cell = &cells[pos[0] as usize + pos[1] as usize * WIDTH];
+                            if let Some(from_direction) = from_direction {
+                                matches!(cell.conveyor, Some((_, dir)) if dir == from_direction)
+                                    && cell.conveyor.is_some()
+                            } else {
+                                cell.conveyor.is_some()
+                            }
+                        },
+                    );
                     if let Some(return_path) = return_path {
                         std::mem::swap(&mut t.src, &mut t.dest);
                         t.path = return_path;
@@ -97,19 +106,23 @@ pub(crate) fn find_path(
     goal: [i32; 2],
     is_passable: impl Fn([i32; 2]) -> bool,
 ) -> Option<Vec<[i32; 2]>> {
-    find_multipath([start].into_iter(), |pos| pos == goal, is_passable)
+    find_multipath(
+        [start].into_iter(),
+        |pos| pos == goal,
+        |_, pos| is_passable(pos),
+    )
 }
 
 pub(crate) fn find_multipath(
     start: impl Iterator<Item = [i32; 2]>,
     goal: impl Fn([i32; 2]) -> bool,
-    is_passable: impl Fn([i32; 2]) -> bool,
+    is_passable: impl Fn(Option<Direction>, Pos) -> bool,
 ) -> Option<Vec<[i32; 2]>> {
     #[derive(Clone, Copy)]
     struct Entry {
         pos: [i32; 2],
         dist: usize,
-        from: Option<[i32; 2]>,
+        from: Option<(Direction, [i32; 2])>,
     }
 
     impl std::cmp::PartialEq for Entry {
@@ -151,7 +164,7 @@ pub(crate) fn find_multipath(
                 next_set.push(Entry {
                     pos: [pos[0] + dir_vec[0], pos[1] + dir_vec[1]],
                     dist: dist + 1,
-                    from: Some(pos),
+                    from: Some((dir, pos)),
                 });
             }
         };
@@ -167,7 +180,7 @@ pub(crate) fn find_multipath(
         insert_neighbors(&mut next_set, &visited, s_pos, 0);
     }
     while let Some(next) = next_set.pop() {
-        if !is_passable(next.pos) {
+        if !is_passable(next.from.map(|(dir, _)| dir), next.pos) {
             continue;
         }
         if goal(next.pos) {
@@ -175,7 +188,10 @@ pub(crate) fn find_multipath(
             let mut nodes = vec![];
             while let Some(cursor_entry) = cursor {
                 nodes.push(cursor_entry.pos);
-                cursor = cursor_entry.from.and_then(|pos| visited.get(&pos)).copied();
+                cursor = cursor_entry
+                    .from
+                    .and_then(|(_, pos)| visited.get(&pos))
+                    .copied();
             }
             return Some(nodes);
         }
