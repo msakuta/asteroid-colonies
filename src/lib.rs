@@ -414,6 +414,26 @@ impl AsteroidColonies {
         }
     }
 
+    /// Puts a task to deconstruct a building. It is different from `cancel_build` in that it destroys already built ones.
+    pub fn deconstruct(&mut self, x: f64, y: f64) -> Result<(), JsValue> {
+        let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
+        let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
+
+        let (i, b) = self
+            .buildings
+            .iter()
+            .enumerate()
+            .find(|(_, c)| c.pos == [ix, iy])
+            .ok_or_else(|| JsValue::from("Building not found at given position"))?;
+        let decon = Construction::new_deconstruct(b.type_, [ix, iy])
+            .ok_or_else(|| JsValue::from("No build recipe was found to deconstruct"))?;
+
+        self.constructions.push(decon);
+        self.buildings.remove(i);
+
+        Ok(())
+    }
+
     pub fn get_recipes(&self, x: f64, y: f64) -> Result<Vec<JsValue>, JsValue> {
         let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
         let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;

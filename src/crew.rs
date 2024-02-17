@@ -160,31 +160,35 @@ impl Crew {
         dest: Pos,
         cells: &[Cell],
         buildings: &mut [Building],
+        constructions: &mut [Construction],
     ) {
-        let Some(building) = buildings.iter_mut().find(|o| o.pos == src) else {
-            self.task = CrewTask::None;
-            return;
+        let mut process_inventory = |inventory: &mut HashMap<ItemType, usize>| {
+            let entry = inventory.get_mut(&item).filter(|entry| 0 < **entry)?;
+            *entry -= 1;
+            if *entry == 0 {
+                inventory.remove(&item);
+            }
+            *self.inventory.entry(item).or_default() += 1;
+            let path = find_path(self.pos, dest, |pos| {
+                matches!(
+                    cells[pos[0] as usize + pos[1] as usize * WIDTH].state,
+                    CellState::Empty
+                ) || pos == dest
+            })?;
+            self.path = Some(path);
+            self.task = CrewTask::Deliver { dst: dest, item };
+            Some(())
         };
-        let Some(entry) = building.inventory.get_mut(&item) else {
+        let res =
+            (|| process_inventory(&mut buildings.iter_mut().find(|o| o.pos == src)?.inventory))()
+                .or_else(|| {
+                    process_inventory(
+                        &mut constructions.iter_mut().find(|o| o.pos == src)?.ingredients,
+                    )
+                });
+        if res.is_none() {
             self.task = CrewTask::None;
-            return;
         };
-        if *entry == 0 {
-            self.task = CrewTask::None;
-            return;
-        }
-        *entry -= 1;
-        *self.inventory.entry(item).or_default() += 1;
-        let Some(path) = find_path(self.pos, dest, |pos| {
-            matches!(
-                cells[pos[0] as usize + pos[1] as usize * WIDTH].state,
-                CellState::Empty
-            ) || pos == dest
-        }) else {
-            return;
-        };
-        self.path = Some(path);
-        self.task = CrewTask::Deliver { dst: dest, item };
     }
 
     fn process_deliver_task(
@@ -240,7 +244,14 @@ impl AsteroidColonies {
                     crew.process_build_task(&mut self.global_tasks, ct_pos);
                 }
                 CrewTask::Pickup { src, dest, item } => {
-                    crew.process_pickup_task(item, src, dest, &self.cells, &mut self.buildings);
+                    crew.process_pickup_task(
+                        item,
+                        src,
+                        dest,
+                        &self.cells,
+                        &mut self.buildings,
+                        &mut self.constructions,
+                    );
                 }
                 CrewTask::Deliver { dst, item } => {
                     crew.process_deliver_task(item, dst, &mut self.constructions);

@@ -60,6 +60,18 @@ impl Construction {
         Self::new(recipe, pos)
     }
 
+    pub fn new_deconstruct(building: BuildingType, pos: Pos) -> Option<Self> {
+        let con_ty = ConstructionType::Building(building);
+        let recipe = get_build_menu().iter().find(|bi| bi.type_ == con_ty)?;
+        Some(Self {
+            type_: con_ty,
+            pos,
+            ingredients: recipe.ingredients.clone(),
+            recipe,
+            canceling: true,
+        })
+    }
+
     pub fn building(&self) -> Option<BuildingType> {
         match self.type_ {
             ConstructionType::Building(b) => Some(b),
@@ -113,7 +125,11 @@ impl Construction {
         if !self.canceling {
             return Box::new(std::iter::empty());
         }
-        Box::new(self.ingredients.iter().map(|(i, v)| (*i, *v)))
+        Box::new(
+            self.ingredients
+                .iter()
+                .filter_map(|(i, v)| if 0 < *v { Some((*i, *v)) } else { None }),
+        )
     }
 }
 

@@ -129,7 +129,7 @@ const canvas = document.getElementById('canvas');
             return;
         }
 
-        for (let name of ["excavate", "move", "power", "conveyor", "moveItem", "build", "cancel", "recipe"]) {
+        for (let name of ["excavate", "move", "power", "conveyor", "moveItem", "build", "cancel", "deconstruct", "recipe"]) {
             const elem = document.getElementById(name);
             if (elem?.checked) {
                 const buildMenuElem = document.getElementById("buildMenu");
@@ -202,6 +202,9 @@ const canvas = document.getElementById('canvas');
                 }
                 else if (name === "cancel") {
                     game.cancel_build(x, y);
+                }
+                else if (name === "deconstruct") {
+                    game.deconstruct(x, y);
                 }
                 else {
                     buildMenuElem.style.display = "none";
