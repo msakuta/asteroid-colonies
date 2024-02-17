@@ -13,8 +13,8 @@ use crate::{
 pub(crate) const EXCAVATE_TIME: f64 = 10.;
 pub(crate) const LABOR_EXCAVATE_TIME: f64 = 100.;
 pub(crate) const MOVE_TIME: f64 = 2.;
-pub(crate) const BUILD_POWER_GRID_TIME: f64 = 5.;
-pub(crate) const BUILD_CONVEYOR_TIME: f64 = 10.;
+pub(crate) const BUILD_POWER_GRID_TIME: f64 = 60.;
+pub(crate) const BUILD_CONVEYOR_TIME: f64 = 90.;
 pub(crate) const MOVE_ITEM_TIME: f64 = 2.;
 pub(crate) const RAW_ORE_SMELT_TIME: f64 = 30.;
 pub(crate) const EXCAVATE_ORE_AMOUNT: usize = 5;
@@ -341,22 +341,8 @@ impl AsteroidColonies {
             }
         }
 
-        const POWER_CONSUMPTION: usize = 200;
-
         self.global_tasks.retain_mut(|task| match task {
-            GlobalTask::Build(ref mut t, _, _) => {
-                // TODO: use power_ratio
-                if *t <= 0. {
-                    false
-                } else {
-                    if 0 < workforce && POWER_CONSUMPTION as isize <= power {
-                        *t -= 1.;
-                        power -= POWER_CONSUMPTION as isize;
-                        workforce -= 1;
-                    }
-                    true
-                }
-            }
+            GlobalTask::Build(ref mut t, _, _) => !(*t <= 0.),
             GlobalTask::Excavate(ref mut t, _) => !(*t <= 0.),
         });
 

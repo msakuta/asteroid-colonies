@@ -209,18 +209,18 @@ impl Building {
                     return Ok(());
                 }
                 for gtask in gtasks {
-                    if let GlobalTask::Excavate(t, goal_pos) = gtask {
-                        if *t <= 0. {
-                            continue;
-                        }
-                        if crews.iter().any(|crew| crew.target() == Some(*goal_pos)) {
-                            continue;
-                        }
-                        if let Some(crew) = Crew::new(this.pos, *goal_pos, cells) {
-                            crews.push(crew);
-                            this.crews -= 1;
-                            break;
-                        }
+                    let (GlobalTask::Excavate(t, goal_pos) | GlobalTask::Build(t, goal_pos, _)) =
+                        gtask;
+                    if *t <= 0. {
+                        continue;
+                    }
+                    if crews.iter().any(|crew| crew.target() == Some(*goal_pos)) {
+                        continue;
+                    }
+                    if let Some(crew) = Crew::new_task(this.pos, gtask, cells) {
+                        crews.push(crew);
+                        this.crews -= 1;
+                        break;
                     }
                 }
             }
