@@ -17,7 +17,7 @@ pub(crate) const BUILD_POWER_GRID_TIME: f64 = 5.;
 pub(crate) const BUILD_CONVEYOR_TIME: f64 = 10.;
 pub(crate) const MOVE_ITEM_TIME: f64 = 2.;
 pub(crate) const RAW_ORE_SMELT_TIME: f64 = 30.;
-const EXCAVATE_ORE_AMOUNT: usize = 5;
+pub(crate) const EXCAVATE_ORE_AMOUNT: usize = 5;
 
 #[derive(Clone, Debug)]
 pub(crate) enum Task {
@@ -335,14 +335,6 @@ impl AsteroidColonies {
                 },
                 GlobalTask::Excavate(t, pos) if *t <= 0. => {
                     self.cells[pos[0] as usize + pos[1] as usize * WIDTH].state = CellState::Empty;
-                    let cabin = self.buildings.iter_mut().find(|b| {
-                        matches!(b.type_, BuildingType::CrewCabin)
-                            && b.inventory_size() < b.type_.capacity()
-                    });
-                    if let Some(cabin) = cabin {
-                        *cabin.inventory.entry(ItemType::RawOre).or_default() +=
-                            EXCAVATE_ORE_AMOUNT;
-                    }
                     calculate_back_image(&mut self.cells);
                 }
                 _ => {}

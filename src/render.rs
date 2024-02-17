@@ -4,7 +4,6 @@ use wasm_bindgen::prelude::*;
 use web_sys::CanvasRenderingContext2d;
 
 use crate::{
-    console_log,
     task::{GlobalTask, Task, EXCAVATE_TIME, LABOR_EXCAVATE_TIME, MOVE_ITEM_TIME, MOVE_TIME},
     BuildingType, Cell, CellState, ItemType, HEIGHT, WIDTH,
 };
@@ -153,7 +152,7 @@ impl AsteroidColonies {
                 render_cell(ix, iy)?;
             }
         }
-        console_log!("rendered_cells: {}", rendered_cells);
+        // console_log!("rendered_cells: {}", rendered_cells);
 
         for building in &self.buildings {
             let img = match building.type_ {

@@ -209,8 +209,10 @@ impl Building {
                     return Ok(());
                 }
                 for gtask in gtasks {
-                    if let GlobalTask::Excavate(_, goal_pos) = gtask {
-                        // crate::console_log!("building::tick: goal_pos: {:?}, crew: {:?}", goal_pos, crews.iter().map(|c| c.target()).collect::<Vec<_>>());
+                    if let GlobalTask::Excavate(t, goal_pos) = gtask {
+                        if *t <= 0. {
+                            continue;
+                        }
                         if crews.iter().any(|crew| crew.target() == Some(*goal_pos)) {
                             continue;
                         }

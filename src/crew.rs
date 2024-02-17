@@ -1,7 +1,11 @@
-use crate::task::GlobalTask;
-use crate::{console_log, Cell, Pos};
+use std::collections::HashMap;
 
-use crate::{transport::find_path, AsteroidColonies, CellState, WIDTH};
+use crate::{
+    console_log,
+    task::{GlobalTask, EXCAVATE_ORE_AMOUNT, LABOR_EXCAVATE_TIME},
+    transport::find_path,
+    AsteroidColonies, Cell, CellState, ItemType, Pos, WIDTH,
+};
 
 enum CrewTask {
     Return,
@@ -13,6 +17,7 @@ pub(crate) struct Crew {
     pub path: Option<Vec<Pos>>,
     pub from: Pos,
     task: Option<CrewTask>,
+    inventory: HashMap<ItemType, usize>,
     to_delete: bool,
 }
 
@@ -29,6 +34,7 @@ impl Crew {
             path: Some(path),
             from: pos,
             task: Some(CrewTask::Excavate(target)),
+            inventory: HashMap::new(),
             to_delete: false,
         })
     }
@@ -46,6 +52,9 @@ impl AsteroidColonies {
         let mut try_return = |crew: &mut Crew| {
             if let Some(building) = self.buildings.iter_mut().find(|b| b.pos == crew.from) {
                 building.crews += 1;
+                for (item, amount) in &crew.inventory {
+                    *building.inventory.entry(*item).or_default() += *amount;
+                }
                 crew.to_delete = true;
             }
         };
@@ -62,11 +71,26 @@ impl AsteroidColonies {
                     crew.pos = pos;
                 }
             } else if let Some(CrewTask::Excavate(ct_pos)) = crew.task {
+                const ORE_PERIOD: f64 = LABOR_EXCAVATE_TIME as f64 / EXCAVATE_ORE_AMOUNT as f64;
                 'outer: {
                     for gtask in self.global_tasks.iter_mut() {
                         if let GlobalTask::Excavate(t, gt_pos) = gtask {
-                            if ct_pos == *gt_pos {
+                            if ct_pos == *gt_pos && 0. < *t {
                                 *t -= 1.;
+                                // crate::console_log!(
+                                //     "crew excavate: t: {}, t % T: {} (t - 1) % T: {}",
+                                //     t,
+                                //     t.rem_euclid(ORE_PERIOD),
+                                //     (*t - 1.).rem_euclid(ORE_PERIOD)
+                                // );
+                                if t.rem_euclid(ORE_PERIOD) < (*t - 1.).rem_euclid(ORE_PERIOD) {
+                                    let entry = crew.inventory.entry(ItemType::RawOre).or_default();
+                                    *entry += 1;
+                                    if 1 <= *entry {
+                                        crew.task = None;
+                                    }
+                                    // crate::console_log!("crew {:?}", crew.inventory);
+                                }
                                 break 'outer;
                             }
                         }
