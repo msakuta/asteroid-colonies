@@ -213,7 +213,7 @@ impl AsteroidColonies {
         }
         let start_ofs = |pos: [i32; 2]| [pos[0] + 8, pos[1] + 20];
         let buildings = vec![
-            Building::new(start_ofs([2, 2]), BuildingType::CrewCabin),
+            Building::new(start_ofs([1, 7]), BuildingType::CrewCabin),
             Building::new(start_ofs([3, 4]), BuildingType::Power),
             Building::new(start_ofs([4, 4]), BuildingType::Excavator),
             Building::new(start_ofs([5, 4]), BuildingType::Storage),
@@ -223,7 +223,7 @@ impl AsteroidColonies {
                 hash_map!(ItemType::ConveyorComponent => 2, ItemType::PowerGridComponent => 2),
             ),
             Building::new(start_ofs([1, 10]), BuildingType::Assembler),
-            Building::new(start_ofs([1, 5]), BuildingType::Furnace),
+            Building::new(start_ofs([1, 4]), BuildingType::Furnace),
         ];
         for building in &buildings {
             let pos = building.pos;

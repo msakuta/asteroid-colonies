@@ -436,7 +436,7 @@ pub(crate) fn pull_inputs(
             //     pos,
             //     cell.conveyor
             // );
-            if start_neighbors.contains(&pos) {
+            if cell.conveyor.is_some() && start_neighbors.contains(&pos) {
                 // crate::console_log!("next to start");
                 return true;
             }
@@ -533,7 +533,7 @@ pub(crate) fn push_outputs(
                 //     pos,
                 //     cell.conveyor
                 // );
-                if start_neighbors.contains(&pos) {
+                if cell.conveyor.is_some() && start_neighbors.contains(&pos) {
                     // crate::console_log!("next to start");
                     return true;
                 }
@@ -626,6 +626,6 @@ fn neighbors_set(it: impl Iterator<Item = Pos>) -> HashSet<Pos> {
     set
 }
 
-fn is_neighbor(a: Pos, b: Pos) -> bool {
+fn _is_neighbor(a: Pos, b: Pos) -> bool {
     a[0].abs_diff(b[0]) < 1 && a[1] == b[1] || a[1].abs_diff(b[1]) < 1 && a[0] == b[0]
 }

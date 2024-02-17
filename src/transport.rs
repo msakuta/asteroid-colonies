@@ -1,4 +1,4 @@
-use std::collections::{BinaryHeap, HashMap};
+use std::collections::{BinaryHeap, HashMap, HashSet};
 
 use crate::{task::Direction, AsteroidColonies, ItemType, Pos, WIDTH};
 
@@ -58,6 +58,12 @@ impl AsteroidColonies {
             false
         };
 
+        let occupied: HashSet<_> = self
+            .transports
+            .iter()
+            .filter_map(|t| t.path.last().copied())
+            .collect();
+
         for t in &mut self.transports {
             if t.path.len() <= 1 {
                 let delivered = check_construction(t) || check_building(t);
@@ -81,7 +87,12 @@ impl AsteroidColonies {
                         t.path = return_path;
                     }
                 }
-            } else {
+            } else if t.path.len() <= 2
+                || t.path
+                    .get(t.path.len() - 2)
+                    .map(|pos| !occupied.contains(pos))
+                    .unwrap_or(true)
+            {
                 t.path.pop();
             }
         }
