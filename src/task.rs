@@ -3,11 +3,9 @@ use std::{collections::HashMap, fmt::Display};
 use wasm_bindgen::JsValue;
 
 use crate::{
-    building::Recipe,
-    construction::{BuildMenuItem, Construction, ConstructionType},
-    render::calculate_back_image,
-    transport::find_path,
-    AsteroidColonies, Building, BuildingType, Cell, CellState, ItemType, Pos, WIDTH,
+    building::Recipe, construction::Construction, render::calculate_back_image,
+    transport::find_path, AsteroidColonies, Building, BuildingType, Cell, CellState, ItemType, Pos,
+    WIDTH,
 };
 
 pub(crate) const EXCAVATE_TIME: f64 = 10.;
@@ -70,7 +68,6 @@ impl Direction {
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum GlobalTask {
-    Build(f64, [i32; 2], &'static BuildMenuItem),
     /// Excavate using human labor. Very slow and inefficient.
     Excavate(f64, [i32; 2]),
 }
@@ -308,17 +305,6 @@ impl AsteroidColonies {
 
         for task in &self.global_tasks {
             match task {
-                GlobalTask::Build(t, pos, recipe) if *t <= 0. => match recipe.type_ {
-                    ConstructionType::Building(ty) => {
-                        self.buildings.push(Building::new(*pos, ty));
-                    }
-                    ConstructionType::PowerGrid => {
-                        self.cells[pos[0] as usize + pos[1] as usize * WIDTH].power_grid = true;
-                    }
-                    ConstructionType::Conveyor => {
-                        self.cells[pos[0] as usize + pos[1] as usize * WIDTH].conveyor = true;
-                    }
-                },
                 GlobalTask::Excavate(t, pos) if *t <= 0. => {
                     self.cells[pos[0] as usize + pos[1] as usize * WIDTH].state = CellState::Empty;
                     calculate_back_image(&mut self.cells);
@@ -328,7 +314,6 @@ impl AsteroidColonies {
         }
 
         self.global_tasks.retain_mut(|task| match task {
-            GlobalTask::Build(ref mut t, _, _) => !(*t <= 0.),
             GlobalTask::Excavate(ref mut t, _) => !(*t <= 0.),
         });
 

@@ -1,11 +1,11 @@
 use std::{collections::HashMap, sync::OnceLock};
 
 use crate::{
-    building::{pull_inputs, push_outputs, BuildingType, HasInventory},
+    building::{pull_inputs, push_outputs, Building, BuildingType, HasInventory},
     crew::{expected_crew_deliveries, Crew},
-    task::{GlobalTask, BUILD_CONVEYOR_TIME, BUILD_POWER_GRID_TIME},
+    task::{BUILD_CONVEYOR_TIME, BUILD_POWER_GRID_TIME},
     transport::{expected_deliveries, Transport},
-    Inventory, ItemType, Pos,
+    Inventory, ItemType, Pos, WIDTH,
 };
 
 use super::{hash_map, AsteroidColonies};
@@ -27,6 +27,7 @@ pub(crate) struct Construction {
     pub ingredients: HashMap<ItemType, usize>,
     pub recipe: &'static BuildMenuItem,
     canceling: bool,
+    pub progress: f64,
 }
 
 impl Construction {
@@ -37,6 +38,7 @@ impl Construction {
             ingredients: HashMap::new(),
             recipe: &item,
             canceling: false,
+            progress: 0.,
         }
     }
 
@@ -77,10 +79,15 @@ impl Construction {
             ingredients,
             recipe,
             canceling: true,
+            progress: recipe.time,
         })
     }
 
-    pub fn building(&self) -> Option<BuildingType> {
+    pub fn get_type(&self) -> ConstructionType {
+        self.type_
+    }
+
+    pub fn _building(&self) -> Option<BuildingType> {
         match self.type_ {
             ConstructionType::Building(b) => Some(b),
             _ => None,
@@ -100,6 +107,17 @@ impl Construction {
 
     pub fn toggle_cancel(&mut self) {
         self.canceling = !self.canceling;
+    }
+
+    pub fn progress(&self) -> f64 {
+        self.progress
+    }
+
+    pub fn ingredients_satisfied(&self) -> bool {
+        self.recipe.ingredients.iter().all(|(ty, recipe_amount)| {
+            crate::console_log!("ing {:?} => {:?}", ty, self.ingredients.get(ty));
+            *recipe_amount <= self.ingredients.get(ty).copied().unwrap_or(0)
+        })
     }
 
     pub fn required_ingredients<'a>(
@@ -209,7 +227,7 @@ impl AsteroidColonies {
 impl AsteroidColonies {
     pub(super) fn process_constructions(&mut self) {
         let mut to_delete = vec![];
-        'outer: for (i, construction) in self.constructions.iter_mut().enumerate() {
+        for (i, construction) in self.constructions.iter_mut().enumerate() {
             if construction.canceling {
                 if construction.ingredients.is_empty() {
                     to_delete.push(i);
@@ -234,17 +252,21 @@ impl AsteroidColonies {
                     &mut self.buildings,
                     &mut [],
                 );
-                for (ty, &required) in &construction.recipe.ingredients {
-                    let arrived = construction.ingredients.get(ty).copied().unwrap_or(0);
-                    if arrived < required {
-                        continue 'outer;
+                if construction.progress < construction.recipe.time {
+                    continue;
+                }
+                let pos = construction.pos;
+                match construction.type_ {
+                    ConstructionType::Building(ty) => {
+                        self.buildings.push(Building::new(pos, ty));
+                    }
+                    ConstructionType::PowerGrid => {
+                        self.cells[pos[0] as usize + pos[1] as usize * WIDTH].power_grid = true;
+                    }
+                    ConstructionType::Conveyor => {
+                        self.cells[pos[0] as usize + pos[1] as usize * WIDTH].conveyor = true;
                     }
                 }
-                self.global_tasks.push(GlobalTask::Build(
-                    construction.recipe.time,
-                    construction.pos,
-                    construction.recipe,
-                ));
                 to_delete.push(i);
             }
         }

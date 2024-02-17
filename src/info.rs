@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     building::{BuildingType, Recipe},
-    construction::BuildMenuItem,
+    construction::{BuildMenuItem, ConstructionType},
     render::TILE_SIZE,
     ItemType, Pos,
 };
@@ -23,7 +23,7 @@ struct GetBuildingInfoResult {
 
 #[derive(Serialize)]
 struct GetConstructionInfoResult {
-    type_: BuildingType,
+    type_: ConstructionType,
     recipe: &'static BuildMenuItem,
     ingredients: HashMap<ItemType, usize>,
 }
@@ -64,14 +64,11 @@ impl AsteroidColonies {
                 }
             });
         let construction = self.constructions.iter().find_map(|c| {
-            let Some(type_) = c.building() else {
-                return None;
-            };
-            if !intersects(c.pos, type_.size()) {
+            if !intersects(c.pos, c.size()) {
                 return None;
             }
             Some(GetConstructionInfoResult {
-                type_: type_,
+                type_: c.get_type(),
                 recipe: c.recipe,
                 ingredients: c.ingredients.clone(),
             })

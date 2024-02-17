@@ -33,7 +33,6 @@ impl Crew {
     pub fn new_task(pos: Pos, gtask: &GlobalTask, cells: &[Cell]) -> Option<Self> {
         let (target, task) = match gtask {
             GlobalTask::Excavate(_, pos) => (*pos, CrewTask::Excavate(*pos)),
-            GlobalTask::Build(_, pos, _) => (*pos, CrewTask::Build(*pos)),
         };
         let path = find_path(pos, target, |pos| {
             matches!(
@@ -46,6 +45,23 @@ impl Crew {
             path: Some(path),
             from: pos,
             task,
+            inventory: HashMap::new(),
+            to_delete: false,
+        })
+    }
+
+    pub fn new_build(pos: Pos, dest: Pos, cells: &[Cell]) -> Option<Self> {
+        let path = find_path(pos, dest, |pos| {
+            matches!(
+                cells[pos[0] as usize + pos[1] as usize * WIDTH].state,
+                CellState::Empty
+            ) || pos == dest
+        })?;
+        Some(Self {
+            pos,
+            path: Some(path),
+            from: pos,
+            task: CrewTask::Build(dest),
             inventory: HashMap::new(),
             to_delete: false,
         })
@@ -114,40 +130,38 @@ impl Crew {
     fn process_excavate_task(&mut self, global_tasks: &mut [GlobalTask], ct_pos: Pos) {
         const ORE_PERIOD: f64 = LABOR_EXCAVATE_TIME as f64 / EXCAVATE_ORE_AMOUNT as f64;
         for gtask in global_tasks.iter_mut() {
-            if let GlobalTask::Excavate(t, gt_pos) = gtask {
-                if ct_pos == *gt_pos && 0. < *t {
-                    *t -= 1.;
-                    // crate::console_log!(
-                    //     "crew excavate: t: {}, t % T: {} (t - 1) % T: {}",
-                    //     t,
-                    //     t.rem_euclid(ORE_PERIOD),
-                    //     (*t - 1.).rem_euclid(ORE_PERIOD)
-                    // );
-                    if t.rem_euclid(ORE_PERIOD) < (*t - 1.).rem_euclid(ORE_PERIOD) {
-                        let entry = self.inventory.entry(ItemType::RawOre).or_default();
-                        *entry += 1;
-                        if 1 <= *entry {
-                            self.task = CrewTask::None;
-                        }
-                        // crate::console_log!("crew {:?}", crew.inventory);
+            let GlobalTask::Excavate(t, gt_pos) = gtask;
+            if ct_pos == *gt_pos && 0. < *t {
+                *t -= 1.;
+                // crate::console_log!(
+                //     "crew excavate: t: {}, t % T: {} (t - 1) % T: {}",
+                //     t,
+                //     t.rem_euclid(ORE_PERIOD),
+                //     (*t - 1.).rem_euclid(ORE_PERIOD)
+                // );
+                if t.rem_euclid(ORE_PERIOD) < (*t - 1.).rem_euclid(ORE_PERIOD) {
+                    let entry = self.inventory.entry(ItemType::RawOre).or_default();
+                    *entry += 1;
+                    if 1 <= *entry {
+                        self.task = CrewTask::None;
                     }
-                    return;
+                    // crate::console_log!("crew {:?}", crew.inventory);
                 }
+                return;
             }
         }
         self.task = CrewTask::None;
     }
 
-    fn process_build_task(&mut self, global_tasks: &mut [GlobalTask], ct_pos: Pos) {
-        for gtask in global_tasks.iter_mut() {
-            if let GlobalTask::Build(t, gt_pos, _) = gtask {
-                if ct_pos == *gt_pos && 0. < *t {
-                    *t -= 1.;
-                    if *t <= 0. {
-                        self.task = CrewTask::None;
-                    }
-                    return;
+    fn process_build_task(&mut self, constructions: &mut [Construction], ct_pos: Pos) {
+        for con in constructions.iter_mut() {
+            let t = &mut con.progress;
+            if ct_pos == con.pos && *t < con.recipe.time {
+                *t += 1.;
+                if *t <= 0. {
+                    self.task = CrewTask::None;
                 }
+                return;
             }
         }
         self.task = CrewTask::None;
@@ -241,7 +255,7 @@ impl AsteroidColonies {
                     crew.process_excavate_task(&mut self.global_tasks, ct_pos);
                 }
                 CrewTask::Build(ct_pos) => {
-                    crew.process_build_task(&mut self.global_tasks, ct_pos);
+                    crew.process_build_task(&mut self.constructions, ct_pos);
                 }
                 CrewTask::Pickup { src, dest, item } => {
                     crew.process_pickup_task(

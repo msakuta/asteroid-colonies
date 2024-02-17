@@ -271,7 +271,6 @@ impl AsteroidColonies {
 
         for task in &self.global_tasks {
             let task_target = match task {
-                GlobalTask::Build(t, pos, recipe) => Some((*t, pos, recipe.time)),
                 GlobalTask::Excavate(t, pos) => Some((*t, pos, LABOR_EXCAVATE_TIME)),
             };
 
@@ -298,6 +297,12 @@ impl AsteroidColonies {
             context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
                 img, 0., 0., SRC_WIDTH, SRC_HEIGHT, x, y, width, height,
             )?;
+            render_global_task_bar(
+                context,
+                [x, y],
+                construction.progress(),
+                construction.recipe.time,
+            );
             // if let Some((t, pos, max_time)) = task_target {
             //     render_global_task_bar(context, pos, t, max_time);
             // }

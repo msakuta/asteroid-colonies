@@ -211,8 +211,7 @@ impl Building {
                     return Ok(());
                 }
                 for gtask in gtasks {
-                    let (GlobalTask::Excavate(t, goal_pos) | GlobalTask::Build(t, goal_pos, _)) =
-                        gtask;
+                    let GlobalTask::Excavate(t, goal_pos) = gtask;
                     if *t <= 0. {
                         continue;
                     }
@@ -277,6 +276,19 @@ impl Building {
                                         Crew::new_pickup(this.pos, construction.pos, dst, ty, cells)
                                     })
                             })
+                        })
+                        .or_else(|| {
+                            if crews
+                                .iter()
+                                .any(|crew| crew.target() == Some(construction.pos))
+                            {
+                                return None;
+                            }
+                            if construction.ingredients_satisfied() {
+                                Crew::new_build(this.pos, construction.pos, cells)
+                            } else {
+                                None
+                            }
                         });
                     crate::console_log!("crew: {:?}", crew);
                     if let Some(crew) = crew {
