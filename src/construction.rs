@@ -165,6 +165,10 @@ impl HasInventory for Construction {
         self.pos
     }
 
+    fn size(&self) -> [usize; 2] {
+        self.size()
+    }
+
     fn inventory(&mut self) -> &mut HashMap<ItemType, usize> {
         &mut self.ingredients
     }
@@ -249,6 +253,7 @@ impl AsteroidColonies {
                     &self.cells,
                     &mut self.transports,
                     construction.pos,
+                    construction.size(),
                     &mut construction.ingredients,
                     &mut self.buildings,
                     &mut [],

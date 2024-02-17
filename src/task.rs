@@ -56,6 +56,10 @@ pub(crate) enum Direction {
 }
 
 impl Direction {
+    pub(crate) const fn all() -> [Direction; 4] {
+        [Self::Left, Self::Up, Self::Right, Self::Down]
+    }
+
     pub(crate) fn to_vec(&self) -> [i32; 2] {
         match self {
             Self::Left => [-1, 0],
@@ -73,6 +77,15 @@ impl Direction {
             (0, 1) => Self::Down,
             _ => return None,
         })
+    }
+
+    pub(crate) fn reverse(&self) -> Self {
+        match self {
+            Self::Left => Self::Right,
+            Self::Up => Self::Down,
+            Self::Right => Self::Left,
+            Self::Down => Self::Up,
+        }
     }
 }
 

@@ -1,4 +1,7 @@
-use std::{collections::HashMap, fmt::Display};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Display,
+};
 
 use rand::Rng;
 
@@ -7,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     construction::Construction,
     hash_map,
-    task::{GlobalTask, Task, RAW_ORE_SMELT_TIME},
+    task::{Direction, GlobalTask, Task, RAW_ORE_SMELT_TIME},
     transport::{expected_deliveries, find_multipath},
     AsteroidColonies, Cell, CellState, Crew, ItemType, Pos, Transport, WIDTH,
 };
@@ -171,6 +174,7 @@ impl Building {
                     cells,
                     transports,
                     this.pos,
+                    this.type_.size(),
                     &mut this.inventory,
                     first,
                     last,
@@ -315,6 +319,7 @@ impl Building {
                     cells,
                     transports,
                     this.pos,
+                    this.type_.size(),
                     &mut this.inventory,
                     first,
                     last,
@@ -393,47 +398,69 @@ pub(crate) fn pull_inputs(
     cells: &[Cell],
     transports: &mut Vec<Transport>,
     this_pos: Pos,
+    this_size: [usize; 2],
     this_inventory: &mut HashMap<ItemType, usize>,
     first: &mut [Building],
     last: &mut [Building],
 ) {
+    let intersects_goal = |[ix, iy]: [i32; 2]| {
+        this_pos[0] <= ix
+            && ix < this_size[0] as i32 + this_pos[0]
+            && this_pos[1] <= iy
+            && iy < this_size[1] as i32 + this_pos[1]
+    };
+    // crate::console_log!("pulling to at {:?} size {:?}", this_pos, this_size);
     let expected = expected_deliveries(transports, this_pos);
     for (ty, count) in inputs {
         let this_count =
             this_inventory.get(ty).copied().unwrap_or(0) + expected.get(ty).copied().unwrap_or(0);
-        if this_count < *count {
-            let src = find_from_other_inventory_mut(*ty, first, last);
-            if let Some((src, path)) = src.and_then(|src| {
-                if src.1 == 0 {
-                    return None;
-                }
-                let path = find_multipath(
-                    [src.0.pos].into_iter(),
-                    |pos| pos == this_pos,
-                    |from_direction, pos| {
-                        let cell = &cells[pos[0] as usize + pos[1] as usize * WIDTH];
-                        from_direction.map(|from_direction| {
-                        matches!(cell.conveyor, Some((dir, _)) if dir == from_direction)
-                    }).unwrap_or_else(||cell.conveyor.is_some()) || this_pos == pos
-                    },
-                )?;
-                Some((src.0, path))
-            }) {
-                let src_count = src.inventory.entry(*ty).or_default();
-                let amount = (*src_count).min(*count - this_count);
-                transports.push(Transport {
-                    src: src.pos,
-                    dest: this_pos,
-                    path,
-                    item: *ty,
-                    amount,
-                });
-                if *src_count <= amount {
-                    src.inventory.remove(ty);
-                } else {
-                    *src_count -= amount;
-                }
+        if *count <= this_count {
+            continue;
+        }
+        let Some((src, amount)) = find_from_other_inventory_mut(*ty, first, last) else {
+            continue;
+        };
+        if amount == 0 {
+            continue;
+        }
+        let size = src.type_.size();
+        let start_pos = rect_iter(src.pos, size);
+        let start_neighbors = neighbors_set(rect_iter(src.pos, size));
+        let path = find_multipath(start_pos, intersects_goal, |from_direction, pos| {
+            let cell = &cells[pos[0] as usize + pos[1] as usize * WIDTH];
+            // crate::console_log!(
+            //     "pulling {:?} from {:?}: dir: {:?} cell {:?}, {:?}",
+            //     ty,
+            //     src.pos,
+            //     from_direction.map(|d| d.reverse()),
+            //     pos,
+            //     cell.conveyor
+            // );
+            if start_neighbors.contains(&pos) {
+                // crate::console_log!("next to start");
+                return true;
             }
+            from_direction.map(|from_direction| {
+                matches!(cell.conveyor, Some((dir, _)) if dir == from_direction.reverse())
+            }).unwrap_or_else(|| cell.conveyor.is_some()) || intersects_goal(pos)
+            // cell.conveyor.is_some() || intersects(pos)
+        });
+        let Some(path) = path else {
+            continue;
+        };
+        let src_count = src.inventory.entry(*ty).or_default();
+        let amount = (*src_count).min(*count - this_count);
+        transports.push(Transport {
+            src: src.pos,
+            dest: this_pos,
+            path,
+            item: *ty,
+            amount,
+        });
+        if *src_count <= amount {
+            src.inventory.remove(ty);
+        } else {
+            *src_count -= amount;
         }
     }
 }
@@ -441,12 +468,17 @@ pub(crate) fn pull_inputs(
 /// A trait for objects that has inventory and position.
 pub(crate) trait HasInventory {
     fn pos(&self) -> Pos;
+    fn size(&self) -> [usize; 2];
     fn inventory(&mut self) -> &mut HashMap<ItemType, usize>;
 }
 
 impl HasInventory for Building {
     fn pos(&self) -> Pos {
         self.pos
+    }
+
+    fn size(&self) -> [usize; 2] {
+        self.type_.size()
     }
 
     fn inventory(&mut self) -> &mut HashMap<ItemType, usize> {
@@ -463,6 +495,15 @@ pub(crate) fn push_outputs(
     is_output: &impl Fn(ItemType) -> bool,
 ) {
     let pos = this.pos();
+    let size = this.size();
+    let start_pos = || rect_iter(pos, size);
+    let start_neighbors = neighbors_set(start_pos());
+    // crate::console_log!(
+    //     "pusheing from {:?} size {:?}, neighbors: {:?}",
+    //     pos,
+    //     size,
+    //     start_neighbors
+    // );
     let dest = first.iter_mut().chain(last.iter_mut()).find_map(|b| {
         if !b.type_.is_storage()
             || b.type_.capacity()
@@ -473,14 +514,32 @@ pub(crate) fn push_outputs(
         {
             return None;
         }
+        let b_size = b.type_.size();
+        let intersects = |[ix, iy]: [i32; 2]| {
+            b.pos[0] <= ix
+                && ix < b_size[0] as i32 + b.pos[0]
+                && b.pos[1] <= iy
+                && iy < b_size[1] as i32 + b.pos[1]
+        };
         let path = find_multipath(
-            std::iter::once(pos),
+            start_pos(),
             |pos| pos == b.pos,
             |from_direction, pos| {
                 let cell = &cells[pos[0] as usize + pos[1] as usize * WIDTH];
+                // crate::console_log!(
+                //     "pushing to {:?}: from: {:?}, cell {:?}, {:?}",
+                //     b.pos,
+                //     from_direction.map(|d| d.reverse()),
+                //     pos,
+                //     cell.conveyor
+                // );
+                if start_neighbors.contains(&pos) {
+                    // crate::console_log!("next to start");
+                    return true;
+                }
                 from_direction.map(|from_direction| {
-                matches!(cell.conveyor, Some((dir, _)) if dir == from_direction)
-            }).unwrap_or_else(||cell.conveyor.is_some()) || b.pos == pos
+                    matches!(cell.conveyor, Some((dir, _)) if dir == from_direction.reverse())
+                }).unwrap_or_else(||cell.conveyor.is_some()) || intersects(pos)
             },
         )?;
         Some((b, path))
@@ -547,4 +606,26 @@ fn find_from_other_inventory_mut<'a>(
         }
         Some((o, count))
     })
+}
+
+/// Return an iterator over cells covering a rectangle specified by left top corner position and a size.
+fn rect_iter(pos: Pos, size: [usize; 2]) -> impl Iterator<Item = Pos> {
+    (0..size[0])
+        .map(move |ix| (0..size[1]).map(move |iy| [pos[0] + ix as i32, pos[1] + iy as i32]))
+        .flatten()
+}
+
+fn neighbors_set(it: impl Iterator<Item = Pos>) -> HashSet<Pos> {
+    let mut set = HashSet::new();
+    for sp in it {
+        for dir in Direction::all() {
+            let dv = dir.to_vec();
+            set.insert([sp[0] + dv[0], sp[1] + dv[1]]);
+        }
+    }
+    set
+}
+
+fn is_neighbor(a: Pos, b: Pos) -> bool {
+    a[0].abs_diff(b[0]) < 1 && a[1] == b[1] || a[1].abs_diff(b[1]) < 1 && a[0] == b[0]
 }

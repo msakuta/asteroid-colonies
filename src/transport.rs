@@ -113,6 +113,13 @@ pub(crate) fn find_path(
     )
 }
 
+/// A generic path finding logic with potentially multiple starts and multiple goals.
+///
+/// * `start` is an iterator over `Pos`, which can yield one or more items. Typically it is
+///   `iter()` on a hash set.
+/// * `goal` can be arbitrary set of positions, so it is given as a callback.
+/// * `is_passable` takes 2 arguments, first is the direction that the search came from, second is
+/// the position.
 pub(crate) fn find_multipath(
     start: impl Iterator<Item = [i32; 2]>,
     goal: impl Fn([i32; 2]) -> bool,
