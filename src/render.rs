@@ -4,6 +4,7 @@ use wasm_bindgen::prelude::*;
 use web_sys::CanvasRenderingContext2d;
 
 use crate::{
+    construction::ConstructionType,
     task::{GlobalTask, Task, EXCAVATE_TIME, LABOR_EXCAVATE_TIME, MOVE_ITEM_TIME, MOVE_TIME},
     BuildingType, Cell, CellState, ItemType, HEIGHT, WIDTH,
 };
@@ -24,6 +25,35 @@ impl AsteroidColonies {
         context.set_fill_style(&JsValue::from("#ff0000"));
         let vp = &self.viewport;
         let offset = [vp.offset[0].round(), vp.offset[1].round()];
+
+        let render_power_grid = |context: &CanvasRenderingContext2d, x, y| {
+            context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+                &self.assets.img_power_grid,
+                0.,
+                0.,
+                TILE_SIZE,
+                TILE_SIZE,
+                x,
+                y,
+                TILE_SIZE,
+                TILE_SIZE,
+            )
+        };
+
+        let render_conveyor = |context: &CanvasRenderingContext2d, x, y| {
+            context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+                &self.assets.img_conveyor,
+                0.,
+                0.,
+                TILE_SIZE,
+                TILE_SIZE,
+                x,
+                y,
+                TILE_SIZE,
+                TILE_SIZE,
+            )
+        };
+
         let mut rendered_cells = 0;
         let mut render_cell = |ix: i32, iy: i32| -> Result<(), JsValue> {
             let y = iy as f64 * TILE_SIZE + offset[1];
@@ -112,32 +142,10 @@ impl AsteroidColonies {
             }
 
             if cell.power_grid {
-                context
-                    .draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-                        &self.assets.img_power_grid,
-                        0.,
-                        0.,
-                        TILE_SIZE,
-                        TILE_SIZE,
-                        x,
-                        y,
-                        TILE_SIZE,
-                        TILE_SIZE,
-                    )?;
+                render_power_grid(context, x, y)?;
             }
             if cell.conveyor {
-                context
-                    .draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-                        &self.assets.img_conveyor,
-                        0.,
-                        0.,
-                        TILE_SIZE,
-                        TILE_SIZE,
-                        x,
-                        y,
-                        TILE_SIZE,
-                        TILE_SIZE,
-                    )?;
+                render_conveyor(context, x, y)?;
             }
             rendered_cells += 1;
             Ok(())
@@ -155,15 +163,7 @@ impl AsteroidColonies {
         // console_log!("rendered_cells: {}", rendered_cells);
 
         for building in &self.buildings {
-            let img = match building.type_ {
-                BuildingType::Power => &self.assets.img_power,
-                BuildingType::Excavator => &self.assets.img_excavator,
-                BuildingType::Storage => &self.assets.img_storage,
-                BuildingType::MediumStorage => &self.assets.img_medium_storage,
-                BuildingType::CrewCabin => &self.assets.img_crew_cabin,
-                BuildingType::Assembler => &self.assets.img_assembler,
-                BuildingType::Furnace => &self.assets.img_furnace,
-            };
+            let img = self.assets.building_to_img(building.type_);
             let (sx, sy) = match building.type_ {
                 BuildingType::Assembler => {
                     if !matches!(building.task, Task::None) {
@@ -282,13 +282,27 @@ impl AsteroidColonies {
         }
 
         for construction in &self.constructions {
+            let x = construction.pos[0] as f64 * TILE_SIZE + offset[0];
+            let y = construction.pos[1] as f64 * TILE_SIZE + offset[1];
+            match construction.get_type() {
+                ConstructionType::Building(ty) => {
+                    let img = self.assets.building_to_img(ty);
+                    let size = ty.size();
+                    let width = size[0] as f64 * TILE_SIZE;
+                    let height = size[1] as f64 * TILE_SIZE;
+                    context
+                        .draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+                            img, 0., 0., width, height, x, y, width, height,
+                        )?;
+                }
+                ConstructionType::PowerGrid => render_power_grid(context, x, y)?,
+                ConstructionType::Conveyor => render_conveyor(context, x, y)?,
+            }
             let img = if construction.canceling() {
                 &self.assets.img_deconstruction
             } else {
                 &self.assets.img_construction
             };
-            let x = construction.pos[0] as f64 * TILE_SIZE + offset[0];
-            let y = construction.pos[1] as f64 * TILE_SIZE + offset[1];
             let size = construction.size();
             let width = size[0] as f64 * TILE_SIZE;
             let height = size[1] as f64 * TILE_SIZE;

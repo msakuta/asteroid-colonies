@@ -1,6 +1,8 @@
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{js_sys, HtmlImageElement};
 
+use crate::building::BuildingType;
+
 pub(crate) struct Assets {
     pub img_bg: HtmlImageElement,
     pub img_cursor: HtmlImageElement,
@@ -71,5 +73,17 @@ impl Assets {
             img_construction: load_texture("construction")?,
             img_deconstruction: load_texture("deconstruction")?,
         })
+    }
+
+    pub fn building_to_img(&self, ty: BuildingType) -> &HtmlImageElement {
+        match ty {
+            BuildingType::Power => &self.img_power,
+            BuildingType::Excavator => &self.img_excavator,
+            BuildingType::Storage => &self.img_storage,
+            BuildingType::MediumStorage => &self.img_medium_storage,
+            BuildingType::CrewCabin => &self.img_crew_cabin,
+            BuildingType::Assembler => &self.img_assembler,
+            BuildingType::Furnace => &self.img_furnace,
+        }
     }
 }
