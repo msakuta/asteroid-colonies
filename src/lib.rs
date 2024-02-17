@@ -343,13 +343,22 @@ impl AsteroidColonies {
         if ix < 0 || WIDTH as i32 <= ix || iy < 0 || HEIGHT as i32 <= iy {
             return Err(JsValue::from("Point outside cell"));
         }
+
+        let type_: BuildingType = serde_wasm_bindgen::from_value(type_)?;
+        let size = type_.size();
+        for jy in iy..iy + size[1] as i32 {
+            for jx in ix..ix + size[0] as i32 {
+                let cell = &self.cells[jx as usize + jy as usize * WIDTH];
+                if matches!(cell.state, CellState::Solid) {
+                    return Err(JsValue::from("Needs excavation before building"));
+                }
+                if matches!(cell.state, CellState::Space) {
+                    return Err(JsValue::from("You cannot build in space!"));
+                }
+            }
+        }
+
         let cell = &self.cells[ix as usize + iy as usize * WIDTH];
-        if matches!(cell.state, CellState::Solid) {
-            return Err(JsValue::from("Needs excavation before building"));
-        }
-        if matches!(cell.state, CellState::Space) {
-            return Err(JsValue::from("You cannot build in space!"));
-        }
         if !cell.power_grid {
             return Err(JsValue::from("Power grid is required to build"));
         }
@@ -359,21 +368,33 @@ impl AsteroidColonies {
             ));
         }
 
-        let intersects = |b: &Building| {
-            let size = b.type_.size();
-            b.pos[0] <= ix
-                && ix < size[0] as i32 + b.pos[0]
-                && b.pos[1] <= iy
-                && iy < size[1] as i32 + b.pos[1]
+        let intersects = |pos: Pos, o_size: [usize; 2]| {
+            pos[0] < ix + size[0] as i32
+                && ix < o_size[0] as i32 + pos[0]
+                && pos[1] < iy + size[1] as i32
+                && iy < o_size[1] as i32 + pos[1]
         };
 
-        if self.buildings.iter().any(intersects) {
+        if self
+            .buildings
+            .iter()
+            .any(|b| intersects(b.pos, b.type_.size()))
+        {
             return Err(JsValue::from(
                 "The destination is already occupied by a building",
             ));
         }
 
-        let type_ = serde_wasm_bindgen::from_value(type_)?;
+        if self
+            .constructions
+            .iter()
+            .any(|c| intersects(c.pos, c.size()))
+        {
+            return Err(JsValue::from(
+                "The destination is already occupied by a construction plan",
+            ));
+        }
+
         if let Some(build) = get_build_menu()
             .iter()
             .find(|it| it.type_ == ConstructionType::Building(type_))
