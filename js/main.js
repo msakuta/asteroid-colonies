@@ -20,6 +20,7 @@ import assembler from '../images/assembler.png';
 import assemblerComponent from '../images/assemblerComponent.png';
 import furnace from '../images/furnace.png';
 import construction from '../images/construction.png';
+import deconstruction from '../images/deconstruction.png';
 
 const canvas = document.getElementById('canvas');
 
@@ -50,6 +51,7 @@ const canvas = document.getElementById('canvas');
         ["wire", wire],
         ["circuit", circuit],
         ["construction", construction],
+        ["deconstruction", deconstruction],
     ].map(async ([name, src]) => {
         return [name, src, await loadImage(src)];
     });

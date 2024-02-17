@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::OnceLock};
 
 use crate::{
-    building::{pull_inputs, BuildingType},
+    building::{pull_inputs, push_outputs, BuildingType, HasInventory},
     crew::{expected_crew_deliveries, Crew},
     task::{GlobalTask, BUILD_CONVEYOR_TIME, BUILD_POWER_GRID_TIME},
     transport::{expected_deliveries, Transport},
@@ -26,6 +26,7 @@ pub(crate) struct Construction {
     pub pos: Pos,
     pub ingredients: HashMap<ItemType, usize>,
     pub recipe: &'static BuildMenuItem,
+    canceling: bool,
 }
 
 impl Construction {
@@ -35,6 +36,7 @@ impl Construction {
             pos,
             ingredients: HashMap::new(),
             recipe: &item,
+            canceling: false,
         }
     }
 
@@ -72,26 +74,56 @@ impl Construction {
         }
     }
 
+    pub fn canceling(&self) -> bool {
+        self.canceling
+    }
+
+    pub fn toggle_cancel(&mut self) {
+        self.canceling = !self.canceling;
+    }
+
     pub fn required_ingredients<'a>(
         &'a self,
         transports: &'a [Transport],
         crews: &'a [Crew],
-    ) -> impl Iterator<Item = (ItemType, usize)> + 'a {
+    ) -> Box<dyn Iterator<Item = (ItemType, usize)> + 'a> {
+        if self.canceling {
+            return Box::new(std::iter::empty());
+        }
         let expected = expected_deliveries(transports, self.pos);
         let crew_expected = expected_crew_deliveries(crews, self.pos);
-        self.recipe
-            .ingredients
-            .iter()
-            .filter_map(move |(ty, recipe_count)| {
-                let required_amount = self.ingredients.get(ty).copied().unwrap_or(0)
-                    + expected.get(ty).copied().unwrap_or(0)
-                    + crew_expected.get(ty).copied().unwrap_or(0);
-                if *recipe_count <= required_amount {
-                    None
-                } else {
-                    Some((*ty, required_amount))
-                }
-            })
+        Box::new(
+            self.recipe
+                .ingredients
+                .iter()
+                .filter_map(move |(ty, recipe_count)| {
+                    let required_amount = self.ingredients.get(ty).copied().unwrap_or(0)
+                        + expected.get(ty).copied().unwrap_or(0)
+                        + crew_expected.get(ty).copied().unwrap_or(0);
+                    if *recipe_count <= required_amount {
+                        None
+                    } else {
+                        Some((*ty, required_amount))
+                    }
+                }),
+        )
+    }
+
+    pub fn extra_ingredients<'a>(&'a self) -> Box<dyn Iterator<Item = (ItemType, usize)> + 'a> {
+        if !self.canceling {
+            return Box::new(std::iter::empty());
+        }
+        Box::new(self.ingredients.iter().map(|(i, v)| (*i, *v)))
+    }
+}
+
+impl HasInventory for Construction {
+    fn pos(&self) -> Pos {
+        self.pos
+    }
+
+    fn inventory(&mut self) -> &mut HashMap<ItemType, usize> {
+        &mut self.ingredients
     }
 }
 
@@ -154,27 +186,43 @@ impl AsteroidColonies {
     pub(super) fn process_constructions(&mut self) {
         let mut to_delete = vec![];
         'outer: for (i, construction) in self.constructions.iter_mut().enumerate() {
-            pull_inputs(
-                &construction.recipe.ingredients,
-                &self.cells,
-                &mut self.transports,
-                construction.pos,
-                &mut construction.ingredients,
-                &mut self.buildings,
-                &mut [],
-            );
-            for (ty, &required) in &construction.recipe.ingredients {
-                let arrived = construction.ingredients.get(ty).copied().unwrap_or(0);
-                if arrived < required {
-                    continue 'outer;
+            if construction.canceling {
+                if construction.ingredients.is_empty() {
+                    to_delete.push(i);
+                } else {
+                    push_outputs(
+                        &self.cells,
+                        &mut self.transports,
+                        construction,
+                        &mut self.buildings,
+                        &mut [],
+                        &|_| true,
+                    );
+                    crate::console_log!("Pushed out after: {:?}", construction.ingredients);
                 }
+            } else {
+                pull_inputs(
+                    &construction.recipe.ingredients,
+                    &self.cells,
+                    &mut self.transports,
+                    construction.pos,
+                    &mut construction.ingredients,
+                    &mut self.buildings,
+                    &mut [],
+                );
+                for (ty, &required) in &construction.recipe.ingredients {
+                    let arrived = construction.ingredients.get(ty).copied().unwrap_or(0);
+                    if arrived < required {
+                        continue 'outer;
+                    }
+                }
+                self.global_tasks.push(GlobalTask::Build(
+                    construction.recipe.time,
+                    construction.pos,
+                    construction.recipe,
+                ));
+                to_delete.push(i);
             }
-            self.global_tasks.push(GlobalTask::Build(
-                construction.recipe.time,
-                construction.pos,
-                construction.recipe,
-            ));
-            to_delete.push(i);
         }
 
         for i in to_delete.iter().rev() {

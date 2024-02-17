@@ -283,7 +283,11 @@ impl AsteroidColonies {
         }
 
         for construction in &self.constructions {
-            let img = &self.assets.img_construction;
+            let img = if construction.canceling() {
+                &self.assets.img_deconstruction
+            } else {
+                &self.assets.img_construction
+            };
             let x = construction.pos[0] as f64 * TILE_SIZE + offset[0];
             let y = construction.pos[1] as f64 * TILE_SIZE + offset[1];
             let size = construction.size();

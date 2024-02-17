@@ -226,40 +226,58 @@ impl Building {
                     }
                 }
                 for construction in constructions {
-                    let crew = construction.required_ingredients(transports, crews).find_map(|(ty, _)| {
-                        if 0 < this.inventory.get(&ty).copied().unwrap_or(0) {
-                            Crew::new_deliver(this.pos, construction.pos, ty, cells)
-                        } else {
-                            let path_to_source = find_multipath(
-                                [this.pos].into_iter(),
-                                |pos| {
-                                    first.iter().chain(last.iter()).any(|o| {
-                                        o.pos == pos
-                                            && 0 < o.inventory.get(&ty).copied().unwrap_or(0)
-                                    })
-                                },
-                                |pos| {
-                                    matches!(
-                                        cells[pos[0] as usize + pos[1] as usize * WIDTH].state,
-                                        CellState::Empty
-                                    )
-                                },
-                            );
-                            crate::console_log!(
-                                "CrewCabin at {:?} ({} crews): Missing ingred {:?} at {:?}: path: {:?}",
-                                this.pos,
-                                this.crews,
-                                ty,
-                                construction.pos,
+                    let crew = construction
+                        .required_ingredients(transports, crews)
+                        .find_map(|(ty, _)| {
+                            if 0 < this.inventory.get(&ty).copied().unwrap_or(0) {
+                                Crew::new_deliver(this.pos, construction.pos, ty, cells)
+                            } else {
+                                let path_to_source = find_multipath(
+                                    [this.pos].into_iter(),
+                                    |pos| {
+                                        first.iter().chain(last.iter()).any(|o| {
+                                            o.pos == pos
+                                                && 0 < o.inventory.get(&ty).copied().unwrap_or(0)
+                                        })
+                                    },
+                                    |pos| {
+                                        matches!(
+                                            cells[pos[0] as usize + pos[1] as usize * WIDTH].state,
+                                            CellState::Empty
+                                        )
+                                    },
+                                );
                                 path_to_source
-                            );
-                            path_to_source
-                                .and_then(|src| src.first().copied())
-                                .and_then(|src| {
-                                    Crew::new_pickup(this.pos, src, construction.pos, ty, cells)
-                                })
-                        }
-                    });
+                                    .and_then(|src| src.first().copied())
+                                    .and_then(|src| {
+                                        Crew::new_pickup(this.pos, src, construction.pos, ty, cells)
+                                    })
+                            }
+                        })
+                        .or_else(|| {
+                            construction.extra_ingredients().find_map(|(ty, _)| {
+                                let path_to_dest = find_multipath(
+                                    [construction.pos].into_iter(),
+                                    |pos| {
+                                        first.iter().chain(last.iter()).any(|o| {
+                                            o.pos == pos && o.inventory_size() < o.type_.capacity()
+                                        })
+                                    },
+                                    |pos| {
+                                        matches!(
+                                            cells[pos[0] as usize + pos[1] as usize * WIDTH].state,
+                                            CellState::Empty
+                                        )
+                                    },
+                                );
+
+                                path_to_dest
+                                    .and_then(|dst| dst.first().copied())
+                                    .and_then(|dst| {
+                                        Crew::new_pickup(this.pos, construction.pos, dst, ty, cells)
+                                    })
+                            })
+                        });
                     crate::console_log!("crew: {:?}", crew);
                     if let Some(crew) = crew {
                         crews.push(crew);
@@ -402,14 +420,31 @@ pub(crate) fn pull_inputs(
     }
 }
 
-fn push_outputs(
+/// A trait for objects that has inventory and position.
+pub(crate) trait HasInventory {
+    fn pos(&self) -> Pos;
+    fn inventory(&mut self) -> &mut HashMap<ItemType, usize>;
+}
+
+impl HasInventory for Building {
+    fn pos(&self) -> Pos {
+        self.pos
+    }
+
+    fn inventory(&mut self) -> &mut HashMap<ItemType, usize> {
+        &mut self.inventory
+    }
+}
+
+pub(crate) fn push_outputs(
     cells: &[Cell],
     transports: &mut Vec<Transport>,
-    this: &mut Building,
+    this: &mut impl HasInventory,
     first: &mut [Building],
     last: &mut [Building],
     is_output: &impl Fn(ItemType) -> bool,
 ) {
+    let pos = this.pos();
     let dest = first.iter_mut().chain(last.iter_mut()).find_map(|b| {
         if !b.type_.is_storage()
             || b.type_.capacity()
@@ -420,7 +455,7 @@ fn push_outputs(
         {
             return None;
         }
-        let path = find_path(this.pos, b.pos, |pos| {
+        let path = find_path(pos, b.pos, |pos| {
             let cell = &cells[pos[0] as usize + pos[1] as usize * WIDTH];
             cell.conveyor
         })?;
@@ -429,12 +464,12 @@ fn push_outputs(
     // Push away outputs
     if let Some((dest, path)) = dest {
         let product = this
-            .inventory
+            .inventory()
             .iter_mut()
             .find(|(t, count)| is_output(**t) && 0 < **count);
         if let Some((&item, amount)) = product {
             transports.push(Transport {
-                src: this.pos,
+                src: pos,
                 dest: dest.pos,
                 path,
                 item,
@@ -442,7 +477,7 @@ fn push_outputs(
             });
             // *dest.inventory.entry(*product.0).or_default() += 1;
             if *amount <= 1 {
-                this.inventory.remove(&item);
+                this.inventory().remove(&item);
             } else {
                 *amount -= 1;
             }

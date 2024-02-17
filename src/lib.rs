@@ -409,13 +409,8 @@ impl AsteroidColonies {
         let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
         let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
 
-        if let Some((i, _)) = self
-            .constructions
-            .iter()
-            .enumerate()
-            .find(|(_, c)| c.pos == [ix, iy])
-        {
-            self.constructions.remove(i);
+        if let Some(c) = self.constructions.iter_mut().find(|c| c.pos == [ix, iy]) {
+            c.toggle_cancel();
         }
     }
 
