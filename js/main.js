@@ -77,6 +77,7 @@ const canvas = document.getElementById('canvas');
     canvas.addEventListener('pointerdown', evt => {
         dragStart = toLogicalCoords(evt.clientX, evt.clientY);
         evt.preventDefault();
+        evt.stopPropagation();
     });
 
     function pointerMove(evt) {
@@ -161,7 +162,7 @@ const canvas = document.getElementById('canvas');
                             const buildItemElem = document.createElement("div");
                             const buildingType = buildItem.type_;
                             buildItemElem.innerHTML = formatBuildItem(buildItem);
-                            buildItemElem.addEventListener("click", evt => {
+                            buildItemElem.addEventListener("pointerup", _ => {
                                 game.build(x, y, buildingType.Building);
                                 buildMenuElem.style.display = "none";
                             })
@@ -188,7 +189,7 @@ const canvas = document.getElementById('canvas');
                             const recipeElem = document.createElement("div");
                             const recipeName = recipe.outputs.keys().next().value;
                             recipeElem.innerHTML = formatRecipe(recipe);
-                            recipeElem.addEventListener("click", evt => {
+                            recipeElem.addEventListener("pointerup", _ => {
                                 game.set_recipe(x, y, recipeName);
                                 recipesElem.style.display = "none";
                             })
