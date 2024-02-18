@@ -71,11 +71,13 @@ enum CellState {
     Space,
 }
 
+type Conveyor = (Direction, Direction);
+
 #[derive(Clone, Copy)]
 struct Cell {
     state: CellState,
     power_grid: bool,
-    conveyor: Option<(Direction, Direction)>,
+    conveyor: Option<Conveyor>,
     /// The index into the background image for quick rendering
     image_lt: u8,
     image_lb: u8,
@@ -189,6 +191,7 @@ pub struct AsteroidColonies {
     global_time: usize,
     transports: Vec<Transport>,
     constructions: Vec<Construction>,
+    conveyor_preview: HashMap<Pos, Conveyor>,
     viewport: Viewport,
 }
 
@@ -289,6 +292,7 @@ impl AsteroidColonies {
             global_time: 0,
             transports: vec![],
             constructions: vec![],
+            conveyor_preview: HashMap::new(),
             viewport: Viewport {
                 offset: [0.; 2],
                 size: [vp_width, vp_height],
@@ -368,6 +372,56 @@ impl AsteroidColonies {
         };
         path.pop();
         building.task = Task::Move(MOVE_TIME, path);
+        Ok(())
+    }
+
+    pub fn build_conveyor(&mut self, x0: f64, y0: f64, x1: f64, y1: f64) -> Result<(), JsValue> {
+        let mut ix0 = (x0 - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
+        let ix_start = ix0;
+        let mut iy0 = (y0 - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
+        let mut ix1 = (x1 - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
+        let mut iy1 = (y1 - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
+        let iy_end = iy1;
+        let mut x_rev = 1;
+        let mut y_rev = 1;
+        if iy1 < iy0 {
+            y_rev = -1;
+            std::mem::swap(&mut iy1, &mut iy0);
+        }
+        if ix1 < ix0 {
+            x_rev = -1;
+            std::mem::swap(&mut ix1, &mut ix0);
+        }
+
+        let conv_v = if y_rev < 0 {
+            (Direction::Down, Direction::Up)
+        } else {
+            (Direction::Up, Direction::Down)
+        };
+        let conv_h = if x_rev < 0 {
+            (Direction::Right, Direction::Left)
+        } else {
+            (Direction::Left, Direction::Right)
+        };
+
+        let convs = (iy0..iy1)
+            .map(|iy| ([ix_start, iy], conv_v))
+            .chain((ix0..ix1).map(|ix| ([ix, iy_end], conv_h)))
+            .collect::<Vec<_>>();
+        console_log!("conv pos ix0: {ix0}, ix1: {ix1}, xrev: {x_rev}, iy0: {iy0}, iy1: {iy1}, yrev: {y_rev}, {:?}", convs);
+        // for ((pos0, pos1), pos2) in convs
+        //     .iter()
+        //     .zip(convs.iter().skip(1).chain(std::iter::once(&convs[0])))
+        //     .zip(convs.iter().skip(2).chain(convs.iter().take(2)))
+        for (pos1, conv) in &convs {
+            // let conv = (
+            // Direction::from_vec([x_rev * (pos0[0] - pos1[0]), y_rev * (pos0[1] - pos1[1])]).unwrap(),
+            // Direction::from_vec([x_rev * (pos2[0] - pos1[0]), y_rev * (pos2[1] - pos1[1])]).unwrap(),
+            // );
+            console_log!("conv {:?}: {:?}", pos1, conv);
+            self.conveyor_preview.insert(*pos1, *conv);
+        }
+        // conveyor_preview.extend()
         Ok(())
     }
 

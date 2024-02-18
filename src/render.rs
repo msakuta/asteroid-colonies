@@ -343,6 +343,12 @@ impl AsteroidColonies {
             // }
         }
 
+        for (pos, conv) in &self.conveyor_preview {
+            let x = pos[0] as f64 * TILE_SIZE + offset[0];
+            let y = pos[1] as f64 * TILE_SIZE + offset[1];
+            render_conveyor(context, x, y, *conv)?;
+        }
+
         for t in &self.transports {
             context.set_stroke_style(&JsValue::from("#ffff00"));
             context.set_line_width(2.);

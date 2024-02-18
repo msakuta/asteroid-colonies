@@ -71,6 +71,7 @@ const canvas = document.getElementById('canvas');
     game.render(ctx);
     let mousePos = null;
     let moving = null;
+    let buildingConveyor = null;
     let dragStart = null;
     let dragLast = null;
 
@@ -130,6 +131,18 @@ const canvas = document.getElementById('canvas');
             return;
         }
 
+        if (buildingConveyor) {
+            try {
+                game.build_conveyor(buildingConveyor[0], buildingConveyor[1], x, y);
+            }
+            catch (e) {
+                console.error(`build_conveyor: ${e}`);
+            }
+            messageOverlayElem.style.display = "none";
+            buildingConveyor = null;
+            return;
+        }
+
         for (let name of ["excavate", "move", "power", "conveyor", "moveItem", "build", "cancel", "deconstruct", "recipe"]) {
             const elem = document.getElementById(name);
             if (elem?.checked) {
@@ -137,15 +150,15 @@ const canvas = document.getElementById('canvas');
                 const recipesElem = document.getElementById("recipes");
                 if (name === "move") {
                     recipesElem.style.display = "none";
-                    try {
-                        messageOverlayElem.innerHTML = "Choose move destination";
-                        messageOverlayElem.style.display = "block";
-                        moving = [x, y];
-                    }
-                    catch (e) {
-                        console.error(e);
-                        messageOverlayElem.style.display = "none";
-                    }
+                    messageOverlayElem.innerHTML = "Choose move destination";
+                    messageOverlayElem.style.display = "block";
+                    moving = [x, y];
+                }
+                else if (name === "conveyor") {
+                    recipesElem.style.display = "none";
+                    messageOverlayElem.innerHTML = "Drag to make build plan";
+                    messageOverlayElem.style.display = "block";
+                    buildingConveyor = [x, y];
                 }
                 else if (name === "build") {
                     recipesElem.style.display = "none";
