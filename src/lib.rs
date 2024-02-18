@@ -382,23 +382,25 @@ impl AsteroidColonies {
         let mut ix1 = (x1 - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
         let mut iy1 = (y1 - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
         let iy_end = iy1;
-        let mut x_rev = 1;
-        let mut y_rev = 1;
+        let mut x_rev = false;
+        let mut y_rev = false;
         if iy1 < iy0 {
-            y_rev = -1;
+            y_rev = true;
             std::mem::swap(&mut iy1, &mut iy0);
         }
         if ix1 < ix0 {
-            x_rev = -1;
+            x_rev = true;
             std::mem::swap(&mut ix1, &mut ix0);
+        } else {
+            ix0 += 1;
         }
 
-        let conv_v = if y_rev < 0 {
+        let conv_v = if y_rev {
             (Direction::Down, Direction::Up)
         } else {
             (Direction::Up, Direction::Down)
         };
-        let conv_h = if x_rev < 0 {
+        let conv_h = if x_rev {
             (Direction::Right, Direction::Left)
         } else {
             (Direction::Left, Direction::Right)
@@ -406,6 +408,7 @@ impl AsteroidColonies {
 
         let convs = (iy0..iy1)
             .map(|iy| ([ix_start, iy], conv_v))
+            .chain(std::iter::once(([ix_start, iy_end], (conv_v.0, conv_h.1))))
             .chain((ix0..ix1).map(|ix| ([ix, iy_end], conv_h)))
             .collect::<Vec<_>>();
         console_log!("conv pos ix0: {ix0}, ix1: {ix1}, xrev: {x_rev}, iy0: {iy0}, iy1: {iy1}, yrev: {y_rev}, {:?}", convs);
