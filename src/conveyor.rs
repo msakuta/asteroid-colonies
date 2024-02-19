@@ -32,6 +32,14 @@ impl Conveyor {
             Self::Two((from, _), _) => Some(*from),
         }
     }
+
+    pub fn to(&self) -> Option<Direction> {
+        match self {
+            Self::None => None,
+            Self::One(_, to) => Some(*to),
+            Self::Two((_, to), _) => Some(*to),
+        }
+    }
 }
 
 #[wasm_bindgen]
@@ -110,13 +118,17 @@ impl AsteroidColonies {
             self.conveyor_preview.insert(*pos0, conv);
         }
 
-        if let Some(pos) = convs.last() {
+        if let Some((pos, prev_from)) = convs.last().zip(prev_from) {
             let cell = &self.cells[pos[0] as usize + pos[1] as usize * WIDTH];
             let staged = self.conveyor_staged.get(pos).copied().unwrap_or(None);
-            if let Some(prev_from) = prev_from {
-                let conv = filter_conv(cell, staged, (prev_from, prev_from.reverse()));
-                self.conveyor_preview.insert(*pos, conv);
-            }
+            let to = self
+                .conveyor_staged
+                .get(pos)
+                .and_then(|c| c.to())
+                .or_else(|| cell.conveyor.to())
+                .unwrap_or_else(|| prev_from.reverse());
+            let conv = filter_conv(cell, staged, (prev_from, to));
+            self.conveyor_preview.insert(*pos, conv);
         }
 
         if !preview {
