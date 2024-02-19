@@ -223,7 +223,7 @@ impl AsteroidColonies {
             Building::new_inventory(
                 start_ofs([6, 3]),
                 BuildingType::MediumStorage,
-                hash_map!(ItemType::ConveyorComponent => 2, ItemType::PowerGridComponent => 2),
+                hash_map!(ItemType::ConveyorComponent => 20, ItemType::PowerGridComponent => 2),
             ),
             Building::new(start_ofs([1, 10]), BuildingType::Assembler),
             Building::new(start_ofs([1, 4]), BuildingType::Furnace),

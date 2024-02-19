@@ -47,6 +47,8 @@ impl AsteroidColonies {
         if iy1 < iy0 {
             y_rev = true;
             std::mem::swap(&mut iy1, &mut iy0);
+        } else {
+            iy0 += 1;
         }
         if ix1 < ix0 {
             x_rev = true;
@@ -68,21 +70,20 @@ impl AsteroidColonies {
 
         self.conveyor_preview.clear();
 
-        let convs = (iy0..iy1)
+        let mut convs = (iy0..iy1)
             .map(|iy| ([ix_start, iy], conv_v))
-            .chain(std::iter::once(([ix_start, iy_end], (conv_v.0, conv_h.1))))
-            .chain((ix0..ix1).map(|ix| ([ix, iy_end], conv_h)))
             .collect::<Vec<_>>();
+        if convs.is_empty() {
+            if let One(from, _) = &self.cells[ix_start as usize + iy_end as usize * WIDTH].conveyor
+            {
+                convs.push(([ix_start, iy_end], (*from, conv_h.1)));
+            }
+        } else {
+            convs.push(([ix_start, iy_end], (conv_v.0, conv_h.1)));
+        }
+        convs.extend((ix0..ix1).map(|ix| ([ix, iy_end], conv_h)));
         console_log!("conv pos ix0: {ix0}, ix1: {ix1}, xrev: {x_rev}, iy0: {iy0}, iy1: {iy1}, yrev: {y_rev}, {:?}", convs);
-        // for ((pos0, pos1), pos2) in convs
-        //     .iter()
-        //     .zip(convs.iter().skip(1).chain(std::iter::once(&convs[0])))
-        //     .zip(convs.iter().skip(2).chain(convs.iter().take(2)))
         for (pos1, conv) in &convs {
-            // let conv = (
-            // Direction::from_vec([x_rev * (pos0[0] - pos1[0]), y_rev * (pos0[1] - pos1[1])]).unwrap(),
-            // Direction::from_vec([x_rev * (pos2[0] - pos1[0]), y_rev * (pos2[1] - pos1[1])]).unwrap(),
-            // );
             let cell = &self.cells[pos1[0] as usize + pos1[1] as usize * WIDTH];
             let staged = self.conveyor_staged.get(pos1).copied().unwrap_or(None);
             let conv = match (cell.conveyor, conv) {
