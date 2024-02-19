@@ -47,9 +47,7 @@ impl AsteroidColonies {
     ) -> Result<(), JsValue> {
         use {Conveyor::*, Direction::*};
         let ix0 = (x0 - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
-        let ix_start = ix0;
         let iy0 = (y0 - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
-        let iy_start = iy0;
         let ix1 = (x1 - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
         let iy1 = (y1 - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
         let x_rev = ix1.cmp(&ix0);
@@ -59,22 +57,23 @@ impl AsteroidColonies {
 
         let mut prev_from = Option::None;
 
-        let pos = [ix_start, iy_start];
+        let pos = [ix0, iy0];
         let cell = &self.cells[pos[0] as usize + pos[1] as usize * WIDTH];
-        if let Some(from) = &cell
-            .conveyor
-            .from()
-            .or_else(|| self.conveyor_staged.get(&pos).and_then(|c| c.from()))
+        if let Some(from) = self
+            .conveyor_staged
+            .get(&pos)
+            .and_then(|c| c.from())
+            .or_else(|| cell.conveyor.from())
         {
             console_log!("conv from: {:?}", from);
-            prev_from = Some(*from);
+            prev_from = Some(from);
         }
 
         let mut convs = vec![];
         if matches!(y_rev, Ordering::Less) {
-            convs.extend((iy1..=iy0).rev().map(|iy| [ix_start, iy]));
+            convs.extend((iy1..=iy0).rev().map(|iy| [ix0, iy]));
         } else {
-            convs.extend((iy0..=iy1).map(|iy| [ix_start, iy]));
+            convs.extend((iy0..=iy1).map(|iy| [ix0, iy]));
         }
         if matches!(x_rev, Ordering::Less) {
             convs.extend((ix1..=ix0).rev().map(|ix| [ix, iy1]));

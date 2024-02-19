@@ -358,9 +358,10 @@ impl AsteroidColonies {
         }
 
         for (pos, conv) in self
-            .conveyor_preview
+            .conveyor_staged
             .iter()
-            .chain(self.conveyor_staged.iter())
+            .filter(|(pos, _)| !self.conveyor_preview.contains_key(*pos))
+            .chain(self.conveyor_preview.iter())
         {
             let x = pos[0] as f64 * TILE_SIZE + offset[0];
             let y = pos[1] as f64 * TILE_SIZE + offset[1];

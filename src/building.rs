@@ -298,6 +298,7 @@ impl Building {
                     if let Some(crew) = crew {
                         crews.push(crew);
                         this.crews -= 1;
+                        return Ok(());
                     }
                 }
             }
