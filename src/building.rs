@@ -229,6 +229,14 @@ impl Building {
                     }
                 }
                 for construction in constructions {
+                    let pos = construction.pos;
+                    if !matches!(
+                        cells[pos[0] as usize + pos[1] as usize * WIDTH].state,
+                        CellState::Empty
+                    ) {
+                        // Don't bother trying to find a path in an unreachable area.
+                        continue;
+                    }
                     let crew = construction
                         .required_ingredients(transports, crews)
                         .find_map(|(ty, _)| {
