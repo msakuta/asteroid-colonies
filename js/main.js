@@ -90,7 +90,7 @@ const canvas = document.getElementById('canvas');
         }
         if (buildingConveyor) {
             try {
-                game.build_conveyor(buildingConveyor[0], buildingConveyor[1], x, y, true);
+                game.preview_build_conveyor(buildingConveyor[0], buildingConveyor[1], x, y, true);
             }
             catch (e) {
                 console.error(`build_conveyor: ${e}`);
@@ -141,13 +141,12 @@ const canvas = document.getElementById('canvas');
 
         if (buildingConveyor) {
             try {
-                game.build_conveyor(buildingConveyor[0], buildingConveyor[1], x, y, false);
+                game.preview_build_conveyor(buildingConveyor[0], buildingConveyor[1], x, y, false);
+                buildingConveyor = [x, y];
             }
             catch (e) {
                 console.error(`build_conveyor: ${e}`);
             }
-            messageOverlayElem.style.display = "none";
-            buildingConveyor = null;
             return;
         }
 
@@ -164,8 +163,28 @@ const canvas = document.getElementById('canvas');
                 }
                 else if (name === "conveyor") {
                     recipesElem.style.display = "none";
-                    messageOverlayElem.innerHTML = "Drag to make build plan";
+                    messageOverlayElem.innerHTML = "Drag to make build plan and click Ok";
                     messageOverlayElem.style.display = "block";
+                    const okButton = document.createElement("button");
+                    okButton.value = "Ok";
+                    okButton.innerHTML = "Ok";
+                    okButton.addEventListener('click', _ => {
+                        buildingConveyor = null;
+                        messageOverlayElem.style.display = "none";
+                        game.commit_build_conveyor(false);
+                    });
+                    const cancelButton = document.createElement("button");
+                    cancelButton.value = "Cancel";
+                    cancelButton.innerHTML = "Cancel";
+                    cancelButton.addEventListener('click', _ => {
+                        buildingConveyor = null;
+                        messageOverlayElem.style.display = "none";
+                        game.cancel_build_conveyor(false);
+                    });
+                    const buttonContainer = document.createElement("div");
+                    buttonContainer.appendChild(okButton);
+                    buttonContainer.appendChild(cancelButton);
+                    messageOverlayElem.appendChild(buttonContainer);
                     buildingConveyor = [x, y];
                 }
                 else if (name === "build") {

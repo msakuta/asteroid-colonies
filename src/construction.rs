@@ -16,7 +16,7 @@ use wasm_bindgen::prelude::*;
 #[derive(Serialize, Debug, PartialEq, Eq, Clone, Copy)]
 pub(crate) enum ConstructionType {
     PowerGrid,
-    Conveyor,
+    Conveyor(Conveyor),
     Building(BuildingType),
 }
 
@@ -31,15 +31,19 @@ pub(crate) struct Construction {
 }
 
 impl Construction {
-    pub fn new(item: &'static BuildMenuItem, pos: Pos) -> Self {
+    fn new_ex(type_: ConstructionType, item: &'static BuildMenuItem, pos: Pos) -> Self {
         Self {
-            type_: item.type_,
+            type_,
             pos,
             ingredients: HashMap::new(),
             recipe: &item,
             canceling: false,
             progress: 0.,
         }
+    }
+
+    pub fn new(item: &'static BuildMenuItem, pos: Pos) -> Self {
+        Self::new_ex(item.type_, item, pos)
     }
 
     pub fn new_power_grid(pos: Pos) -> Self {
@@ -52,14 +56,14 @@ impl Construction {
         Self::new(recipe, pos)
     }
 
-    pub fn new_conveyor(pos: Pos) -> Self {
+    pub fn new_conveyor(pos: Pos, conv: Conveyor) -> Self {
         static BUILD: OnceLock<BuildMenuItem> = OnceLock::new();
         let recipe = &*BUILD.get_or_init(|| BuildMenuItem {
-            type_: ConstructionType::Conveyor,
+            type_: ConstructionType::Conveyor(Conveyor::One(Direction::Left, Direction::Right)),
             ingredients: hash_map!(ItemType::ConveyorComponent => 1),
             time: BUILD_CONVEYOR_TIME,
         });
-        Self::new(recipe, pos)
+        Self::new_ex(ConstructionType::Conveyor(conv), recipe, pos)
     }
 
     pub fn new_deconstruct(
@@ -271,9 +275,8 @@ impl AsteroidColonies {
                     ConstructionType::PowerGrid => {
                         self.cells[pos[0] as usize + pos[1] as usize * WIDTH].power_grid = true;
                     }
-                    ConstructionType::Conveyor => {
-                        self.cells[pos[0] as usize + pos[1] as usize * WIDTH].conveyor =
-                            Conveyor::One(Direction::Left, Direction::Up);
+                    ConstructionType::Conveyor(conv) => {
+                        self.cells[pos[0] as usize + pos[1] as usize * WIDTH].conveyor = conv;
                     }
                 }
                 to_delete.push(i);

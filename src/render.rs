@@ -42,41 +42,55 @@ impl AsteroidColonies {
             )
         };
 
-        let render_conveyor = |context: &CanvasRenderingContext2d, x, y, conv: Conveyor| {
-            let (sx, sy) = match conv {
-                Conveyor::One(from, to) => {
-                    let mut sy = match to {
-                        Direction::Left => 0.,
-                        Direction::Up => TILE_SIZE,
-                        Direction::Right => 2. * TILE_SIZE,
-                        Direction::Down => 3. * TILE_SIZE,
-                    };
-                    let sx = match from {
-                        Direction::Left => 0.,
-                        Direction::Up => TILE_SIZE,
-                        Direction::Right => 2. * TILE_SIZE,
-                        Direction::Down => 3. * TILE_SIZE,
-                    };
-                    if sx <= sy {
-                        sy -= TILE_SIZE;
+        let render_conveyor_layer =
+            |context: &CanvasRenderingContext2d, x, y, conv: (Direction, Direction)| {
+                let (sx, sy) = match conv {
+                    (from, to) => {
+                        let mut sy = match to {
+                            Direction::Left => 0.,
+                            Direction::Up => TILE_SIZE,
+                            Direction::Right => 2. * TILE_SIZE,
+                            Direction::Down => 3. * TILE_SIZE,
+                        };
+                        let sx = match from {
+                            Direction::Left => 0.,
+                            Direction::Up => TILE_SIZE,
+                            Direction::Right => 2. * TILE_SIZE,
+                            Direction::Down => 3. * TILE_SIZE,
+                        };
+                        if sx <= sy {
+                            sy -= TILE_SIZE;
+                        }
+                        (sx, sy)
                     }
-                    (sx, sy)
-                }
-                Conveyor::Two(from, to) => (TILE_SIZE, 2. * TILE_SIZE),
-                _ => return Ok(()),
+                    _ => return Ok(()),
+                };
+                context
+                    .draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+                        &self.assets.img_conveyor,
+                        sx,
+                        sy,
+                        TILE_SIZE,
+                        TILE_SIZE,
+                        x,
+                        y,
+                        TILE_SIZE,
+                        TILE_SIZE,
+                    )
             };
-            context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-                &self.assets.img_conveyor,
-                sx,
-                sy,
-                TILE_SIZE,
-                TILE_SIZE,
-                x,
-                y,
-                TILE_SIZE,
-                TILE_SIZE,
-            )
-        };
+
+        let render_conveyor =
+            |context: &CanvasRenderingContext2d, x, y, conv: Conveyor| -> Result<(), JsValue> {
+                match conv {
+                    Conveyor::One(from, to) => render_conveyor_layer(context, x, y, (from, to))?,
+                    Conveyor::Two(first, second) => {
+                        render_conveyor_layer(context, x, y, first)?;
+                        render_conveyor_layer(context, x, y, second)?;
+                    }
+                    _ => {}
+                };
+                Ok(())
+            };
 
         let mut rendered_cells = 0;
         let mut render_cell = |ix: i32, iy: i32| -> Result<(), JsValue> {
@@ -318,9 +332,7 @@ impl AsteroidColonies {
                         )?;
                 }
                 ConstructionType::PowerGrid => render_power_grid(context, x, y)?,
-                ConstructionType::Conveyor => {
-                    render_conveyor(context, x, y, Conveyor::One(Direction::Left, Direction::Up))?
-                }
+                ConstructionType::Conveyor(conv) => render_conveyor(context, x, y, conv)?,
             }
             let img = if construction.canceling() {
                 &self.assets.img_deconstruction

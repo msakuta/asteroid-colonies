@@ -1,11 +1,12 @@
 use std::{collections::HashMap, fmt::Display};
 
+use serde::Serialize;
 use wasm_bindgen::JsValue;
 
 use crate::{
     building::Recipe, construction::Construction, render::calculate_back_image,
-    transport::find_path, AsteroidColonies, Building, BuildingType, Cell, CellState, ItemType, Pos,
-    WIDTH,
+    transport::find_path, AsteroidColonies, Building, BuildingType, Cell, CellState, Conveyor,
+    ItemType, Pos, WIDTH,
 };
 
 pub(crate) const EXCAVATE_TIME: f64 = 10.;
@@ -47,7 +48,7 @@ impl Display for Task {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub(crate) enum Direction {
     Left,
     Up,
@@ -178,8 +179,10 @@ impl AsteroidColonies {
             let src_pos = [ix + dir_vec[0], iy + dir_vec[1]];
             let src_cell = &self.cells[src_pos[0] as usize + src_pos[1] as usize * WIDTH];
             if src_cell.conveyor.is_some() {
-                self.constructions
-                    .push(Construction::new_conveyor([ix, iy]));
+                self.constructions.push(Construction::new_conveyor(
+                    [ix, iy],
+                    Conveyor::One(Direction::Left, Direction::Right),
+                ));
                 return Ok(JsValue::from(true));
             }
         }
