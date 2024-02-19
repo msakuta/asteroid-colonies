@@ -322,7 +322,6 @@ impl AsteroidColonies {
         match com {
             "excavate" => self.excavate(ix, iy),
             "power" => self.build_power_grid(ix, iy),
-            "conveyor" => self.conveyor(ix, iy),
             "moveItem" => self.move_item(ix, iy),
             _ => Err(JsValue::from(format!("Unknown command: {}", com))),
         }

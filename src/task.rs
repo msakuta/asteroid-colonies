@@ -5,8 +5,8 @@ use wasm_bindgen::JsValue;
 
 use crate::{
     building::Recipe, construction::Construction, render::calculate_back_image,
-    transport::find_path, AsteroidColonies, Building, BuildingType, Cell, CellState, Conveyor,
-    ItemType, Pos, WIDTH,
+    transport::find_path, AsteroidColonies, Building, BuildingType, Cell, CellState, ItemType, Pos,
+    WIDTH,
 };
 
 pub(crate) const EXCAVATE_TIME: f64 = 10.;
@@ -156,37 +156,6 @@ impl AsteroidColonies {
         self.constructions
             .push(Construction::new_power_grid([ix, iy]));
         Ok(JsValue::from(true))
-    }
-
-    pub(crate) fn conveyor(&mut self, ix: i32, iy: i32) -> Result<JsValue, JsValue> {
-        let cell = &self.cells[ix as usize + iy as usize * WIDTH];
-        if matches!(cell.state, CellState::Solid) {
-            return Err(JsValue::from("Needs excavation before building conveyor"));
-        }
-        if matches!(cell.state, CellState::Space) {
-            return Err(JsValue::from("You cannot build conveyor in space!"));
-        }
-        if cell.conveyor.is_some() {
-            return Err(JsValue::from("Conveyor is already installed in this cell"));
-        }
-        for dir in [
-            Direction::Left,
-            Direction::Up,
-            Direction::Right,
-            Direction::Down,
-        ] {
-            let dir_vec = dir.to_vec();
-            let src_pos = [ix + dir_vec[0], iy + dir_vec[1]];
-            let src_cell = &self.cells[src_pos[0] as usize + src_pos[1] as usize * WIDTH];
-            if src_cell.conveyor.is_some() {
-                self.constructions.push(Construction::new_conveyor(
-                    [ix, iy],
-                    Conveyor::One(Direction::Left, Direction::Right),
-                ));
-                return Ok(JsValue::from(true));
-            }
-        }
-        Err(JsValue::from("No nearby power grid"))
     }
 
     pub(crate) fn move_item(&mut self, ix: i32, iy: i32) -> Result<JsValue, JsValue> {
