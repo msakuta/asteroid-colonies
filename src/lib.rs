@@ -71,13 +71,29 @@ enum CellState {
     Space,
 }
 
-type Conveyor = (Direction, Direction);
+/// Conveyor can stack up to 2 levels
+#[derive(Clone, Copy, Debug)]
+enum Conveyor {
+    None,
+    One(Direction, Direction),
+    Two((Direction, Direction), (Direction, Direction)),
+}
+
+impl Conveyor {
+    fn is_none(&self) -> bool {
+        matches!(self, Self::None)
+    }
+
+    fn is_some(&self) -> bool {
+        !matches!(self, Self::None)
+    }
+}
 
 #[derive(Clone, Copy)]
 struct Cell {
     state: CellState,
     power_grid: bool,
-    conveyor: Option<Conveyor>,
+    conveyor: Conveyor,
     /// The index into the background image for quick rendering
     image_lt: u8,
     image_lb: u8,
@@ -90,7 +106,7 @@ impl Cell {
         Self {
             state: CellState::Solid,
             power_grid: false,
-            conveyor: None,
+            conveyor: Conveyor::None,
             image_lt: 0,
             image_lb: 0,
             image_rb: 0,
@@ -102,7 +118,7 @@ impl Cell {
         Self {
             state: CellState::Empty,
             power_grid: true,
-            conveyor: None,
+            conveyor: Conveyor::None,
             image_lt: 8,
             image_lb: 8,
             image_rb: 8,
@@ -191,6 +207,9 @@ pub struct AsteroidColonies {
     global_time: usize,
     transports: Vec<Transport>,
     constructions: Vec<Construction>,
+    /// Ghost conveyors staged for commit. After committing, they will be queued to construction plans
+    conveyor_staged: HashMap<Pos, Conveyor>,
+    /// Preview of ghost conveyors, just for visualization.
     conveyor_preview: HashMap<Pos, Conveyor>,
     viewport: Viewport,
 }
@@ -267,10 +286,10 @@ impl AsteroidColonies {
             let [x, y] = start_ofs(*pos1);
             let [x, y] = [x as usize, y as usize];
             cells[x + y * WIDTH].state = CellState::Empty;
-            let conv = Some((
+            let conv = Conveyor::One(
                 Direction::from_vec([pos0[0] - pos1[0], pos0[1] - pos1[1]]).unwrap(),
                 Direction::from_vec([pos2[0] - pos1[0], pos2[1] - pos1[1]]).unwrap(),
-            ));
+            );
             console_log!("conv {:?}: {:?}", pos1, conv);
             cells[x + y * WIDTH].conveyor = conv;
             cells[x + y * WIDTH].power_grid = true;
@@ -292,6 +311,7 @@ impl AsteroidColonies {
             global_time: 0,
             transports: vec![],
             constructions: vec![],
+            conveyor_staged: HashMap::new(),
             conveyor_preview: HashMap::new(),
             viewport: Viewport {
                 offset: [0.; 2],
@@ -375,7 +395,14 @@ impl AsteroidColonies {
         Ok(())
     }
 
-    pub fn build_conveyor(&mut self, x0: f64, y0: f64, x1: f64, y1: f64) -> Result<(), JsValue> {
+    pub fn build_conveyor(
+        &mut self,
+        x0: f64,
+        y0: f64,
+        x1: f64,
+        y1: f64,
+        preview: bool,
+    ) -> Result<(), JsValue> {
         let mut ix0 = (x0 - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
         let ix_start = ix0;
         let mut iy0 = (y0 - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
@@ -406,6 +433,8 @@ impl AsteroidColonies {
             (Direction::Left, Direction::Right)
         };
 
+        self.conveyor_preview.clear();
+
         let convs = (iy0..iy1)
             .map(|iy| ([ix_start, iy], conv_v))
             .chain(std::iter::once(([ix_start, iy_end], (conv_v.0, conv_h.1))))
@@ -421,10 +450,24 @@ impl AsteroidColonies {
             // Direction::from_vec([x_rev * (pos0[0] - pos1[0]), y_rev * (pos0[1] - pos1[1])]).unwrap(),
             // Direction::from_vec([x_rev * (pos2[0] - pos1[0]), y_rev * (pos2[1] - pos1[1])]).unwrap(),
             // );
+            let cell = &self.cells[pos1[0] as usize + pos1[1] as usize * WIDTH];
+            let conv = match (cell.conveyor, conv) {
+                (
+                    Conveyor::One(Direction::Left, Direction::Right),
+                    (Direction::Up, Direction::Down),
+                ) => Conveyor::Two((Direction::Left, Direction::Right), *conv),
+                (
+                    Conveyor::One(Direction::Right, Direction::Left),
+                    (Direction::Up, Direction::Down),
+                ) => Conveyor::Two((Direction::Right, Direction::Left), *conv),
+                _ => Conveyor::One(conv.0, conv.1),
+            };
             console_log!("conv {:?}: {:?}", pos1, conv);
-            self.conveyor_preview.insert(*pos1, *conv);
+            self.conveyor_preview.insert(*pos1, conv);
         }
-        // conveyor_preview.extend()
+        if !preview {
+            self.conveyor_staged.extend(self.conveyor_preview.drain());
+        }
         Ok(())
     }
 

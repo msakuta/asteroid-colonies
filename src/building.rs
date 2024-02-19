@@ -12,7 +12,7 @@ use crate::{
     hash_map,
     task::{Direction, GlobalTask, Task, RAW_ORE_SMELT_TIME},
     transport::{expected_deliveries, find_multipath},
-    AsteroidColonies, Cell, CellState, Crew, ItemType, Pos, Transport, WIDTH,
+    AsteroidColonies, Cell, CellState, Conveyor, Crew, ItemType, Pos, Transport, WIDTH,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -441,7 +441,7 @@ pub(crate) fn pull_inputs(
                 return true;
             }
             from_direction.map(|from_direction| {
-                matches!(cell.conveyor, Some((dir, _)) if dir == from_direction.reverse())
+                matches!(cell.conveyor, Conveyor::One(dir, _) if dir == from_direction.reverse())
             }).unwrap_or_else(|| cell.conveyor.is_some()) || intersects_goal(pos)
             // cell.conveyor.is_some() || intersects(pos)
         });
@@ -538,7 +538,7 @@ pub(crate) fn push_outputs(
                     return true;
                 }
                 from_direction.map(|from_direction| {
-                    matches!(cell.conveyor, Some((dir, _)) if dir == from_direction.reverse())
+                    matches!(cell.conveyor, Conveyor::One(dir, _) if dir == from_direction.reverse())
                 }).unwrap_or_else(||cell.conveyor.is_some()) || intersects(pos)
             },
         )?;

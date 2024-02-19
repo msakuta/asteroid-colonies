@@ -5,7 +5,7 @@ use crate::{
     crew::{expected_crew_deliveries, Crew},
     task::{Direction, BUILD_CONVEYOR_TIME, BUILD_POWER_GRID_TIME},
     transport::{expected_deliveries, Transport},
-    Inventory, ItemType, Pos, WIDTH,
+    Conveyor, Inventory, ItemType, Pos, WIDTH,
 };
 
 use super::{hash_map, AsteroidColonies};
@@ -273,7 +273,7 @@ impl AsteroidColonies {
                     }
                     ConstructionType::Conveyor => {
                         self.cells[pos[0] as usize + pos[1] as usize * WIDTH].conveyor =
-                            Some((Direction::Left, Direction::Up));
+                            Conveyor::One(Direction::Left, Direction::Up);
                     }
                 }
                 to_delete.push(i);

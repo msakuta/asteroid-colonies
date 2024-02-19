@@ -1,6 +1,6 @@
 use std::collections::{BinaryHeap, HashMap, HashSet};
 
-use crate::{task::Direction, AsteroidColonies, ItemType, Pos, WIDTH};
+use crate::{task::Direction, AsteroidColonies, Conveyor, ItemType, Pos, WIDTH};
 
 /// Transporting item
 #[derive(Clone, Debug)]
@@ -75,7 +75,7 @@ impl AsteroidColonies {
                         |from_direction, pos| {
                             let cell = &cells[pos[0] as usize + pos[1] as usize * WIDTH];
                             if let Some(from_direction) = from_direction {
-                                matches!(cell.conveyor, Some((_, dir)) if dir == from_direction)
+                                matches!(cell.conveyor, Conveyor::One(_, dir) if dir == from_direction)
                                     && cell.conveyor.is_some()
                             } else {
                                 cell.conveyor.is_some()

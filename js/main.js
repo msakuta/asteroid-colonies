@@ -88,6 +88,14 @@ const canvas = document.getElementById('canvas');
             const info = game.get_info(x, y);
             document.getElementById('info').innerHTML = formatInfo(info);
         }
+        if (buildingConveyor) {
+            try {
+                game.build_conveyor(buildingConveyor[0], buildingConveyor[1], x, y, true);
+            }
+            catch (e) {
+                console.error(`build_conveyor: ${e}`);
+            }
+        }
         if (dragStart) {
             if (dragLast) {
                 game.pan(x - dragLast[0], y - dragLast[1]);
@@ -133,7 +141,7 @@ const canvas = document.getElementById('canvas');
 
         if (buildingConveyor) {
             try {
-                game.build_conveyor(buildingConveyor[0], buildingConveyor[1], x, y);
+                game.build_conveyor(buildingConveyor[0], buildingConveyor[1], x, y, false);
             }
             catch (e) {
                 console.error(`build_conveyor: ${e}`);

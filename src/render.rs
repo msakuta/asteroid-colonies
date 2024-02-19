@@ -8,7 +8,7 @@ use crate::{
     task::{
         Direction, GlobalTask, Task, EXCAVATE_TIME, LABOR_EXCAVATE_TIME, MOVE_ITEM_TIME, MOVE_TIME,
     },
-    BuildingType, Cell, CellState, ItemType, HEIGHT, WIDTH,
+    BuildingType, Cell, CellState, Conveyor, ItemType, HEIGHT, WIDTH,
 };
 
 pub(crate) const TILE_SIZE: f64 = 32.;
@@ -42,36 +42,41 @@ impl AsteroidColonies {
             )
         };
 
-        let render_conveyor =
-            |context: &CanvasRenderingContext2d, x, y, conv: (Direction, Direction)| {
-                let mut sy = match conv.1 {
-                    Direction::Left => 0.,
-                    Direction::Up => TILE_SIZE,
-                    Direction::Right => 2. * TILE_SIZE,
-                    Direction::Down => 3. * TILE_SIZE,
-                };
-                let sx = match conv.0 {
-                    Direction::Left => 0.,
-                    Direction::Up => TILE_SIZE,
-                    Direction::Right => 2. * TILE_SIZE,
-                    Direction::Down => 3. * TILE_SIZE,
-                };
-                if sx <= sy {
-                    sy -= TILE_SIZE;
+        let render_conveyor = |context: &CanvasRenderingContext2d, x, y, conv: Conveyor| {
+            let (sx, sy) = match conv {
+                Conveyor::One(from, to) => {
+                    let mut sy = match to {
+                        Direction::Left => 0.,
+                        Direction::Up => TILE_SIZE,
+                        Direction::Right => 2. * TILE_SIZE,
+                        Direction::Down => 3. * TILE_SIZE,
+                    };
+                    let sx = match from {
+                        Direction::Left => 0.,
+                        Direction::Up => TILE_SIZE,
+                        Direction::Right => 2. * TILE_SIZE,
+                        Direction::Down => 3. * TILE_SIZE,
+                    };
+                    if sx <= sy {
+                        sy -= TILE_SIZE;
+                    }
+                    (sx, sy)
                 }
-                context
-                    .draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-                        &self.assets.img_conveyor,
-                        sx,
-                        sy,
-                        TILE_SIZE,
-                        TILE_SIZE,
-                        x,
-                        y,
-                        TILE_SIZE,
-                        TILE_SIZE,
-                    )
+                Conveyor::Two(from, to) => (TILE_SIZE, 2. * TILE_SIZE),
+                _ => return Ok(()),
             };
+            context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+                &self.assets.img_conveyor,
+                sx,
+                sy,
+                TILE_SIZE,
+                TILE_SIZE,
+                x,
+                y,
+                TILE_SIZE,
+                TILE_SIZE,
+            )
+        };
 
         let mut rendered_cells = 0;
         let mut render_cell = |ix: i32, iy: i32| -> Result<(), JsValue> {
@@ -163,9 +168,7 @@ impl AsteroidColonies {
             if cell.power_grid {
                 render_power_grid(context, x, y)?;
             }
-            if let Some(conv) = cell.conveyor {
-                render_conveyor(context, x, y, conv)?;
-            }
+            render_conveyor(context, x, y, cell.conveyor)?;
             rendered_cells += 1;
             Ok(())
         };
@@ -316,7 +319,7 @@ impl AsteroidColonies {
                 }
                 ConstructionType::PowerGrid => render_power_grid(context, x, y)?,
                 ConstructionType::Conveyor => {
-                    render_conveyor(context, x, y, (Direction::Left, Direction::Up))?
+                    render_conveyor(context, x, y, Conveyor::One(Direction::Left, Direction::Up))?
                 }
             }
             let img = if construction.canceling() {
@@ -343,7 +346,11 @@ impl AsteroidColonies {
             // }
         }
 
-        for (pos, conv) in &self.conveyor_preview {
+        for (pos, conv) in self
+            .conveyor_preview
+            .iter()
+            .chain(self.conveyor_staged.iter())
+        {
             let x = pos[0] as f64 * TILE_SIZE + offset[0];
             let y = pos[1] as f64 * TILE_SIZE + offset[1];
             render_conveyor(context, x, y, *conv)?;
