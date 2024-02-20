@@ -223,7 +223,7 @@ impl Building {
                     if let Some(crew) = Crew::new_task(this.pos, gtask, cells) {
                         crews.push(crew);
                         this.crews -= 1;
-                        break;
+                        return Ok(());
                     }
                 }
                 for construction in constructions {
