@@ -161,7 +161,7 @@ impl Building {
         };
         // Try pushing out products
         if let Some(recipe) = this.recipe {
-            push_outputs(cells, transports, this, first, last, &|item| {
+            push_outputs(&cells, transports, this, first, last, &|item| {
                 recipe.outputs.contains_key(&item)
             });
         }
@@ -204,7 +204,7 @@ impl Building {
         }
         match this.type_ {
             BuildingType::Excavator => {
-                push_outputs(cells, transports, this, first, last, &|t| {
+                push_outputs(&cells, transports, this, first, last, &|t| {
                     matches!(t, ItemType::RawOre)
                 });
             }
@@ -309,7 +309,7 @@ impl Building {
                 }
             }
             BuildingType::Furnace => {
-                push_outputs(cells, transports, this, first, last, &|t| {
+                push_outputs(&cells, transports, this, first, last, &|t| {
                     !matches!(t, ItemType::RawOre)
                 });
                 if !matches!(this.task, Task::None) {

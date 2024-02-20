@@ -58,6 +58,18 @@ pub(crate) fn pull_inputs(
             let Some(cell) = cells.at(pos) else {
                 return false;
             };
+            // crate::console_log!(
+            //     "pulling {:?} from {:?}: dir: {:?} cell {:?}, {:?}",
+            //     ty,
+            //     src.pos,
+            //     from_direction.map(|d| d.reverse()),
+            //     pos,
+            //     cell.conveyor
+            // );
+            if cell.conveyor.is_some() && start_neighbors.contains(&pos) {
+                // crate::console_log!("next to start");
+                return true;
+            }
             let prev_cell = from_direction
                 .map(|dir| {
                     let dir_vec = dir.to_vec();
@@ -72,18 +84,6 @@ pub(crate) fn pull_inputs(
                     prev_cell.conveyor.to().map(|to| to == dir).unwrap_or(true)
                 })
                 .unwrap_or(true);
-            // crate::console_log!(
-            //     "pulling {:?} from {:?}: dir: {:?} cell {:?}, {:?}",
-            //     ty,
-            //     src.pos,
-            //     from_direction.map(|d| d.reverse()),
-            //     pos,
-            //     cell.conveyor
-            // );
-            if cell.conveyor.is_some() && start_neighbors.contains(&pos) {
-                // crate::console_log!("next to start");
-                return true;
-            }
             if !prev_cell {
                 return false;
             }
@@ -112,9 +112,11 @@ pub(crate) fn pull_inputs(
     }
 }
 
-#[test]
-fn test_pull_inputs() {
-    use crate::BuildingType;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{BuildingType, Inventory};
+
     struct MockTiles;
 
     impl TileSampler for MockTiles {
@@ -145,38 +147,89 @@ fn test_pull_inputs() {
         }
     }
 
-    let mut inputs = HashMap::new();
-    inputs.insert(ItemType::RawOre, 1);
+    #[test]
+    fn test_pull_inputs() {
+        let mut inputs = HashMap::new();
+        inputs.insert(ItemType::RawOre, 1);
 
-    let mut storage = [Building::new_inventory(
-        [1, -1],
-        BuildingType::Storage,
-        inputs.clone(),
-    )];
+        let mut storage = [Building::new_inventory(
+            [1, -1],
+            BuildingType::Storage,
+            inputs.clone(),
+        )];
 
-    let mut transports = vec![];
+        let mut transports = vec![];
 
-    pull_inputs(
-        &inputs,
-        &MockTiles,
-        &mut transports,
-        [1, 3],
-        [1, 1],
-        &mut HashMap::new(),
-        &mut storage,
-        &mut [],
-    );
+        pull_inputs(
+            &inputs,
+            &MockTiles,
+            &mut transports,
+            [1, 3],
+            [1, 1],
+            &mut HashMap::new(),
+            &mut storage,
+            &mut [],
+        );
 
-    assert_eq!(
-        transports,
-        vec![Transport {
-            src: [1, -1],
-            dest: [1, 3],
-            item: ItemType::RawOre,
-            amount: 1,
-            path: vec![[1, 3], [1, 2], [0, 2], [0, 1], [0, 0], [1, 0], [1, -1]],
-        }]
-    )
+        assert_eq!(
+            transports,
+            vec![Transport {
+                src: [1, -1],
+                dest: [1, 3],
+                item: ItemType::RawOre,
+                amount: 1,
+                path: vec![[1, 3], [1, 2], [0, 2], [0, 1], [0, 0], [1, 0], [1, -1]],
+            }]
+        )
+    }
+
+    struct MockInventory(Inventory);
+
+    impl HasInventory for MockInventory {
+        fn pos(&self) -> Pos {
+            [1, 3]
+        }
+
+        fn size(&self) -> [usize; 2] {
+            [1, 1]
+        }
+
+        fn inventory(&mut self) -> &mut Inventory {
+            &mut self.0
+        }
+    }
+
+    #[test]
+    fn test_push_outputs() {
+        let mut storage = [Building::new([1, -1], BuildingType::Storage)];
+
+        let mut transports = vec![];
+
+        let mut outputs = Inventory::new();
+        outputs.insert(ItemType::RawOre, 1);
+
+        let mut mock_inventory = MockInventory(outputs);
+
+        push_outputs(
+            &MockTiles,
+            &mut transports,
+            &mut mock_inventory,
+            &mut storage,
+            &mut [],
+            &|_| true,
+        );
+
+        assert_eq!(
+            transports,
+            vec![Transport {
+                src: [1, 3],
+                dest: [1, -1],
+                item: ItemType::RawOre,
+                amount: 1,
+                path: vec![[1, -1], [1, 0], [2, 0], [2, 1], [2, 2], [1, 2], [1, 3]],
+            }]
+        )
+    }
 }
 
 fn find_from_other_inventory_mut<'a>(
@@ -222,7 +275,7 @@ impl HasInventory for Building {
 }
 
 pub(crate) fn push_outputs(
-    cells: &[Cell],
+    cells: &impl TileSampler,
     transports: &mut Vec<Transport>,
     this: &mut impl HasInventory,
     first: &mut [Building],
@@ -260,7 +313,9 @@ pub(crate) fn push_outputs(
             start_pos(),
             |pos| pos == b.pos,
             |from_direction, pos| {
-                let cell = &cells[pos[0] as usize + pos[1] as usize * WIDTH];
+                let Some(cell) = cells.at(pos) else {
+                    return false;
+                };
                 // crate::console_log!(
                 //     "pushing to {:?}: from: {:?}, cell {:?}, {:?}",
                 //     b.pos,
@@ -271,6 +326,23 @@ pub(crate) fn push_outputs(
                 if cell.conveyor.is_some() && start_neighbors.contains(&pos) {
                     // crate::console_log!("next to start");
                     return true;
+                }
+                let prev_cell = from_direction
+                    .map(|dir| {
+                        let dir_vec = dir.to_vec();
+                        let prev_pos = [pos[0] - dir_vec[0], pos[1] - dir_vec[1]];
+                        println!("dir: {dir:?}, dir_vec: {dir_vec:?}, prev_pos: {prev_pos:?}");
+                        let Some(prev_cell) = cells.at(prev_pos) else {
+                            return true;
+                        };
+                        println!("prev_cell: {prev_cell:?}");
+                        // If the previous cell didn't have a conveyor, it's not a failure, because we want to be
+                        // able to depart from a building.
+                        prev_cell.conveyor.to().map(|to| to == dir).unwrap_or(true)
+                    })
+                    .unwrap_or(true);
+                if !prev_cell {
+                    return false;
                 }
                 from_direction.map(|from_direction| {
                     matches!(cell.conveyor, Conveyor::One(dir, _) if dir == from_direction.reverse())

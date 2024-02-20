@@ -247,7 +247,7 @@ impl AsteroidColonies {
                     to_delete.push(i);
                 } else if construction.progress <= 0. {
                     push_outputs(
-                        &self.cells,
+                        &&self.cells[..],
                         &mut self.transports,
                         construction,
                         &mut self.buildings,
