@@ -7,7 +7,7 @@ use std::collections::{HashMap, HashSet};
 use crate::{
     building::Building,
     conveyor::Conveyor,
-    transport::{expected_deliveries, find_multipath, Transport},
+    transport::{expected_deliveries, find_multipath_should_expand, Transport},
     Cell, Direction, ItemType, Pos, WIDTH,
 };
 
@@ -55,12 +55,17 @@ pub(crate) fn pull_inputs(
         let size = src.type_.size();
         let start_pos = rect_iter(src.pos, size);
         let start_neighbors = neighbors_set(rect_iter(src.pos, size));
-        let path = find_multipath(start_pos, intersects_goal, |from_direction, pos| {
-            if intersects_goal(pos) {
-                return true;
-            }
-            push_pull_passable(cells, from_direction, &start_neighbors, pos)
-        });
+        let path = find_multipath_should_expand(
+            start_pos,
+            intersects_goal,
+            |from_direction, pos| {
+                if intersects_goal(pos) {
+                    return true;
+                }
+                push_pull_passable(cells, from_direction, &start_neighbors, pos)
+            },
+            |to, pos, from| push_pull_should_expand(cells, to, pos, from),
+        );
         let Some(path) = path else {
             continue;
         };
@@ -160,7 +165,7 @@ pub(crate) fn push_outputs(
                 && b.pos[1] <= iy
                 && iy < b_size[1] as i32 + b.pos[1]
         };
-        let path = find_multipath(
+        let path = find_multipath_should_expand(
             start_pos(),
             |pos| pos == b.pos,
             |from_direction, pos| {
@@ -169,6 +174,7 @@ pub(crate) fn push_outputs(
                 }
                 push_pull_passable(cells, from_direction, &start_neighbors, pos)
             },
+            |to, pos, from| push_pull_should_expand(cells, to, pos, from),
         )?;
         Some((b, path))
     });
@@ -213,24 +219,38 @@ fn push_pull_passable(
     if !prev_tile_connects_to(cells, from_direction, pos) {
         return false;
     }
-    from_direction.map(|from_direction| {
-        matches!(cell.conveyor, Conveyor::One(dir, _) if dir == from_direction.reverse())
-    }).unwrap_or_else(||cell.conveyor.is_some())
+    from_direction
+        .map(|from| cell.conveyor.has_from(from.reverse()))
+        .unwrap_or_else(|| cell.conveyor.is_some())
 }
 
 fn prev_tile_connects_to(cells: &impl TileSampler, from_dir: Option<Direction>, pos: Pos) -> bool {
-    from_dir
-        .map(|dir| {
-            let dir_vec = dir.to_vec();
-            let prev_pos = [pos[0] - dir_vec[0], pos[1] - dir_vec[1]];
-            let Some(prev_cell) = cells.at(prev_pos) else {
-                return true;
-            };
-            // If the previous cell didn't have a conveyor, it's not a failure, because we want to be
-            // able to depart from a building.
-            prev_cell.conveyor.to().map(|to| to == dir).unwrap_or(true)
-        })
-        .unwrap_or(true)
+    let Some(dir) = from_dir else {
+        return true;
+    };
+    let dir_vec = dir.to_vec();
+    let prev_pos = [pos[0] - dir_vec[0], pos[1] - dir_vec[1]];
+    let Some(prev_cell) = cells.at(prev_pos) else {
+        return true;
+    };
+    // If the previous cell didn't have a conveyor, it's not a failure, because we want to be
+    // able to depart from a building.
+    prev_cell.conveyor.has_to(dir)
+}
+
+fn push_pull_should_expand(
+    cells: &impl TileSampler,
+    to: Direction,
+    pos: Pos,
+    from: Option<Direction>,
+) -> bool {
+    let Some(cell) = cells.at(pos) else {
+        return true;
+    };
+    match cell.conveyor {
+        Conveyor::Two(_, _) => from.is_some_and(|from| to == from),
+        _ => true,
+    }
 }
 
 fn _find_from_all_inventories(

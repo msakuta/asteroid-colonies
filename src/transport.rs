@@ -124,6 +124,14 @@ pub(crate) fn find_path(
     )
 }
 
+pub(crate) fn find_multipath(
+    start: impl Iterator<Item = [i32; 2]>,
+    goal: impl Fn([i32; 2]) -> bool,
+    is_passable: impl Fn(Option<Direction>, Pos) -> bool,
+) -> Option<Vec<[i32; 2]>> {
+    find_multipath_should_expand(start, goal, is_passable, |_, _, _| true)
+}
+
 /// A generic path finding logic with potentially multiple starts and multiple goals.
 ///
 /// * `start` is an iterator over `Pos`, which can yield one or more items. Typically it is
@@ -131,10 +139,11 @@ pub(crate) fn find_path(
 /// * `goal` can be arbitrary set of positions, so it is given as a callback.
 /// * `is_passable` takes 2 arguments, first is the direction that the search came from, second is
 /// the position.
-pub(crate) fn find_multipath(
+pub(crate) fn find_multipath_should_expand(
     start: impl Iterator<Item = [i32; 2]>,
     goal: impl Fn([i32; 2]) -> bool,
     is_passable: impl Fn(Option<Direction>, Pos) -> bool,
+    should_expand: impl Fn(Direction, Pos, Option<Direction>) -> bool,
 ) -> Option<Vec<[i32; 2]>> {
     #[derive(Clone, Copy)]
     struct Entry {
@@ -166,21 +175,27 @@ pub(crate) fn find_multipath(
     type VisitedMap = HashMap<[i32; 2], Entry>;
     let mut visited = VisitedMap::new();
     let mut next_set = BinaryHeap::new();
-    let insert_neighbors =
-        |next_set: &mut BinaryHeap<Entry>, visited: &VisitedMap, pos: [i32; 2], dist: usize| {
-            for dir in Direction::all() {
-                let dir_vec = dir.to_vec();
-                let next_pos = [pos[0] + dir_vec[0], pos[1] + dir_vec[1]];
-                if visited.get(&next_pos).is_some_and(|e| e.dist <= dist) {
-                    continue;
-                }
-                next_set.push(Entry {
-                    pos: [pos[0] + dir_vec[0], pos[1] + dir_vec[1]],
-                    dist: dist + 1,
-                    from: Some((dir, pos)),
-                });
+    let insert_neighbors = |next_set: &mut BinaryHeap<Entry>,
+                            visited: &VisitedMap,
+                            pos: [i32; 2],
+                            dist: usize,
+                            from: Option<Direction>| {
+        for dir in Direction::all() {
+            if !should_expand(dir, pos, from) {
+                continue;
             }
-        };
+            let dir_vec = dir.to_vec();
+            let next_pos = [pos[0] + dir_vec[0], pos[1] + dir_vec[1]];
+            if visited.get(&next_pos).is_some_and(|e| e.dist <= dist) {
+                continue;
+            }
+            next_set.push(Entry {
+                pos: [pos[0] + dir_vec[0], pos[1] + dir_vec[1]],
+                dist: dist + 1,
+                from: Some((dir, pos)),
+            });
+        }
+    };
     for s_pos in start {
         visited.insert(
             s_pos,
@@ -190,10 +205,11 @@ pub(crate) fn find_multipath(
                 from: None,
             },
         );
-        insert_neighbors(&mut next_set, &visited, s_pos, 0);
+        insert_neighbors(&mut next_set, &visited, s_pos, 0, None);
     }
     while let Some(next) = next_set.pop() {
-        if !is_passable(next.from.map(|(dir, _)| dir), next.pos) {
+        let from_dir = next.from.map(|(dir, _)| dir);
+        if !is_passable(from_dir, next.pos) {
             continue;
         }
         if goal(next.pos) {
@@ -209,7 +225,7 @@ pub(crate) fn find_multipath(
             return Some(nodes);
         }
         visited.insert(next.pos, next);
-        insert_neighbors(&mut next_set, &visited, next.pos, next.dist);
+        insert_neighbors(&mut next_set, &visited, next.pos, next.dist, from_dir);
     }
     None
 }

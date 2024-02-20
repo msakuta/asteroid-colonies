@@ -40,6 +40,22 @@ impl Conveyor {
             Self::Two((_, to), _) => Some(*to),
         }
     }
+
+    pub fn has_from(&self, dir: Direction) -> bool {
+        match *self {
+            Self::None => false,
+            Self::One(from, _) => from == dir,
+            Self::Two((from1, _), (from2, _)) => from1 == dir || from2 == dir,
+        }
+    }
+
+    pub fn has_to(&self, dir: Direction) -> bool {
+        match *self {
+            Self::None => false,
+            Self::One(_, to) => to == dir,
+            Self::Two((_, to1), (_, to2)) => to1 == dir || to2 == dir,
+        }
+    }
 }
 
 #[wasm_bindgen]
