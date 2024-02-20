@@ -59,20 +59,7 @@ pub(crate) fn pull_inputs(
             if intersects_goal(pos) {
                 return true;
             }
-            let Some(cell) = cells.at(pos) else {
-                return false;
-            };
-            if cell.conveyor.is_some() && start_neighbors.contains(&pos) {
-                // crate::console_log!("next to start");
-                return true;
-            }
-            if !prev_tile_connects_to(cells, from_direction, pos) {
-                return false;
-            }
-            from_direction.map(|from_direction| {
-                matches!(cell.conveyor, Conveyor::One(dir, _) if dir == from_direction.reverse())
-            }).unwrap_or_else(|| cell.conveyor.is_some())
-            // cell.conveyor.is_some() || intersects(pos)
+            push_pull_passable(cells, from_direction, &start_neighbors, pos)
         });
         let Some(path) = path else {
             continue;
@@ -155,12 +142,14 @@ pub(crate) fn push_outputs(
     //     start_neighbors
     // );
     let dest = first.iter_mut().chain(last.iter_mut()).find_map(|b| {
-        if !b.type_.is_storage()
-            || b.type_.capacity()
-                <= b.inventory_size()
-                    + expected_deliveries(transports, b.pos)
-                        .values()
-                        .sum::<usize>()
+        if !b.type_.is_storage() {
+            return None;
+        }
+        if b.type_.capacity()
+            <= b.inventory_size()
+                + expected_deliveries(transports, b.pos)
+                    .values()
+                    .sum::<usize>()
         {
             return None;
         }
@@ -178,19 +167,7 @@ pub(crate) fn push_outputs(
                 if intersects(pos) {
                     return true;
                 }
-                let Some(cell) = cells.at(pos) else {
-                    return false;
-                };
-                if cell.conveyor.is_some() && start_neighbors.contains(&pos) {
-                    // crate::console_log!("next to start");
-                    return true;
-                }
-                if !prev_tile_connects_to(cells, from_direction, pos) {
-                    return false;
-                }
-                from_direction.map(|from_direction| {
-                    matches!(cell.conveyor, Conveyor::One(dir, _) if dir == from_direction.reverse())
-                }).unwrap_or_else(||cell.conveyor.is_some())
+                push_pull_passable(cells, from_direction, &start_neighbors, pos)
             },
         )?;
         Some((b, path))
@@ -218,6 +195,27 @@ pub(crate) fn push_outputs(
             // this.output_path = Some(path);
         }
     }
+}
+
+fn push_pull_passable(
+    cells: &impl TileSampler,
+    from_direction: Option<Direction>,
+    start_neighbors: &HashSet<Pos>,
+    pos: Pos,
+) -> bool {
+    let Some(cell) = cells.at(pos) else {
+        return false;
+    };
+    if cell.conveyor.is_some() && start_neighbors.contains(&pos) {
+        // crate::console_log!("next to start");
+        return true;
+    }
+    if !prev_tile_connects_to(cells, from_direction, pos) {
+        return false;
+    }
+    from_direction.map(|from_direction| {
+        matches!(cell.conveyor, Conveyor::One(dir, _) if dir == from_direction.reverse())
+    }).unwrap_or_else(||cell.conveyor.is_some())
 }
 
 fn prev_tile_connects_to(cells: &impl TileSampler, from_dir: Option<Direction>, pos: Pos) -> bool {
