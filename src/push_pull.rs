@@ -62,31 +62,11 @@ pub(crate) fn pull_inputs(
             let Some(cell) = cells.at(pos) else {
                 return false;
             };
-            // crate::console_log!(
-            //     "pulling {:?} from {:?}: dir: {:?} cell {:?}, {:?}",
-            //     ty,
-            //     src.pos,
-            //     from_direction.map(|d| d.reverse()),
-            //     pos,
-            //     cell.conveyor
-            // );
             if cell.conveyor.is_some() && start_neighbors.contains(&pos) {
                 // crate::console_log!("next to start");
                 return true;
             }
-            let prev_cell = from_direction
-                .map(|dir| {
-                    let dir_vec = dir.to_vec();
-                    let prev_pos = [pos[0] - dir_vec[0], pos[1] - dir_vec[1]];
-                    let Some(prev_cell) = cells.at(prev_pos) else {
-                        return true;
-                    };
-                    // If the previous cell didn't have a conveyor, it's not a failure, because we want to be
-                    // able to depart from a building.
-                    prev_cell.conveyor.to().map(|to| to == dir).unwrap_or(true)
-                })
-                .unwrap_or(true);
-            if !prev_cell {
+            if !prev_tile_connects_to(cells, from_direction, pos) {
                 return false;
             }
             from_direction.map(|from_direction| {
@@ -201,30 +181,11 @@ pub(crate) fn push_outputs(
                 let Some(cell) = cells.at(pos) else {
                     return false;
                 };
-                // crate::console_log!(
-                //     "pushing to {:?}: from: {:?}, cell {:?}, {:?}",
-                //     b.pos,
-                //     from_direction.map(|d| d.reverse()),
-                //     pos,
-                //     cell.conveyor
-                // );
                 if cell.conveyor.is_some() && start_neighbors.contains(&pos) {
                     // crate::console_log!("next to start");
                     return true;
                 }
-                let prev_cell = from_direction
-                    .map(|dir| {
-                        let dir_vec = dir.to_vec();
-                        let prev_pos = [pos[0] - dir_vec[0], pos[1] - dir_vec[1]];
-                        let Some(prev_cell) = cells.at(prev_pos) else {
-                            return true;
-                        };
-                        // If the previous cell didn't have a conveyor, it's not a failure, because we want to be
-                        // able to depart from a building.
-                        prev_cell.conveyor.to().map(|to| to == dir).unwrap_or(true)
-                    })
-                    .unwrap_or(true);
-                if !prev_cell {
+                if !prev_tile_connects_to(cells, from_direction, pos) {
                     return false;
                 }
                 from_direction.map(|from_direction| {
@@ -257,6 +218,21 @@ pub(crate) fn push_outputs(
             // this.output_path = Some(path);
         }
     }
+}
+
+fn prev_tile_connects_to(cells: &impl TileSampler, from_dir: Option<Direction>, pos: Pos) -> bool {
+    from_dir
+        .map(|dir| {
+            let dir_vec = dir.to_vec();
+            let prev_pos = [pos[0] - dir_vec[0], pos[1] - dir_vec[1]];
+            let Some(prev_cell) = cells.at(prev_pos) else {
+                return true;
+            };
+            // If the previous cell didn't have a conveyor, it's not a failure, because we want to be
+            // able to depart from a building.
+            prev_cell.conveyor.to().map(|to| to == dir).unwrap_or(true)
+        })
+        .unwrap_or(true)
 }
 
 fn _find_from_all_inventories(
