@@ -3,7 +3,7 @@ use std::collections::{BinaryHeap, HashMap, HashSet};
 use crate::{task::Direction, AsteroidColonies, Conveyor, ItemType, Pos, WIDTH};
 
 /// Transporting item
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Transport {
     pub src: Pos,
     pub dest: Pos,
@@ -168,12 +168,7 @@ pub(crate) fn find_multipath(
     let mut next_set = BinaryHeap::new();
     let insert_neighbors =
         |next_set: &mut BinaryHeap<Entry>, visited: &VisitedMap, pos: [i32; 2], dist: usize| {
-            for dir in [
-                Direction::Left,
-                Direction::Up,
-                Direction::Right,
-                Direction::Down,
-            ] {
+            for dir in Direction::all() {
                 let dir_vec = dir.to_vec();
                 let next_pos = [pos[0] + dir_vec[0], pos[1] + dir_vec[1]];
                 if visited.get(&next_pos).is_some_and(|e| e.dist <= dist) {

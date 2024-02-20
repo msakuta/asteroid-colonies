@@ -171,7 +171,7 @@ impl Building {
             if let Some(recipe) = &this.recipe {
                 pull_inputs(
                     &recipe.inputs,
-                    cells,
+                    &cells,
                     transports,
                     this.pos,
                     this.type_.size(),
@@ -325,7 +325,7 @@ impl Building {
                 };
                 pull_inputs(
                     &recipe.inputs,
-                    cells,
+                    &cells,
                     transports,
                     this.pos,
                     this.type_.size(),
@@ -401,10 +401,20 @@ impl AsteroidColonies {
     }
 }
 
+pub(crate) trait TileSampler {
+    fn at(&self, pos: [i32; 2]) -> Option<&Cell>;
+}
+
+impl TileSampler for &[Cell] {
+    fn at(&self, pos: [i32; 2]) -> Option<&Cell> {
+        Some(&self[pos[0] as usize + pos[1] as usize * WIDTH])
+    }
+}
+
 /// Pull inputs over transportation network
 pub(crate) fn pull_inputs(
     inputs: &HashMap<ItemType, usize>,
-    cells: &[Cell],
+    cells: &impl TileSampler,
     transports: &mut Vec<Transport>,
     this_pos: Pos,
     this_size: [usize; 2],
@@ -436,7 +446,26 @@ pub(crate) fn pull_inputs(
         let start_pos = rect_iter(src.pos, size);
         let start_neighbors = neighbors_set(rect_iter(src.pos, size));
         let path = find_multipath(start_pos, intersects_goal, |from_direction, pos| {
-            let cell = &cells[pos[0] as usize + pos[1] as usize * WIDTH];
+            if intersects_goal(pos) {
+                return true;
+            }
+            let Some(cell) = cells.at(pos) else {
+                return false;
+            };
+            let prev_cell = from_direction
+                .map(|dir| {
+                    let dir_vec = dir.to_vec();
+                    let prev_pos = [pos[0] - dir_vec[0], pos[1] - dir_vec[1]];
+                    println!("dir: {dir:?}, dir_vec: {dir_vec:?}, prev_pos: {prev_pos:?}");
+                    let Some(prev_cell) = cells.at(prev_pos) else {
+                        return true;
+                    };
+                    println!("prev_cell: {prev_cell:?}");
+                    // If the previous cell didn't have a conveyor, it's not a failure, because we want to be
+                    // able to depart from a building.
+                    prev_cell.conveyor.to().map(|to| to == dir).unwrap_or(true)
+                })
+                .unwrap_or(true);
             // crate::console_log!(
             //     "pulling {:?} from {:?}: dir: {:?} cell {:?}, {:?}",
             //     ty,
@@ -449,9 +478,12 @@ pub(crate) fn pull_inputs(
                 // crate::console_log!("next to start");
                 return true;
             }
+            if !prev_cell {
+                return false;
+            }
             from_direction.map(|from_direction| {
                 matches!(cell.conveyor, Conveyor::One(dir, _) if dir == from_direction.reverse())
-            }).unwrap_or_else(|| cell.conveyor.is_some()) || intersects_goal(pos)
+            }).unwrap_or_else(|| cell.conveyor.is_some())
             // cell.conveyor.is_some() || intersects(pos)
         });
         let Some(path) = path else {
@@ -472,6 +504,72 @@ pub(crate) fn pull_inputs(
             *src_count -= amount;
         }
     }
+}
+
+#[test]
+fn test_pull_inputs() {
+    struct MockTiles;
+
+    impl TileSampler for MockTiles {
+        fn at(&self, pos: [i32; 2]) -> Option<&Cell> {
+            use {Conveyor::*, Direction::*};
+            static SOLID: Cell = Cell::new();
+            static RD: Cell = Cell::new_with_conveyor(One(Right, Down));
+            static UD: Cell = Cell::new_with_conveyor(One(Up, Down));
+            static UR: Cell = Cell::new_with_conveyor(One(Up, Right));
+            static LR: Cell = Cell::new_with_conveyor(One(Left, Right));
+            static LU: Cell = Cell::new_with_conveyor(One(Left, Up));
+            static DU: Cell = Cell::new_with_conveyor(One(Down, Up));
+            static DL: Cell = Cell::new_with_conveyor(One(Down, Left));
+            static RL: Cell = Cell::new_with_conveyor(One(Right, Left));
+            let ret = match pos {
+                [0, 0] => Some(&RD),
+                [0, 1] => Some(&UD),
+                [0, 2] => Some(&UR),
+                [1, 2] => Some(&LR),
+                [2, 2] => Some(&LU),
+                [2, 1] => Some(&DU),
+                [2, 0] => Some(&DL),
+                [1, 0] => Some(&RL),
+                _ => Some(&SOLID),
+            };
+            println!("at({pos:?}): {ret:?}");
+            ret
+        }
+    }
+
+    let mut inputs = HashMap::new();
+    inputs.insert(ItemType::RawOre, 1);
+
+    let mut storage = [Building::new_inventory(
+        [1, -1],
+        BuildingType::Storage,
+        inputs.clone(),
+    )];
+
+    let mut transports = vec![];
+
+    pull_inputs(
+        &inputs,
+        &MockTiles,
+        &mut transports,
+        [1, 3],
+        [1, 1],
+        &mut HashMap::new(),
+        &mut storage,
+        &mut [],
+    );
+
+    assert_eq!(
+        transports,
+        vec![Transport {
+            src: [1, -1],
+            dest: [1, 3],
+            item: ItemType::RawOre,
+            amount: 1,
+            path: vec![[1, 3], [1, 2], [0, 2], [0, 1], [0, 0], [1, 0], [1, -1]],
+        }]
+    )
 }
 
 /// A trait for objects that has inventory and position.

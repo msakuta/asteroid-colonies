@@ -258,7 +258,7 @@ impl AsteroidColonies {
             } else {
                 pull_inputs(
                     &construction.recipe.ingredients,
-                    &self.cells,
+                    &&self.cells[..],
                     &mut self.transports,
                     construction.pos,
                     construction.size(),

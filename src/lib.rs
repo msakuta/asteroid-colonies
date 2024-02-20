@@ -63,14 +63,14 @@ extern "C" {
     fn alert(s: &str);
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 enum CellState {
     Solid,
     Empty,
     Space,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 struct Cell {
     state: CellState,
     power_grid: bool,
@@ -83,7 +83,7 @@ struct Cell {
 }
 
 impl Cell {
-    fn new() -> Self {
+    const fn new() -> Self {
         Self {
             state: CellState::Solid,
             power_grid: false,
@@ -95,7 +95,20 @@ impl Cell {
         }
     }
 
-    fn building() -> Self {
+    #[allow(dead_code)]
+    const fn new_with_conveyor(conveyor: Conveyor) -> Self {
+        Self {
+            state: CellState::Empty,
+            power_grid: false,
+            conveyor,
+            image_lt: 0,
+            image_lb: 0,
+            image_rb: 0,
+            image_rt: 0,
+        }
+    }
+
+    const fn building() -> Self {
         Self {
             state: CellState::Empty,
             power_grid: true,
