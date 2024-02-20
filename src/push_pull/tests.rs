@@ -26,7 +26,6 @@ impl TileSampler for MockTiles {
             [1, 0] => Some(&RL),
             _ => Some(&SOLID),
         };
-        println!("at({pos:?}): {ret:?}");
         ret
     }
 }

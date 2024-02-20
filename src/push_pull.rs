@@ -78,11 +78,9 @@ pub(crate) fn pull_inputs(
                 .map(|dir| {
                     let dir_vec = dir.to_vec();
                     let prev_pos = [pos[0] - dir_vec[0], pos[1] - dir_vec[1]];
-                    println!("dir: {dir:?}, dir_vec: {dir_vec:?}, prev_pos: {prev_pos:?}");
                     let Some(prev_cell) = cells.at(prev_pos) else {
                         return true;
                     };
-                    println!("prev_cell: {prev_cell:?}");
                     // If the previous cell didn't have a conveyor, it's not a failure, because we want to be
                     // able to depart from a building.
                     prev_cell.conveyor.to().map(|to| to == dir).unwrap_or(true)
@@ -197,6 +195,9 @@ pub(crate) fn push_outputs(
             start_pos(),
             |pos| pos == b.pos,
             |from_direction, pos| {
+                if intersects(pos) {
+                    return true;
+                }
                 let Some(cell) = cells.at(pos) else {
                     return false;
                 };
@@ -215,11 +216,9 @@ pub(crate) fn push_outputs(
                     .map(|dir| {
                         let dir_vec = dir.to_vec();
                         let prev_pos = [pos[0] - dir_vec[0], pos[1] - dir_vec[1]];
-                        println!("dir: {dir:?}, dir_vec: {dir_vec:?}, prev_pos: {prev_pos:?}");
                         let Some(prev_cell) = cells.at(prev_pos) else {
                             return true;
                         };
-                        println!("prev_cell: {prev_cell:?}");
                         // If the previous cell didn't have a conveyor, it's not a failure, because we want to be
                         // able to depart from a building.
                         prev_cell.conveyor.to().map(|to| to == dir).unwrap_or(true)
@@ -230,7 +229,7 @@ pub(crate) fn push_outputs(
                 }
                 from_direction.map(|from_direction| {
                     matches!(cell.conveyor, Conveyor::One(dir, _) if dir == from_direction.reverse())
-                }).unwrap_or_else(||cell.conveyor.is_some()) || intersects(pos)
+                }).unwrap_or_else(||cell.conveyor.is_some())
             },
         )?;
         Some((b, path))
