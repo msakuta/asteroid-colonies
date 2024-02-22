@@ -56,6 +56,21 @@ impl Conveyor {
             Self::Two((_, to1), (_, to2)) => to1 == dir || to2 == dir,
         }
     }
+
+    pub fn has(&self, dir: Direction) -> bool {
+        match *self {
+            Self::None => false,
+            Self::One(from, to) => from == dir || to == dir,
+            Self::Two((from1, to1), (from2, to2)) => {
+                from1 == dir || to1 == dir || from2 == dir || to2 == dir
+            }
+        }
+    }
+
+    /// Returns whether it has the second level (vertical intersection)
+    pub fn has_two(&self) -> bool {
+        matches!(self, Self::Two(_, _))
+    }
 }
 
 #[wasm_bindgen]

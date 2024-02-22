@@ -112,6 +112,31 @@ pub(crate) fn expected_deliveries(transports: &[Transport], dest: Pos) -> HashMa
         })
 }
 
+/// Conveyor position, or composite position.
+#[derive(Hash, PartialEq, Eq, Clone, Copy, Debug)]
+pub(crate) struct CPos {
+    /// 2D coordinates
+    pub pos: Pos,
+    /// layer flag (true = second layer)
+    pub level: bool,
+}
+
+impl CPos {
+    pub fn new(pos: Pos, level: bool) -> Self {
+        Self { pos, level }
+    }
+}
+
+impl std::ops::Add for CPos {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self::Output {
+        CPos {
+            pos: [self.pos[0] + rhs.pos[0], self.pos[1] + rhs.pos[1]],
+            level: self.level,
+        }
+    }
+}
+
 pub(crate) fn find_path(
     start: [i32; 2],
     goal: [i32; 2],
@@ -129,7 +154,13 @@ pub(crate) fn find_multipath(
     goal: impl Fn([i32; 2]) -> bool,
     is_passable: impl Fn(Option<Direction>, Pos) -> bool,
 ) -> Option<Vec<[i32; 2]>> {
-    find_multipath_should_expand(start, goal, is_passable, |_, _, _| true)
+    find_multipath_should_expand(start, goal, is_passable, |_, _, _| LevelTarget::One)
+}
+
+pub(crate) enum LevelTarget {
+    None,
+    One,
+    Two,
 }
 
 /// A generic path finding logic with potentially multiple starts and multiple goals.
@@ -143,13 +174,13 @@ pub(crate) fn find_multipath_should_expand(
     start: impl Iterator<Item = [i32; 2]>,
     goal: impl Fn([i32; 2]) -> bool,
     is_passable: impl Fn(Option<Direction>, Pos) -> bool,
-    should_expand: impl Fn(Direction, Pos, Option<Direction>) -> bool,
+    should_expand: impl Fn(Direction, CPos, Option<Direction>) -> LevelTarget,
 ) -> Option<Vec<[i32; 2]>> {
     #[derive(Clone, Copy)]
     struct Entry {
-        pos: [i32; 2],
+        pos: CPos,
         dist: usize,
-        from: Option<(Direction, [i32; 2])>,
+        from: Option<(Direction, CPos)>,
     }
 
     impl std::cmp::PartialEq for Entry {
@@ -172,51 +203,56 @@ pub(crate) fn find_multipath_should_expand(
         }
     }
 
-    type VisitedMap = HashMap<[i32; 2], Entry>;
+    type VisitedMap = HashMap<CPos, Entry>;
     let mut visited = VisitedMap::new();
     let mut next_set = BinaryHeap::new();
     let insert_neighbors = |next_set: &mut BinaryHeap<Entry>,
                             visited: &VisitedMap,
-                            pos: [i32; 2],
+                            pos: CPos,
                             dist: usize,
                             from: Option<Direction>| {
         for dir in Direction::all() {
-            if !should_expand(dir, pos, from) {
-                continue;
-            }
-            let dir_vec = dir.to_vec();
-            let next_pos = [pos[0] + dir_vec[0], pos[1] + dir_vec[1]];
+            let level = match should_expand(dir, pos, from) {
+                LevelTarget::One => false,
+                LevelTarget::Two => true,
+                _ => continue,
+            };
+            let dir_vec = CPos::new(dir.to_vec(), false);
+            let mut next_pos = pos + dir_vec;
+            next_pos.level = level;
+            println!("next_pos: {next_pos:?}, dist: {}", dist);
             if visited.get(&next_pos).is_some_and(|e| e.dist <= dist) {
                 continue;
             }
             next_set.push(Entry {
-                pos: [pos[0] + dir_vec[0], pos[1] + dir_vec[1]],
+                pos: next_pos,
                 dist: dist + 1,
                 from: Some((dir, pos)),
             });
         }
     };
     for s_pos in start {
+        let s_cpos = CPos::new(s_pos, false);
         visited.insert(
-            s_pos,
+            s_cpos,
             Entry {
-                pos: s_pos,
+                pos: s_cpos,
                 dist: 0,
                 from: None,
             },
         );
-        insert_neighbors(&mut next_set, &visited, s_pos, 0, None);
+        insert_neighbors(&mut next_set, &visited, s_cpos, 0, None);
     }
     while let Some(next) = next_set.pop() {
         let from_dir = next.from.map(|(dir, _)| dir);
-        if !is_passable(from_dir, next.pos) {
+        if !is_passable(from_dir, next.pos.pos) {
             continue;
         }
-        if goal(next.pos) {
+        if goal(next.pos.pos) {
             let mut cursor = Some(next);
             let mut nodes = vec![];
             while let Some(cursor_entry) = cursor {
-                nodes.push(cursor_entry.pos);
+                nodes.push(cursor_entry.pos.pos);
                 cursor = cursor_entry
                     .from
                     .and_then(|(_, pos)| visited.get(&pos))

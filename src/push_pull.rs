@@ -7,7 +7,7 @@ use std::collections::{HashMap, HashSet};
 use crate::{
     building::Building,
     conveyor::Conveyor,
-    transport::{expected_deliveries, find_multipath_should_expand, Transport},
+    transport::{expected_deliveries, find_multipath_should_expand, CPos, LevelTarget, Transport},
     Cell, Direction, ItemType, Pos, WIDTH,
 };
 
@@ -241,15 +241,37 @@ fn prev_tile_connects_to(cells: &impl TileSampler, from_dir: Option<Direction>, 
 fn push_pull_should_expand(
     cells: &impl TileSampler,
     to: Direction,
-    pos: Pos,
+    cpos: CPos,
     from: Option<Direction>,
-) -> bool {
-    let Some(cell) = cells.at(pos) else {
-        return true;
+) -> LevelTarget {
+    use Direction::*;
+    let Some(cell) = cells.at(cpos.pos) else {
+        return LevelTarget::One;
     };
+    let conv = &cell.conveyor;
+    let dir_vec = to.to_vec();
+    let next_pos = [cpos.pos[0] + dir_vec[0], cpos.pos[1] + dir_vec[1]];
+    let Some(next_cell) = cells.at(next_pos) else {
+        return LevelTarget::One;
+    };
+    let next_conv = &next_cell.conveyor;
+    if next_conv.has_two()
+        && (conv.has_to(Up) || conv.has_to(Down))
+        && (next_conv.has(Up) || next_conv.has(Down))
+    {
+        return LevelTarget::Two;
+    }
     match cell.conveyor {
-        Conveyor::Two(_, _) => from.is_some_and(|from| to == from),
-        _ => true,
+        Conveyor::One(_, _) => LevelTarget::One,
+        Conveyor::Two(_, _) => {
+            println!("two! {cpos:?}");
+            if from.is_some_and(|from| to == from) {
+                LevelTarget::One
+            } else {
+                LevelTarget::None
+            }
+        }
+        _ => LevelTarget::One,
     }
 }
 
