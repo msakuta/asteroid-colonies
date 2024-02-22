@@ -1,4 +1,7 @@
-use std::collections::{BinaryHeap, HashMap, HashSet};
+use std::{
+    collections::{BinaryHeap, HashMap, HashSet},
+    hash::Hash,
+};
 
 use crate::{task::Direction, AsteroidColonies, Conveyor, ItemType, Pos, WIDTH};
 
@@ -170,12 +173,14 @@ pub(crate) enum LevelTarget {
 /// * `goal` can be arbitrary set of positions, so it is given as a callback.
 /// * `is_passable` takes 2 arguments, first is the direction that the search came from, second is
 /// the position.
+/// * `should_expand` takes 3 arguments, direction from, position and direction to, and returns
+/// if we should expand to that tile. It is used to implement self-intersecting conveyor tiles.
 pub(crate) fn find_multipath_should_expand(
-    start: impl Iterator<Item = [i32; 2]>,
-    goal: impl Fn([i32; 2]) -> bool,
+    start: impl Iterator<Item = Pos>,
+    goal: impl Fn(Pos) -> bool,
     is_passable: impl Fn(Option<Direction>, Pos) -> bool,
     should_expand: impl Fn(Direction, CPos, Option<Direction>) -> LevelTarget,
-) -> Option<Vec<[i32; 2]>> {
+) -> Option<Vec<Pos>> {
     #[derive(Clone, Copy)]
     struct Entry {
         pos: CPos,
