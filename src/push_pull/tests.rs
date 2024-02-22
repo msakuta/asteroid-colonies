@@ -153,7 +153,7 @@ impl TileSampler for MockTiles2 {
 }
 
 fn print_board(tiles: &impl TileSampler) {
-    use {Conveyor::*, Direction::*};
+    use Direction::*;
     let vert_bar = |t: &Cell, c| {
         if t.conveyor.has_from(c) || t.conveyor.has_to(c) {
             "|"
@@ -271,11 +271,26 @@ fn test_push_outputs2() {
     assert_eq!(
         transports,
         vec![Transport {
-            src: [1, 3],
+            src: [1, 4],
             dest: [1, -1],
             item: ItemType::RawOre,
             amount: 1,
-            path: vec![[1, -1], [1, 0], [2, 0], [2, 1], [2, 2], [1, 2], [1, 3]],
+            path: vec![
+                [1, -1],
+                [1, 0],
+                [2, 0],
+                [3, 0],
+                [3, 1],
+                [3, 2],
+                [2, 2],
+                [1, 2],
+                [1, 1],
+                [2, 1],
+                [2, 2],
+                [2, 3],
+                [1, 3],
+                [1, 4]
+            ],
         }]
     )
 }

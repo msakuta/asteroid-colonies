@@ -264,7 +264,6 @@ fn push_pull_should_expand(
     match cell.conveyor {
         Conveyor::One(_, _) => LevelTarget::One,
         Conveyor::Two(_, _) => {
-            println!("two! {cpos:?}");
             if from.is_some_and(|from| to == from) {
                 LevelTarget::One
             } else {

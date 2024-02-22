@@ -220,7 +220,6 @@ pub(crate) fn find_multipath_should_expand(
             let dir_vec = CPos::new(dir.to_vec(), false);
             let mut next_pos = pos + dir_vec;
             next_pos.level = level;
-            println!("next_pos: {next_pos:?}, dist: {}", dist);
             if visited.get(&next_pos).is_some_and(|e| e.dist <= dist) {
                 continue;
             }
