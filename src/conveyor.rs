@@ -13,8 +13,10 @@ pub(crate) enum Conveyor {
     None,
     One(Direction, Direction),
     Two((Direction, Direction), (Direction, Direction)),
-    /// Assume a splitter splits to other 3 directions
+    /// Assume a splitter splits to the other 3 directions
     Splitter(Direction),
+    /// Assume a splitter merges from the other 3 directions
+    Merger(Direction),
 }
 
 impl Conveyor {
@@ -33,6 +35,7 @@ impl Conveyor {
             Self::One(from, _) => Some(*from),
             Self::Two((from, _), _) => Some(*from),
             Self::Splitter(from) => Some(*from),
+            Self::Merger(to) => Some(to.reverse()),
         }
     }
 
@@ -42,6 +45,7 @@ impl Conveyor {
             Self::One(_, to) => Some(*to),
             Self::Two((_, to), _) => Some(*to),
             Self::Splitter(from) => Some(from.reverse()),
+            Self::Merger(to) => Some(*to),
         }
     }
 
@@ -51,6 +55,7 @@ impl Conveyor {
             Self::One(from, _) => from == dir,
             Self::Two((from1, _), (from2, _)) => from1 == dir || from2 == dir,
             Self::Splitter(from) => from == dir,
+            Self::Merger(to) => to != dir,
         }
     }
 
@@ -60,9 +65,11 @@ impl Conveyor {
             Self::One(_, to) => to == dir,
             Self::Two((_, to1), (_, to2)) => to1 == dir || to2 == dir,
             Self::Splitter(from) => from != dir,
+            Self::Merger(to) => to == dir,
         }
     }
 
+    /// Has any connection to the given direction, regardless of direction
     pub fn has(&self, dir: Direction) -> bool {
         match *self {
             Self::None => false,
@@ -71,6 +78,7 @@ impl Conveyor {
                 from1 == dir || to1 == dir || from2 == dir || to2 == dir
             }
             Self::Splitter(from) => from == dir,
+            Self::Merger(to) => to == dir,
         }
     }
 
@@ -200,6 +208,32 @@ impl AsteroidColonies {
 
         self.conveyor_staged
             .insert([ix0, iy0], filter_conv(cell, staged));
+    }
+
+    pub fn build_merger(&mut self, x: f64, y: f64) {
+        use {Conveyor::*, Direction::*};
+        let ix0 = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
+        let iy0 = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
+
+        let pos0 = [ix0, iy0];
+        let cell = self
+            .cells
+            .at([ix0, iy0])
+            .map(|c| c.conveyor)
+            .unwrap_or(None);
+        let staged = self.conveyor_staged.get(&pos0).copied().unwrap_or(None);
+
+        let filtered = match cell {
+            One(_, to) => Merger(to),
+            Two((_, to1), _) => Merger(to1),
+            _ => match staged {
+                One(_, to) => Merger(to),
+                Two((_, to1), _) => Merger(to1),
+                _ => Merger(Right),
+            },
+        };
+
+        self.conveyor_staged.insert([ix0, iy0], filtered);
     }
 
     pub fn cancel_build_conveyor(&mut self, preview: bool) {

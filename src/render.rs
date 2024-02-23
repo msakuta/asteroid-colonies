@@ -89,18 +89,22 @@ impl AsteroidColonies {
                     render_conveyor_layer(context, x, y, first)?;
                     render_conveyor_layer(context, x, y, second)?;
                 }
-                Conveyor::Splitter(from) => {
-                    let sx = match from {
+                Conveyor::Splitter(dir) | Conveyor::Merger(dir) => {
+                    let sx = match dir {
                         Direction::Left => 0.,
                         Direction::Up => TILE_SIZE,
                         Direction::Right => 2. * TILE_SIZE,
                         Direction::Down => 3. * TILE_SIZE,
                     };
+                    let sy = match conv {
+                        Conveyor::Splitter(_) => 3. * TILE_SIZE,
+                        _ => 4. * TILE_SIZE,
+                    };
                     context
                         .draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
                             &self.assets.img_conveyor,
                             sx,
-                            3. * TILE_SIZE,
+                            sy,
                             TILE_SIZE,
                             TILE_SIZE,
                             x,
