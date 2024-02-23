@@ -150,7 +150,7 @@ fn recipes() -> &'static [Recipe] {
                 time: 100.,
             },
             Recipe {
-                inputs: hash_map!(ItemType::IronIngot => 2),
+                inputs: hash_map!(ItemType::IronIngot => 1),
                 outputs: hash_map!(ItemType::ConveyorComponent => 1),
                 time: 120.,
             },
@@ -536,6 +536,7 @@ impl AsteroidColonies {
             };
             if format!("{:?}", key) == name {
                 self.set_building_recipe(ix, iy, recipe)?;
+                break;
             }
         }
         Ok(())

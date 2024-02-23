@@ -59,12 +59,22 @@ impl Construction {
 
     pub fn new_conveyor(pos: Pos, conv: Conveyor) -> Self {
         static BUILD: OnceLock<BuildMenuItem> = OnceLock::new();
-        let recipe = &*BUILD.get_or_init(|| BuildMenuItem {
-            type_: ConstructionType::Conveyor(Conveyor::One(Direction::Left, Direction::Right)),
-            ingredients: hash_map!(ItemType::ConveyorComponent => 1),
-            time: BUILD_CONVEYOR_TIME,
-        });
-        Self::new_ex(ConstructionType::Conveyor(conv), recipe, pos)
+        if matches!(conv, Conveyor::Splitter(_) | Conveyor::Merger(_)) {
+            static BUILD_SPLITTER: OnceLock<BuildMenuItem> = OnceLock::new();
+            let recipe = &*BUILD_SPLITTER.get_or_init(|| BuildMenuItem {
+                type_: ConstructionType::Conveyor(Conveyor::One(Direction::Left, Direction::Right)),
+                ingredients: hash_map!(ItemType::ConveyorComponent => 1, ItemType::Circuit => 1, ItemType::Gear => 1),
+                time: BUILD_CONVEYOR_TIME,
+            });
+            Self::new_ex(ConstructionType::Conveyor(conv), recipe, pos)
+        } else {
+            let recipe = &*BUILD.get_or_init(|| BuildMenuItem {
+                type_: ConstructionType::Conveyor(Conveyor::One(Direction::Left, Direction::Right)),
+                ingredients: hash_map!(ItemType::ConveyorComponent => 1),
+                time: BUILD_CONVEYOR_TIME,
+            });
+            Self::new_ex(ConstructionType::Conveyor(conv), recipe, pos)
+        }
     }
 
     pub fn new_deconstruct(
