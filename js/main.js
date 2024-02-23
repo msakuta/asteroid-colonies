@@ -11,6 +11,7 @@ import wire from '../images/wire.png';
 import circuit from '../images/circuit.png';
 import power_grid from '../images/power_grid.png';
 import conveyor from '../images/conveyor.png';
+import conveyorItem from '../images/conveyor-item.png';
 import power from '../images/power.png';
 import excavator from '../images/excavator.png';
 import storage from '../images/storage.png';
@@ -310,7 +311,7 @@ function itemToIcon(item) {
         case "Wire": return wire;
         case "Circuit": return circuit;
         case "PowerGridComponent": return power_grid;
-        case "ConveyorComponent": return conveyor;
+        case "ConveyorComponent": return conveyorItem;
         case "AssemblerComponent": return assemblerComponent;
     }
 }
