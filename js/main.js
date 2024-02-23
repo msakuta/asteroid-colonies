@@ -74,6 +74,7 @@ const canvas = document.getElementById('canvas');
     let buildingConveyor = null;
     let dragStart = null;
     let dragLast = null;
+    const messageOverlayElem = document.getElementById("messageOverlay");
 
     canvas.addEventListener('pointerdown', evt => {
         dragStart = toLogicalCoords(evt.clientX, evt.clientY);
@@ -89,11 +90,14 @@ const canvas = document.getElementById('canvas');
             document.getElementById('info').innerHTML = formatInfo(info);
         }
         if (buildingConveyor) {
-            try {
-                game.preview_build_conveyor(buildingConveyor[0], buildingConveyor[1], x, y, true);
-            }
-            catch (e) {
-                console.error(`build_conveyor: ${e}`);
+            const elem = document.getElementById("conveyor");
+            if (elem?.checked) {
+                try {
+                    game.preview_build_conveyor(buildingConveyor[0], buildingConveyor[1], x, y, true);
+                }
+                catch (e) {
+                    console.error(`build_conveyor: ${e}`);
+                }
             }
         }
         if (dragStart) {
@@ -126,7 +130,6 @@ const canvas = document.getElementById('canvas');
                 return;
             }
         }
-        const messageOverlayElem = document.getElementById("messageOverlay");
         if (moving) {
             try {
                 game.move_building(moving[0], moving[1], x, y);
@@ -140,6 +143,8 @@ const canvas = document.getElementById('canvas');
         }
 
         if (buildingConveyor) {
+            const elem = document.getElementById("conveyor");
+            if (!elem?.checked) return;
             try {
                 game.preview_build_conveyor(buildingConveyor[0], buildingConveyor[1], x, y, false);
                 buildingConveyor = [x, y];
@@ -150,7 +155,7 @@ const canvas = document.getElementById('canvas');
             return;
         }
 
-        for (let name of ["excavate", "move", "power", "conveyor", "moveItem", "build", "cancel", "deconstruct", "recipe"]) {
+        for (let name of ["excavate", "move", "power", "conveyor", "splitter", "moveItem", "build", "cancel", "deconstruct", "recipe"]) {
             const elem = document.getElementById(name);
             if (elem?.checked) {
                 const buildMenuElem = document.getElementById("buildMenu");
@@ -162,30 +167,12 @@ const canvas = document.getElementById('canvas');
                     moving = [x, y];
                 }
                 else if (name === "conveyor") {
-                    recipesElem.style.display = "none";
-                    messageOverlayElem.innerHTML = "Drag to make build plan and click Ok";
-                    messageOverlayElem.style.display = "block";
-                    const okButton = document.createElement("button");
-                    okButton.value = "Ok";
-                    okButton.innerHTML = "Ok";
-                    okButton.addEventListener('click', _ => {
-                        buildingConveyor = null;
-                        messageOverlayElem.style.display = "none";
-                        game.commit_build_conveyor(false);
-                    });
-                    const cancelButton = document.createElement("button");
-                    cancelButton.value = "Cancel";
-                    cancelButton.innerHTML = "Cancel";
-                    cancelButton.addEventListener('click', _ => {
-                        buildingConveyor = null;
-                        messageOverlayElem.style.display = "none";
-                        game.cancel_build_conveyor(false);
-                    });
-                    const buttonContainer = document.createElement("div");
-                    buttonContainer.appendChild(okButton);
-                    buttonContainer.appendChild(cancelButton);
-                    messageOverlayElem.appendChild(buttonContainer);
+                    enterConveyorEdit();
                     buildingConveyor = [x, y];
+                }
+                else if (name === "splitter") {
+                    enterConveyorEdit();
+                    game.build_splitter(x, y);
                 }
                 else if (name === "build") {
                     recipesElem.style.display = "none";
@@ -258,6 +245,35 @@ const canvas = document.getElementById('canvas');
             }
         }
     })
+
+    function enterConveyorEdit() {
+        const buildMenuElem = document.getElementById("buildMenu");
+        const recipesElem = document.getElementById("recipes");
+        buildMenuElem.style.display = "none";
+        recipesElem.style.display = "none";
+        messageOverlayElem.innerHTML = "Drag to make build plan and click Ok";
+        messageOverlayElem.style.display = "block";
+        const okButton = document.createElement("button");
+        okButton.value = "Ok";
+        okButton.innerHTML = "Ok";
+        okButton.addEventListener('click', _ => {
+            buildingConveyor = null;
+            messageOverlayElem.style.display = "none";
+            game.commit_build_conveyor(false);
+        });
+        const cancelButton = document.createElement("button");
+        cancelButton.value = "Cancel";
+        cancelButton.innerHTML = "Cancel";
+        cancelButton.addEventListener('click', _ => {
+            buildingConveyor = null;
+            messageOverlayElem.style.display = "none";
+            game.cancel_build_conveyor(false);
+        });
+        const buttonContainer = document.createElement("div");
+        buttonContainer.appendChild(okButton);
+        buttonContainer.appendChild(cancelButton);
+        messageOverlayElem.appendChild(buttonContainer);
+    }
 
     let time = 0;
 

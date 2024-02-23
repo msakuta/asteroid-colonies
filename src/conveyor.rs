@@ -1,8 +1,8 @@
 use std::cmp::Ordering;
 
 use crate::{
-    console_log, construction::Construction, render::TILE_SIZE, task::Direction, AsteroidColonies,
-    Cell, WIDTH,
+    console_log, construction::Construction, push_pull::TileSampler, render::TILE_SIZE,
+    task::Direction, AsteroidColonies, Cell, WIDTH,
 };
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
@@ -13,6 +13,8 @@ pub(crate) enum Conveyor {
     None,
     One(Direction, Direction),
     Two((Direction, Direction), (Direction, Direction)),
+    /// Assume a splitter splits to other 3 directions
+    Splitter(Direction),
 }
 
 impl Conveyor {
@@ -30,6 +32,7 @@ impl Conveyor {
             Self::None => None,
             Self::One(from, _) => Some(*from),
             Self::Two((from, _), _) => Some(*from),
+            Self::Splitter(from) => Some(*from),
         }
     }
 
@@ -38,6 +41,7 @@ impl Conveyor {
             Self::None => None,
             Self::One(_, to) => Some(*to),
             Self::Two((_, to), _) => Some(*to),
+            Self::Splitter(from) => Some(from.reverse()),
         }
     }
 
@@ -46,6 +50,7 @@ impl Conveyor {
             Self::None => false,
             Self::One(from, _) => from == dir,
             Self::Two((from1, _), (from2, _)) => from1 == dir || from2 == dir,
+            Self::Splitter(from) => from == dir,
         }
     }
 
@@ -54,6 +59,7 @@ impl Conveyor {
             Self::None => false,
             Self::One(_, to) => to == dir,
             Self::Two((_, to1), (_, to2)) => to1 == dir || to2 == dir,
+            Self::Splitter(from) => from != dir,
         }
     }
 
@@ -64,6 +70,7 @@ impl Conveyor {
             Self::Two((from1, to1), (from2, to2)) => {
                 from1 == dir || to1 == dir || from2 == dir || to2 == dir
             }
+            Self::Splitter(from) => from == dir,
         }
     }
 
@@ -166,6 +173,33 @@ impl AsteroidColonies {
             self.conveyor_staged.extend(self.conveyor_preview.drain());
         }
         Ok(())
+    }
+
+    pub fn build_splitter(&mut self, x: f64, y: f64) {
+        use {Conveyor::*, Direction::*};
+        let ix0 = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
+        let iy0 = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
+
+        let filter_conv = |cell: Conveyor, staged| match cell {
+            One(from, _) => Splitter(from),
+            Two((from1, _), (_, _)) => Splitter(from1),
+            _ => match staged {
+                One(from, _) => Splitter(from),
+                Two((from1, _), _) => Splitter(from1),
+                _ => Splitter(Left),
+            },
+        };
+
+        let pos0 = [ix0, iy0];
+        let cell = self
+            .cells
+            .at([ix0, iy0])
+            .map(|c| c.conveyor)
+            .unwrap_or(None);
+        let staged = self.conveyor_staged.get(&pos0).copied().unwrap_or(None);
+
+        self.conveyor_staged
+            .insert([ix0, iy0], filter_conv(cell, staged));
     }
 
     pub fn cancel_build_conveyor(&mut self, preview: bool) {

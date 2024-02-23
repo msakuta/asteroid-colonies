@@ -11,11 +11,19 @@ use crate::{
     Cell, Direction, ItemType, Pos, WIDTH,
 };
 
+/// An abstraction of tile map where you can pick a tile from a position.
+/// Used to mock in unit tests.
 pub(crate) trait TileSampler {
     fn at(&self, pos: [i32; 2]) -> Option<&Cell>;
 }
 
 impl TileSampler for &[Cell] {
+    fn at(&self, pos: [i32; 2]) -> Option<&Cell> {
+        Some(&self[pos[0] as usize + pos[1] as usize * WIDTH])
+    }
+}
+
+impl TileSampler for Vec<Cell> {
     fn at(&self, pos: [i32; 2]) -> Option<&Cell> {
         Some(&self[pos[0] as usize + pos[1] as usize * WIDTH])
     }

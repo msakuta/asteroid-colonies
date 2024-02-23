@@ -78,18 +78,41 @@ impl AsteroidColonies {
                     )
             };
 
-        let render_conveyor =
-            |context: &CanvasRenderingContext2d, x, y, conv: Conveyor| -> Result<(), JsValue> {
-                match conv {
-                    Conveyor::One(from, to) => render_conveyor_layer(context, x, y, (from, to))?,
-                    Conveyor::Two(first, second) => {
-                        render_conveyor_layer(context, x, y, first)?;
-                        render_conveyor_layer(context, x, y, second)?;
-                    }
-                    _ => {}
-                };
-                Ok(())
+        let render_conveyor = |context: &CanvasRenderingContext2d,
+                               x,
+                               y,
+                               conv: Conveyor|
+         -> Result<(), JsValue> {
+            match conv {
+                Conveyor::One(from, to) => render_conveyor_layer(context, x, y, (from, to))?,
+                Conveyor::Two(first, second) => {
+                    render_conveyor_layer(context, x, y, first)?;
+                    render_conveyor_layer(context, x, y, second)?;
+                }
+                Conveyor::Splitter(from) => {
+                    let sx = match from {
+                        Direction::Left => 0.,
+                        Direction::Up => TILE_SIZE,
+                        Direction::Right => 2. * TILE_SIZE,
+                        Direction::Down => 3. * TILE_SIZE,
+                    };
+                    context
+                        .draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+                            &self.assets.img_conveyor,
+                            sx,
+                            3. * TILE_SIZE,
+                            TILE_SIZE,
+                            TILE_SIZE,
+                            x,
+                            y,
+                            TILE_SIZE,
+                            TILE_SIZE,
+                        )?;
+                }
+                _ => {}
             };
+            Ok(())
+        };
 
         let mut rendered_cells = 0;
         let mut render_cell = |ix: i32, iy: i32| -> Result<(), JsValue> {
