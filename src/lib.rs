@@ -4,14 +4,13 @@ mod info;
 mod render;
 mod utils;
 
-use std::collections::HashMap;
 
-use serde::Serialize;
+
 use wasm_bindgen::prelude::*;
 use web_sys::js_sys;
 
 use asteroid_colonies_logic::{
-    building::{Building, BuildingType, Recipe},
+    building::BuildingType,
     get_build_menu, AsteroidColoniesGame, Pos, HEIGHT, TILE_SIZE, WIDTH,
 };
 
@@ -77,9 +76,8 @@ impl AsteroidColonies {
         vp_width: f64,
         vp_height: f64,
     ) -> Result<AsteroidColonies, JsValue> {
-        // calculate_back_image(&mut cells);
         Ok(Self {
-            game: AsteroidColoniesGame::new()?,
+            game: AsteroidColoniesGame::new(Some(Box::new(calculate_back_image)))?,
             cursor: None,
             assets: Assets::new(image_assets)?,
             viewport: Viewport {

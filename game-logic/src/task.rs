@@ -5,14 +5,9 @@ use serde::Serialize;
 use crate::{
     building::{Building, BuildingType, Recipe},
     construction::Construction,
-    // render::calculate_back_image,
+    game::CalculateBackImage,
     transport::find_path,
-    AsteroidColoniesGame,
-    Cell,
-    CellState,
-    ItemType,
-    Pos,
-    WIDTH,
+    AsteroidColoniesGame, Cell, CellState, ItemType, Pos, WIDTH,
 };
 
 pub const EXCAVATE_TIME: f64 = 10.;
@@ -230,6 +225,7 @@ impl AsteroidColoniesGame {
         cells: &mut [Cell],
         building: &mut Building,
         power_ratio: f64,
+        calculate_back_image: Option<&mut CalculateBackImage>,
     ) -> Option<(ItemType, [i32; 2])> {
         match building.task {
             Task::Excavate(ref mut t, dir) => {
@@ -242,7 +238,9 @@ impl AsteroidColoniesGame {
                     let dir_vec = dir.to_vec();
                     let [x, y] = [building.pos[0] + dir_vec[0], building.pos[1] + dir_vec[1]];
                     cells[x as usize + y as usize * WIDTH].state = CellState::Empty;
-                    // calculate_back_image(cells);
+                    if let Some(f) = calculate_back_image {
+                        f(cells);
+                    }
                 } else {
                     *t = (*t - power_ratio).max(0.);
                 }
@@ -306,7 +304,9 @@ impl AsteroidColoniesGame {
             match task {
                 GlobalTask::Excavate(t, pos) if *t <= 0. => {
                     self.cells[pos[0] as usize + pos[1] as usize * WIDTH].state = CellState::Empty;
-                    // calculate_back_image(&mut self.cells);
+                    if let Some(ref mut f) = self.calculate_back_image {
+                        f(&mut self.cells);
+                    }
                 }
                 _ => {}
             }

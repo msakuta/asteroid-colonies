@@ -386,7 +386,12 @@ impl AsteroidColoniesGame {
             };
         }
         for building in &mut self.buildings {
-            if let Some((item, dest)) = Self::process_task(&mut self.cells, building, power_ratio) {
+            if let Some((item, dest)) = Self::process_task(
+                &mut self.cells,
+                building,
+                power_ratio,
+                self.calculate_back_image.as_mut(),
+            ) {
                 moving_items.push((item, dest));
             }
         }

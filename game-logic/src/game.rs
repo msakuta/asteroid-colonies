@@ -12,6 +12,8 @@ use crate::{
     Cell, CellState, ItemType, Pos, HEIGHT, WIDTH,
 };
 
+pub type CalculateBackImage = Box<dyn FnMut(&mut [Cell])>;
+
 pub struct AsteroidColoniesGame {
     pub(crate) cells: Vec<Cell>,
     pub(crate) buildings: Vec<Building>,
@@ -26,10 +28,11 @@ pub struct AsteroidColoniesGame {
     pub(crate) conveyor_staged: HashMap<Pos, Conveyor>,
     /// Preview of ghost conveyors, just for visualization.
     pub(crate) conveyor_preview: HashMap<Pos, Conveyor>,
+    pub(crate) calculate_back_image: Option<CalculateBackImage>,
 }
 
 impl AsteroidColoniesGame {
-    pub fn new() -> Result<Self, String> {
+    pub fn new(mut calculate_back_image: Option<CalculateBackImage>) -> Result<Self, String> {
         let mut cells = vec![Cell::new(); WIDTH * HEIGHT];
         let r2_thresh = (WIDTH as f64 * 3. / 8.).powi(2);
         for y in 0..HEIGHT {
@@ -109,7 +112,9 @@ impl AsteroidColoniesGame {
                 cells[x + y * WIDTH].state = CellState::Empty;
             }
         }
-        // calculate_back_image(&mut cells);
+        if let Some(ref mut f) = calculate_back_image {
+            f(&mut cells);
+        }
         Ok(Self {
             cells,
             buildings,
@@ -121,6 +126,7 @@ impl AsteroidColoniesGame {
             constructions: vec![],
             conveyor_staged: HashMap::new(),
             conveyor_preview: HashMap::new(),
+            calculate_back_image,
         })
     }
 
