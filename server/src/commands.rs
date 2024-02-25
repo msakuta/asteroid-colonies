@@ -1,7 +1,6 @@
 use ::actix_web::{dev::ServiceFactory, web, App, HttpResponse};
 use actix_web::dev::ServiceRequest;
 use asteroid_colonies_logic::{
-    building::BuildingType,
     construction::{Construction, ConstructionType},
     Pos,
 };
@@ -70,12 +69,23 @@ async fn build(
                 .build_power_grid(payload.pos[0], payload.pos[1])
                 .map_err(|e| actix_web::error::ErrorInternalServerError(e.to_string()))?;
         }
-        _ => {
-            return Err(actix_web::error::ErrorBadRequest(
-                "Invalid build type",
-            ))
-        }
+        _ => return Err(actix_web::error::ErrorBadRequest("Invalid build type")),
     };
+    Ok(HttpResponse::Ok().content_type("text/plain").body("ok"))
+}
+
+#[derive(Deserialize)]
+struct CancelBuildPayload {
+    pos: [i32; 2],
+}
+
+async fn cancel_build(
+    data: web::Data<ServerData>,
+    payload: web::Json<CancelBuildPayload>,
+) -> actix_web::Result<HttpResponse> {
+    println!("build {:?}", payload.pos);
+    let mut game = data.game.write().unwrap();
+    game.cancel_build(payload.pos[0], payload.pos[1]);
     Ok(HttpResponse::Ok().content_type("text/plain").body("ok"))
 }
 
@@ -102,5 +112,6 @@ where
     app.route("/api/excavate", web::post().to(excavate))
         .route("/api/move", web::post().to(move_))
         .route("/api/build", web::post().to(build))
+        .route("/api/cancel_build", web::post().to(cancel_build))
         .route("/api/build_plan", web::post().to(build_plan))
 }
