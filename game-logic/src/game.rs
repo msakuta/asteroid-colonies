@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, io::Read};
 
 use crate::{
@@ -359,14 +360,25 @@ impl AsteroidColoniesGame {
     }
 
     pub fn serialize(&self) -> serde_json::Result<String> {
-        serde_json::to_string(&self.cells)
+        serde_json::to_string(&SerializeGame {
+            cells: self.cells.clone(),
+            buildings: self.buildings.clone(),
+        })
     }
 
     pub fn deserialize(&mut self, rdr: impl Read) -> serde_json::Result<()> {
-        self.cells = serde_json::from_reader(rdr)?;
+        let ser_data: SerializeGame = serde_json::from_reader(rdr)?;
+        self.cells = ser_data.cells;
+        self.buildings = ser_data.buildings;
         if let Some(ref f) = self.calculate_back_image {
             f(&mut self.cells);
         }
         Ok(())
     }
+}
+
+#[derive(Serialize, Deserialize)]
+struct SerializeGame {
+    cells: Vec<Cell>,
+    buildings: Vec<Building>,
 }

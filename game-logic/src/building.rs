@@ -1,8 +1,10 @@
-use std::{collections::HashMap, fmt::Display};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Display,
+};
 
+use ::serde::{Deserialize, Serialize};
 use rand::Rng;
-
-use serde::{Deserialize, Serialize};
 
 use crate::{
     construction::Construction,
@@ -89,13 +91,14 @@ impl Display for BuildingType {
     }
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Recipe {
     pub inputs: HashMap<ItemType, usize>,
     pub outputs: HashMap<ItemType, usize>,
     pub time: f64,
 }
 
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Building {
     pub pos: [i32; 2],
     pub type_: BuildingType,
@@ -103,7 +106,9 @@ pub struct Building {
     pub inventory: HashMap<ItemType, usize>,
     /// The number of crews attending this building.
     pub crews: usize,
-    pub recipe: Option<&'static Recipe>,
+    // TODO: We want to avoid copies of recipes, but deserializing a recipe with static is
+    // extremely hard with serde.
+    pub recipe: Option<Recipe>,
 }
 
 impl Building {
@@ -161,9 +166,10 @@ impl Building {
             return Ok(());
         };
         // Try pushing out products
-        if let Some(recipe) = this.recipe {
+        if let Some(ref recipe) = this.recipe {
+            let outputs: HashSet<_> = recipe.outputs.keys().copied().collect();
             push_outputs(&cells, transports, this, first, last, &|item| {
-                recipe.outputs.contains_key(&item)
+                outputs.contains(&item)
             });
         }
         if matches!(this.task, Task::None) {

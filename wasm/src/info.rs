@@ -51,7 +51,7 @@ impl AsteroidColonies {
             .iter_building()
             .find(|b| intersects(b.pos, b.type_.size()))
             .map(|building| {
-                let recipe = building.recipe.cloned();
+                let recipe = building.recipe.clone();
                 GetBuildingInfoResult {
                     type_: building.type_,
                     recipe,

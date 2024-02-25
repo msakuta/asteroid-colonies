@@ -19,7 +19,7 @@ pub const MOVE_ITEM_TIME: f64 = 2.;
 pub(crate) const RAW_ORE_SMELT_TIME: f64 = 30.;
 pub(crate) const EXCAVATE_ORE_AMOUNT: usize = 5;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Task {
     None,
     Excavate(f64, Direction),
@@ -217,7 +217,7 @@ impl AsteroidColoniesGame {
         if !matches!(assembler.type_, BuildingType::Assembler) {
             return Err(String::from("The building is not an assembler"));
         }
-        assembler.recipe = Some(recipe);
+        assembler.recipe = Some(recipe.clone());
         Ok(true)
     }
 

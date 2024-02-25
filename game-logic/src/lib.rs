@@ -117,7 +117,7 @@ impl Cell {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub enum ItemType {
     /// Freshly dug soil from asteroid body. Hardly useful unless refined
     RawOre,
