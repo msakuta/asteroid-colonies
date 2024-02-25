@@ -11,9 +11,9 @@ use crate::{
 
 use super::{hash_map, AsteroidColoniesGame};
 
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 
-#[derive(Serialize, Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ConstructionType {
     PowerGrid,
     Conveyor(Conveyor),
@@ -21,11 +21,12 @@ pub enum ConstructionType {
 }
 
 /// A planned location for a construction. It can gather ingredients on site and start building.
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Construction {
     type_: ConstructionType,
     pub pos: Pos,
     pub ingredients: HashMap<ItemType, usize>,
-    pub recipe: &'static BuildMenuItem,
+    pub recipe: BuildMenuItem,
     canceling: bool,
     pub progress: f64,
 }
@@ -36,7 +37,7 @@ impl Construction {
             type_,
             pos,
             ingredients: HashMap::new(),
-            recipe: &item,
+            recipe: (*item).clone(),
             canceling: false,
             progress: 0.,
         }
@@ -91,7 +92,7 @@ impl Construction {
             type_: con_ty,
             pos,
             ingredients,
-            recipe,
+            recipe: recipe.clone(),
             canceling: true,
             progress: recipe.time,
         })
@@ -192,7 +193,7 @@ impl HasInventory for Construction {
     }
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct BuildMenuItem {
     pub type_: ConstructionType,
     pub ingredients: HashMap<ItemType, usize>,

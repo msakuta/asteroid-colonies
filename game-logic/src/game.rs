@@ -363,6 +363,10 @@ impl AsteroidColoniesGame {
         serde_json::to_string(&SerializeGame {
             cells: self.cells.clone(),
             buildings: self.buildings.clone(),
+            crews: self.crews.clone(),
+            global_tasks: self.global_tasks.clone(),
+            transports: self.transports.clone(),
+            constructions: self.constructions.clone(),
         })
     }
 
@@ -370,6 +374,9 @@ impl AsteroidColoniesGame {
         let ser_data: SerializeGame = serde_json::from_reader(rdr)?;
         self.cells = ser_data.cells;
         self.buildings = ser_data.buildings;
+        self.crews = ser_data.crews;
+        self.global_tasks = ser_data.global_tasks;
+        self.transports = ser_data.transports;
         if let Some(ref f) = self.calculate_back_image {
             f(&mut self.cells);
         }
@@ -381,4 +388,8 @@ impl AsteroidColoniesGame {
 struct SerializeGame {
     cells: Vec<Cell>,
     buildings: Vec<Building>,
+    crews: Vec<Crew>,
+    global_tasks: Vec<GlobalTask>,
+    transports: Vec<Transport>,
+    constructions: Vec<Construction>,
 }

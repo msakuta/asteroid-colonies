@@ -22,7 +22,7 @@ struct GetBuildingInfoResult {
 #[derive(Serialize)]
 struct GetConstructionInfoResult {
     type_: ConstructionType,
-    recipe: &'static BuildMenuItem,
+    recipe: BuildMenuItem,
     ingredients: HashMap<ItemType, usize>,
 }
 
@@ -67,7 +67,7 @@ impl AsteroidColonies {
             }
             Some(GetConstructionInfoResult {
                 type_: c.get_type(),
-                recipe: c.recipe,
+                recipe: c.recipe.clone(),
                 ingredients: c.ingredients.clone(),
             })
         });

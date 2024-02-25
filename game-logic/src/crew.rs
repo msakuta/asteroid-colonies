@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     building::Building,
@@ -9,7 +10,7 @@ use crate::{
     AsteroidColoniesGame, Cell, CellState, ItemType, Pos, WIDTH,
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 enum CrewTask {
     None,
     Return,
@@ -19,7 +20,7 @@ enum CrewTask {
     Deliver { dst: Pos, item: ItemType },
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Crew {
     pub pos: Pos,
     pub path: Option<Vec<Pos>>,

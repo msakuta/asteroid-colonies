@@ -91,7 +91,7 @@ impl Direction {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum GlobalTask {
     /// Excavate using human labor. Very slow and inefficient.
     Excavate(f64, [i32; 2]),
