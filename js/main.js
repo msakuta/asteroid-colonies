@@ -248,6 +248,20 @@ const canvas = document.getElementById('canvas');
                 else {
                     buildMenuElem.style.display = "none";
                     recipesElem.style.display = "none";
+                    if (name === "excavate") {
+                        const [ix, iy] = game.transform_coords(x, y);
+                        (async () => {
+                            const res = await fetch(`${baseUrl}/api/excavate`, {
+                                method: "POST",
+                                headers: {
+                                    "Content-Type": "application/json",
+                                },
+                                body: JSON.stringify({x: ix, y: iy}),
+                            });
+                            const text = await res.text();
+                            console.log(`excavate response: ${text}`);
+                        })();
+                    }
                     if (game.command(name, x, y)) {
                         requestAnimationFrame(() => game.render(ctx));
                     }

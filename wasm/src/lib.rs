@@ -94,6 +94,12 @@ impl AsteroidColonies {
         self.cursor = Some([ix, iy]);
     }
 
+    pub fn transform_coords(&self, x: f64, y: f64) -> Vec<i32> {
+        let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
+        let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
+        vec![ix, iy]
+    }
+
     pub fn command(&mut self, com: &str, x: f64, y: f64) -> Result<JsValue, JsValue> {
         let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
         let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;

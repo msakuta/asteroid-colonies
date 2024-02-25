@@ -6,6 +6,7 @@
 // server::{ChatServer, NotifyNewBody},
 // websocket::{websocket_index, NotifyBodyState, SetRocketStateWs},
 // };
+use serde::Deserialize;
 // use ::actix::prelude::*;
 use ::actix_cors::Cors;
 use actix_web::HttpResponse;
@@ -105,6 +106,23 @@ async fn get_state(data: web::Data<ServerData>) -> actix_web::Result<HttpRespons
         .body(serialized))
 }
 
+#[derive(Deserialize)]
+struct ExcavatePayload {
+    x: i32,
+    y: i32,
+}
+
+async fn excavate(
+    data: web::Data<ServerData>,
+    payload: web::Json<ExcavatePayload>,
+) -> actix_web::Result<HttpResponse> {
+    println!("excavate {} {}", payload.x, payload.y);
+    let mut game = data.game.write().unwrap();
+    game.excavate(payload.x, payload.y)
+        .map_err(|e| actix_web::error::ErrorInternalServerError(e.to_string()))?;
+    Ok(HttpResponse::Ok().content_type("text/plain").body("ok"))
+}
+
 // #[cfg(not(debug_assertions))]
 // async fn get_bundle() -> HttpResponse {
 //     HttpResponse::Ok()
@@ -185,14 +203,16 @@ async fn main() -> std::io::Result<()> {
     // let push_period_s = args.push_period_s;
 
     actix_web::rt::spawn(async move {
-        let mut interval = actix_web::rt::time::interval(std::time::Duration::from_secs(1));
+        let mut interval = actix_web::rt::time::interval(std::time::Duration::from_secs_f64(0.1));
         loop {
             interval.tick().await;
 
             let start = Instant::now();
 
             let mut game = data_copy.game.write().unwrap();
-            game.tick();
+            if let Err(e) = game.tick() {
+                println!("Tick error: {e}");
+            }
 
             // let mut last_saved = data_copy.last_saved.lock().unwrap();
             // if autosave_period_s < last_saved.elapsed().as_micros() as f64 * 1e-6 {
@@ -219,9 +239,8 @@ async fn main() -> std::io::Result<()> {
             // }
 
             println!(
-                "[{:?}] Tick {}, time {}, calc: {:.3}ms",
+                "[{:?}] Tick {}, calc: {:.3}ms",
                 std::thread::current().id(),
-                game.get_global_time(),
                 game.get_global_time(),
                 start.elapsed().as_micros() as f64 * 1e-3,
             );
@@ -241,7 +260,8 @@ async fn main() -> std::io::Result<()> {
             .app_data(data.clone())
             // .service(websocket_index)
             // .route("/api/session", web::post().to(new_session))
-            .route("/api/load", web::get().to(get_state));
+            .route("/api/load", web::get().to(get_state))
+            .route("/api/excavate", web::post().to(excavate));
         // .route("/api/time_scale", web::post().to(set_timescale));
         #[cfg(not(debug_assertions))]
         {
