@@ -24,7 +24,7 @@ jobs:
     - name: Install Wasm target
       run: rustup target add wasm32-unknown-unknown
     - name: Build Wasm target
-      run: cargo c --target wasm32-unknown-unknown
+      run: cargo c -p asteroid-colonies-wasm --target wasm32-unknown-unknown
     - name: Run Rust tests
       run: cargo test --verbose
     - name: Use Node.js 16.x
