@@ -139,6 +139,19 @@ const canvas = document.getElementById('canvas');
         }
         if (moving) {
             try {
+                const from = game.transform_coords(moving[0], moving[1]);
+                const to = game.transform_coords(x, y);
+                (async () => {
+                    const res = await fetch(`${baseUrl}/api/move`, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({from: [from[0], from[1]], to: [to[0], to[1]]}),
+                    });
+                    const text = await res.text();
+                    console.log(`excavate response: ${text}`);
+                })();
                 game.move_building(moving[0], moving[1], x, y);
             }
             catch (e) {

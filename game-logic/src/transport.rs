@@ -1,8 +1,8 @@
+use serde::{Deserialize, Serialize};
 use std::{
     collections::{BinaryHeap, HashMap, HashSet},
     hash::Hash,
 };
-use serde::{Serialize, Deserialize};
 
 use crate::{task::Direction, AsteroidColoniesGame, Conveyor, ItemType, Pos, WIDTH};
 

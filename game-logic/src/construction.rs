@@ -11,7 +11,7 @@ use crate::{
 
 use super::{hash_map, AsteroidColoniesGame};
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ConstructionType {

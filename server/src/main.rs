@@ -1,6 +1,7 @@
 // mod server;
 // mod websocket;
 
+use asteroid_colonies_logic::Pos;
 // use crate::{
 // api::set_timescale::set_timescale,
 // server::{ChatServer, NotifyNewBody},
@@ -104,6 +105,28 @@ async fn get_state(data: web::Data<ServerData>) -> actix_web::Result<HttpRespons
     Ok(HttpResponse::Ok()
         .content_type("application/json")
         .body(serialized))
+}
+
+#[derive(Deserialize)]
+struct MovePayload {
+    from: Pos,
+    to: Pos,
+}
+
+async fn move_(
+    data: web::Data<ServerData>,
+    payload: web::Json<MovePayload>,
+) -> actix_web::Result<HttpResponse> {
+    println!("move {:?} -> {:?}", payload.from, payload.to);
+    let mut game = data.game.write().unwrap();
+    game.move_building(
+        payload.from[0],
+        payload.from[1],
+        payload.to[0],
+        payload.to[1],
+    )
+    .map_err(|e| actix_web::error::ErrorInternalServerError(e.to_string()))?;
+    Ok(HttpResponse::Ok().content_type("text/plain").body("ok"))
 }
 
 #[derive(Deserialize)]
@@ -261,7 +284,8 @@ async fn main() -> std::io::Result<()> {
             // .service(websocket_index)
             // .route("/api/session", web::post().to(new_session))
             .route("/api/load", web::get().to(get_state))
-            .route("/api/excavate", web::post().to(excavate));
+            .route("/api/excavate", web::post().to(excavate))
+            .route("/api/move", web::post().to(move_));
         // .route("/api/time_scale", web::post().to(set_timescale));
         #[cfg(not(debug_assertions))]
         {
