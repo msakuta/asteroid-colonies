@@ -144,6 +144,15 @@ impl AsteroidColonies {
         self.game.cancel_build(ix, iy)
     }
 
+    pub fn build_plan(&mut self, constructions: Vec<JsValue>) -> Result<(), JsValue> {
+        let constructions = constructions
+            .into_iter()
+            .map(serde_wasm_bindgen::from_value)
+            .collect::<Result<Vec<_>, _>>()?;
+        self.game.build_plan(&constructions);
+        Ok(())
+    }
+
     /// Puts a task to deconstruct a building. It is different from `cancel_build` in that it destroys already built ones.
     pub fn deconstruct(&mut self, x: f64, y: f64) -> Result<(), JsValue> {
         let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;

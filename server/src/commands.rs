@@ -1,6 +1,6 @@
 use ::actix_web::{dev::ServiceFactory, web, App, HttpResponse};
 use actix_web::dev::ServiceRequest;
-use asteroid_colonies_logic::{building::BuildingType, Pos};
+use asteroid_colonies_logic::{building::BuildingType, construction::Construction, Pos};
 use serde::Deserialize;
 
 use crate::ServerData;
@@ -62,6 +62,22 @@ async fn build(
     Ok(HttpResponse::Ok().content_type("text/plain").body("ok"))
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BuildPlanPayload {
+    build_plan: Vec<Construction>,
+}
+
+async fn build_plan(
+    data: web::Data<ServerData>,
+    payload: web::Json<BuildPlanPayload>,
+) -> actix_web::Result<HttpResponse> {
+    println!("build {:?}", payload.0.build_plan);
+    let mut game = data.game.write().unwrap();
+    game.build_plan(&payload.0.build_plan);
+    Ok(HttpResponse::Ok().content_type("text/plain").body("ok"))
+}
+
 pub(crate) fn register_commands<T>(app: App<T>) -> App<T>
 where
     T: ServiceFactory<ServiceRequest, Config = (), Error = actix_web::Error, InitError = ()>,
@@ -69,4 +85,5 @@ where
     app.route("/api/excavate", web::post().to(excavate))
         .route("/api/move", web::post().to(move_))
         .route("/api/build", web::post().to(build))
+        .route("/api/build_plan", web::post().to(build_plan))
 }

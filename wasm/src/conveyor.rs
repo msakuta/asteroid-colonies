@@ -38,7 +38,12 @@ impl AsteroidColonies {
         self.game.cancel_build_conveyor(preview);
     }
 
-    pub fn commit_build_conveyor(&mut self) {
-        self.game.commit_build_conveyor();
+    pub fn commit_build_conveyor(&mut self) -> Result<Vec<JsValue>, JsValue> {
+        self.game
+            .commit_build_conveyor()
+            .iter()
+            .map(serde_wasm_bindgen::to_value)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(JsValue::from)
     }
 }

@@ -274,6 +274,10 @@ impl AsteroidColoniesGame {
         Ok(())
     }
 
+    pub fn build_plan(&mut self, constructions: &[Construction]) {
+        self.constructions.extend_from_slice(constructions);
+    }
+
     pub fn cancel_build(&mut self, ix: i32, iy: i32) {
         if let Some(c) = self.constructions.iter_mut().find(|c| c.pos == [ix, iy]) {
             c.toggle_cancel();

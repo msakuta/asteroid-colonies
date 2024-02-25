@@ -21,7 +21,7 @@ pub enum ConstructionType {
 }
 
 /// A planned location for a construction. It can gather ingredients on site and start building.
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Construction {
     type_: ConstructionType,
     pub pos: Pos,

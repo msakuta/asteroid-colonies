@@ -309,7 +309,18 @@ const canvas = document.getElementById('canvas');
         okButton.addEventListener('click', _ => {
             buildingConveyor = null;
             messageOverlayElem.style.display = "none";
-            game.commit_build_conveyor(false);
+            const buildPlan = game.commit_build_conveyor(false);
+            (async () => {
+                const res = await fetch(`${baseUrl}/api/build_plan`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({buildPlan}),
+                });
+                const text = await res.text();
+                console.log(`build response: ${text}`);
+            })();
         });
         const cancelButton = document.createElement("button");
         cancelButton.value = "Cancel";
