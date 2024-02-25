@@ -304,7 +304,7 @@ impl AsteroidColoniesGame {
             match task {
                 GlobalTask::Excavate(t, pos) if *t <= 0. => {
                     self.cells[pos[0] as usize + pos[1] as usize * WIDTH].state = CellState::Empty;
-                    if let Some(ref mut f) = self.calculate_back_image {
+                    if let Some(ref f) = self.calculate_back_image {
                         f(&mut self.cells);
                     }
                 }

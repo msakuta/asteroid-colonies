@@ -12,7 +12,7 @@ use crate::{
     Cell, CellState, ItemType, Pos, HEIGHT, WIDTH,
 };
 
-pub type CalculateBackImage = Box<dyn FnMut(&mut [Cell])>;
+pub type CalculateBackImage = Box<dyn Fn(&mut [Cell]) + Send + Sync>;
 
 pub struct AsteroidColoniesGame {
     pub(crate) cells: Vec<Cell>,
@@ -32,7 +32,7 @@ pub struct AsteroidColoniesGame {
 }
 
 impl AsteroidColoniesGame {
-    pub fn new(mut calculate_back_image: Option<CalculateBackImage>) -> Result<Self, String> {
+    pub fn new(calculate_back_image: Option<CalculateBackImage>) -> Result<Self, String> {
         let mut cells = vec![Cell::new(); WIDTH * HEIGHT];
         let r2_thresh = (WIDTH as f64 * 3. / 8.).powi(2);
         for y in 0..HEIGHT {
@@ -112,7 +112,7 @@ impl AsteroidColoniesGame {
                 cells[x + y * WIDTH].state = CellState::Empty;
             }
         }
-        if let Some(ref mut f) = calculate_back_image {
+        if let Some(ref f) = calculate_back_image {
             f(&mut cells);
         }
         Ok(Self {
