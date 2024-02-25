@@ -24,6 +24,7 @@ import construction from '../images/construction.png';
 import deconstruction from '../images/deconstruction.png';
 
 const canvas = document.getElementById('canvas');
+const serverSync = SERVER_SYNC;
 const baseUrl = BASE_URL;
 
 (async () => {
@@ -59,12 +60,14 @@ const baseUrl = BASE_URL;
     });
     const loadedImages = await Promise.all(loadImages);
 
-    const dataRes = await fetch(`${baseUrl}/api/load`);
-    const dataText = await dataRes.text();
 
     const canvasRect = canvas.getBoundingClientRect();
     const game = new AsteroidColonies(loadedImages, canvasRect.width, canvasRect.height);
-    game.deserialize(dataText);
+    if (serverSync) {
+        const dataRes = await fetch(`${baseUrl}/api/load`);
+        const dataText = await dataRes.text();
+        game.deserialize(dataText);
+    }
     function resizeHandler(evt) {
         const bodyRect = document.body.getBoundingClientRect();
         canvas.setAttribute("width", bodyRect.width);
@@ -319,6 +322,9 @@ const baseUrl = BASE_URL;
 })()
 
 function requestPost(api, payload) {
+    if (!serverSync) {
+        return;
+    }
     (async () => {
         const res = await fetch(`${baseUrl}/api/${api}`, {
             method: "POST",
