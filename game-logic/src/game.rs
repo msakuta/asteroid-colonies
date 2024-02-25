@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, io::Read};
 
 use crate::{
     building::{Building, BuildingType, Recipe},
@@ -132,6 +132,10 @@ impl AsteroidColoniesGame {
 
     pub fn get_global_time(&self) -> usize {
         self.global_time
+    }
+
+    pub fn iter_cell(&self) -> impl Iterator<Item = &Cell> {
+        self.cells.iter()
     }
 
     pub fn cell_at(&self, pos: [i32; 2]) -> &Cell {
@@ -351,6 +355,15 @@ impl AsteroidColoniesGame {
 
         self.global_time += 1;
 
+        Ok(())
+    }
+
+    pub fn serialize(&self) -> serde_json::Result<String> {
+        serde_json::to_string(&self.cells)
+    }
+
+    pub fn deserialize(&mut self, rdr: impl Read) -> serde_json::Result<()> {
+        self.cells = serde_json::from_reader(rdr)?;
         Ok(())
     }
 }

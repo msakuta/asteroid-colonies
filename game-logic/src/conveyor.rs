@@ -4,10 +4,10 @@ use crate::{
     console_log, construction::Construction, push_pull::TileSampler, task::Direction,
     AsteroidColoniesGame, Cell, WIDTH,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// Conveyor can stack up to 2 levels
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Conveyor {
     None,
     One(Direction, Direction),

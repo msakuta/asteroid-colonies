@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::Display};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     building::{Building, BuildingType, Recipe},
@@ -49,7 +49,7 @@ impl Display for Task {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Direction {
     Left,
     Up,

@@ -6,18 +6,22 @@
 // server::{ChatServer, NotifyNewBody},
 // websocket::{websocket_index, NotifyBodyState, SetRocketStateWs},
 // };
-use ::actix::prelude::*;
+// use ::actix::prelude::*;
 use ::actix_cors::Cors;
-use ::actix_files::NamedFile;
-use ::actix_web::{error, middleware, web, App, HttpRequest, HttpResponse, HttpServer};
+// use ::actix_files::NamedFile;
+// use ::actix_web::{error, middleware, web, App, HttpRequest, HttpResponse, HttpServer};
+use ::actix_web::{middleware, web, App, HttpServer};
 use ::asteroid_colonies_logic::AsteroidColoniesGame;
 use ::clap::Parser;
 use std::{
     fs,
+    io::BufReader,
     path::{Path, PathBuf},
     sync::{Mutex, RwLock},
     time::Instant,
 };
+
+type Game = AsteroidColoniesGame;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about)]
@@ -50,7 +54,7 @@ struct Args {
     push_period_s: f64,
 }
 
-struct OrbiterData {
+struct ServerData {
     game: RwLock<AsteroidColoniesGame>,
     asset_path: PathBuf,
     last_saved: Mutex<Instant>,
@@ -121,53 +125,50 @@ struct OrbiterData {
 //     Ok(NamedFile::open(path)?)
 // }
 
-// fn serialize_state(universe: &Universe, autosave_pretty: bool) -> serde_json::Result<String> {
-//     if autosave_pretty {
-//         serde_json::to_string_pretty(&universe as &Universe)
-//     } else {
-//         serde_json::to_string(&universe as &Universe)
-//     }
-// }
+fn serialize_state(game: &Game, _autosave_pretty: bool) -> serde_json::Result<String> {
+    // if autosave_pretty {
+    //     serde_json::to_string_pretty(game)
+    // } else {
+    // serde_json::to_string(game.serialize())
+    // }
+    game.serialize()
+}
 
-// fn save_file(autosave_file: &Path, serialized: &str) {
-//     println!(
-//         "[{:?}] Writing {}",
-//         std::thread::current().id(),
-//         serialized.len()
-//     );
-//     let start = Instant::now();
-//     fs::write(autosave_file, serialized.as_bytes()).expect("Write to save file should succeed");
-//     println!(
-//         "Wrote in {:.3}ms",
-//         start.elapsed().as_micros() as f64 * 1e-3
-//     );
-// }
+fn save_file(autosave_file: &Path, serialized: &str) {
+    println!(
+        "[{:?}] Writing {}",
+        std::thread::current().id(),
+        serialized.len()
+    );
+    let start = Instant::now();
+    fs::write(autosave_file, serialized.as_bytes()).expect("Write to save file should succeed");
+    println!(
+        "Wrote in {:.3}ms",
+        start.elapsed().as_micros() as f64 * 1e-3
+    );
+}
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     let args = Args::parse();
 
-    let mut game = AsteroidColoniesGame::new(None)
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+    let mut game =
+        Game::new(None).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
 
-    // let start = Instant::now();
-    // if let Ok(data) = fs::read(&args.autosave_file) {
-    //     if let Ok(saved_data) = String::from_utf8(data) {
-    //         if let Ok(json) = serde_json::from_str(&saved_data) {
-    //             if let Err(e) = game.deserialize(json) {
-    //                 eprintln!("Error on loading serialized data: {}", e);
-    //             } else {
-    //                 eprintln!(
-    //                     "Deserialized data {} object in {}ms",
-    //                     game.bodies.len(),
-    //                     start.elapsed().as_micros() as f64 * 1e-3
-    //                 );
-    //             }
-    //         }
-    //     }
-    // }
+    let start = Instant::now();
+    if let Ok(data) = fs::File::open(&args.autosave_file).map(BufReader::new) {
+        if let Err(e) = game.deserialize(data) {
+            eprintln!("Error on loading serialized data: {}", e);
+        } else {
+            eprintln!(
+                "Deserialized data {} object in {}ms",
+                game.iter_cell().count(),
+                start.elapsed().as_micros() as f64 * 1e-3
+            );
+        }
+    }
 
-    let data = web::Data::new(OrbiterData {
+    let data = web::Data::new(ServerData {
         game: RwLock::new(game),
         asset_path: args.asset_path,
         last_saved: Mutex::new(Instant::now()),
@@ -178,9 +179,9 @@ async fn main() -> std::io::Result<()> {
     let data_copy = data.clone();
     let data_copy2 = data.clone();
 
-    let autosave_period_s = args.autosave_period_s;
+    // let autosave_period_s = args.autosave_period_s;
     let autosave_pretty = args.autosave_pretty;
-    let push_period_s = args.push_period_s;
+    // let push_period_s = args.push_period_s;
 
     actix_web::rt::spawn(async move {
         let mut interval = actix_web::rt::time::interval(std::time::Duration::from_secs(1));
@@ -255,8 +256,8 @@ async fn main() -> std::io::Result<()> {
     .run()
     .await;
 
-    // if let Ok(serialized) = serialize_state(&data_copy2.game.read().unwrap(), autosave_pretty) {
-    //     save_file(&data_copy2.autosave_file, &serialized);
-    // }
+    if let Ok(serialized) = serialize_state(&data_copy2.game.read().unwrap(), autosave_pretty) {
+        save_file(&data_copy2.autosave_file, &serialized);
+    }
     Ok(())
 }

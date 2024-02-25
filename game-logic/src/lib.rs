@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{building::Recipe, conveyor::Conveyor, crew::Crew, transport::Transport};
 pub use crate::{construction::get_build_menu, game::AsteroidColoniesGame};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 pub mod building;
 pub mod construction;
@@ -55,22 +55,26 @@ pub const TILE_SIZE: f64 = 32.;
 pub const WIDTH: usize = 50;
 pub const HEIGHT: usize = 50;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum CellState {
     Solid,
     Empty,
     Space,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct Cell {
     pub state: CellState,
     pub power_grid: bool,
     pub conveyor: Conveyor,
     /// The index into the background image for quick rendering
+    #[serde(skip)]
     pub image_lt: u8,
+    #[serde(skip)]
     pub image_lb: u8,
+    #[serde(skip)]
     pub image_rb: u8,
+    #[serde(skip)]
     pub image_rt: u8,
 }
 
