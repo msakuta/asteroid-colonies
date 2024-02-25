@@ -214,6 +214,18 @@ const canvas = document.getElementById('canvas');
                             const buildingType = buildItem.type_;
                             buildItemElem.innerHTML = formatBuildItem(buildItem);
                             buildItemElem.addEventListener("pointerup", _ => {
+                                (async () => {
+                                    const [ix, iy] = game.transform_coords(x, y);
+                                    const res = await fetch(`${baseUrl}/api/build`, {
+                                        method: "POST",
+                                        headers: {
+                                            "Content-Type": "application/json",
+                                        },
+                                        body: JSON.stringify({pos: [ix, iy], type: buildingType.Building}),
+                                    });
+                                    const text = await res.text();
+                                    console.log(`build response: ${text}`);
+                                })();
                                 game.build(x, y, buildingType.Building);
                                 buildMenuElem.style.display = "none";
                             })
