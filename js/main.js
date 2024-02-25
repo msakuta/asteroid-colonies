@@ -246,11 +246,12 @@ const baseUrl = `http://localhost:${port}`;
                 }
                 else if (name === "cancel") {
                     const pos = game.transform_coords(x, y);
-                    console.log(`${pos} <= ${[x, y]}`)
                     requestPost("cancel_build", {pos: [pos[0], pos[1]]});
                     game.cancel_build(x, y);
                 }
                 else if (name === "deconstruct") {
+                    const pos = game.transform_coords(x, y);
+                    requestPost("deconstruct", {pos: [pos[0], pos[1]]});
                     game.deconstruct(x, y);
                 }
                 else {

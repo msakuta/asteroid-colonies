@@ -90,6 +90,22 @@ async fn cancel_build(
 }
 
 #[derive(Deserialize)]
+struct DeconstructPayload {
+    pos: [i32; 2],
+}
+
+async fn deconstruct(
+    data: web::Data<ServerData>,
+    payload: web::Json<DeconstructPayload>,
+) -> actix_web::Result<HttpResponse> {
+    println!("deconstruct {:?}", payload.pos);
+    let mut game = data.game.write().unwrap();
+    game.deconstruct(payload.pos[0], payload.pos[1])
+        .map_err(|e| actix_web::error::ErrorInternalServerError(e.to_string()))?;
+    Ok(HttpResponse::Ok().content_type("text/plain").body("ok"))
+}
+
+#[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct BuildPlanPayload {
     build_plan: Vec<Construction>,
@@ -113,5 +129,6 @@ where
         .route("/api/move", web::post().to(move_))
         .route("/api/build", web::post().to(build))
         .route("/api/cancel_build", web::post().to(cancel_build))
+        .route("/api/deconstruct", web::post().to(deconstruct))
         .route("/api/build_plan", web::post().to(build_plan))
 }
