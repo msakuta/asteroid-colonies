@@ -24,8 +24,7 @@ import construction from '../images/construction.png';
 import deconstruction from '../images/deconstruction.png';
 
 const canvas = document.getElementById('canvas');
-const port = 3883;
-const baseUrl = `http://localhost:${port}`;
+const baseUrl = BASE_URL;
 
 (async () => {
     const wasm = await import("../wasm/Cargo.toml");

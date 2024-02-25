@@ -9,12 +9,11 @@ mod commands;
 // };
 // use ::actix::prelude::*;
 use ::actix_cors::Cors;
-use actix_web::HttpResponse;
-// use ::actix_files::NamedFile;
-// use ::actix_web::{error, middleware, web, App, HttpRequest, HttpResponse, HttpServer};
-use ::actix_web::{middleware, web, App, HttpServer};
+use ::actix_files::NamedFile;
+use ::actix_web::{middleware, web, App, HttpRequest, HttpServer};
 use ::asteroid_colonies_logic::AsteroidColoniesGame;
 use ::clap::Parser;
+use actix_web::HttpResponse;
 use commands::register_commands;
 use std::{
     fs,
@@ -55,6 +54,8 @@ struct Args {
     autosave_pretty: bool,
     #[clap(long, default_value = "10")]
     push_period_s: f64,
+    #[clap(long, default_value = "10", help = "Tick frequency in Hz")]
+    tick_freq: f64,
 }
 
 struct ServerData {
@@ -107,21 +108,32 @@ async fn get_state(data: web::Data<ServerData>) -> actix_web::Result<HttpRespons
         .body(serialized))
 }
 
-// #[cfg(not(debug_assertions))]
-// async fn get_bundle() -> HttpResponse {
-//     HttpResponse::Ok()
-//         .content_type("text/javascript")
-//         .body(include_str!("../../dist/bundle.js"))
-// }
+#[cfg(not(debug_assertions))]
+async fn get_main_js() -> HttpResponse {
+    HttpResponse::Ok()
+        .content_type("text/javascript")
+        .body(include_str!("../../dist/js/main.js"))
+}
 
-// #[cfg(not(debug_assertions))]
-// async fn get_index() -> HttpResponse {
-//     HttpResponse::Ok()
-//         .content_type("text/html")
-//         .body(include_str!("../../dist/index.html"))
-// }
+#[cfg(not(debug_assertions))]
+async fn get_index() -> HttpResponse {
+    HttpResponse::Ok()
+        .content_type("text/html")
+        .body(include_str!("../../dist/index.html"))
+}
 
-// async fn get_file(data: web::Data<OrbiterData>, req: HttpRequest) -> actix_web::Result<NamedFile> {
+async fn get_js_file(
+    _data: web::Data<ServerData>,
+    req: HttpRequest,
+) -> actix_web::Result<NamedFile> {
+    let js_path = Path::new("dist/js");
+    let filename: PathBuf = req.match_info().query("filename").parse().unwrap();
+    let path: PathBuf = js_path.join(&filename);
+    println!("Requesting {path:?} -> {:?}", path.canonicalize());
+    Ok(NamedFile::open(path)?)
+}
+
+// async fn get_asset_file(data: web::Data<ServerData>, req: HttpRequest) -> actix_web::Result<NamedFile> {
 //     let asset_path = &data.asset_path;
 //     let filename: PathBuf = req.match_info().query("filename").parse().unwrap();
 //     let path: PathBuf = asset_path.join(&filename);
@@ -187,7 +199,8 @@ async fn main() -> std::io::Result<()> {
     // let push_period_s = args.push_period_s;
 
     actix_web::rt::spawn(async move {
-        let mut interval = actix_web::rt::time::interval(std::time::Duration::from_secs_f64(0.1));
+        let mut interval =
+            actix_web::rt::time::interval(std::time::Duration::from_secs_f64(args.tick_freq));
         loop {
             interval.tick().await;
 
@@ -250,12 +263,11 @@ async fn main() -> std::io::Result<()> {
         #[cfg(not(debug_assertions))]
         {
             app.route("/", web::get().to(get_index))
-                .route("/bundle.js", web::get().to(get_bundle))
-                .route("/{filename:.*}", web::get().to(get_file))
+                .route("/js/main.js", web::get().to(get_main_js))
+                .route("/js/{filename:.*}", web::get().to(get_js_file))
         }
         #[cfg(debug_assertions)]
-        // app.route("/{filename:.*}", web::get().to(get_file))
-        app
+        app.route("/js/{filename:.*}", web::get().to(get_js_file))
     })
     .bind((args.host.as_str(), args.port))?
     .run()
