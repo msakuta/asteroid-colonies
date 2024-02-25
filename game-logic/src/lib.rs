@@ -52,8 +52,8 @@ pub(crate) fn log(s: &str) {
 }
 
 pub const TILE_SIZE: f64 = 32.;
-pub const WIDTH: usize = 50;
-pub const HEIGHT: usize = 50;
+pub const WIDTH: usize = 100;
+pub const HEIGHT: usize = 100;
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum CellState {

@@ -45,7 +45,12 @@ impl AsteroidColoniesGame {
                 }
             }
         }
-        let start_ofs = |pos: [i32; 2]| [pos[0] + 8, pos[1] + 20];
+        let start_ofs = |pos: [i32; 2]| {
+            [
+                pos[0] + 3 + WIDTH as i32 / 8,
+                pos[1] - 5 + HEIGHT as i32 / 2,
+            ]
+        };
         let buildings = vec![
             Building::new(start_ofs([1, 7]), BuildingType::CrewCabin),
             Building::new(start_ofs([3, 4]), BuildingType::Power),
@@ -369,6 +374,7 @@ impl AsteroidColoniesGame {
             buildings: self.buildings.clone(),
             crews: self.crews.clone(),
             global_tasks: self.global_tasks.clone(),
+            global_time: self.global_time,
             transports: self.transports.clone(),
             constructions: self.constructions.clone(),
         })
@@ -380,6 +386,7 @@ impl AsteroidColoniesGame {
         self.buildings = ser_data.buildings;
         self.crews = ser_data.crews;
         self.global_tasks = ser_data.global_tasks;
+        self.global_time = ser_data.global_time;
         self.transports = ser_data.transports;
         self.constructions = ser_data.constructions;
         if let Some(ref f) = self.calculate_back_image {
@@ -395,6 +402,7 @@ struct SerializeGame {
     buildings: Vec<Building>,
     crews: Vec<Crew>,
     global_tasks: Vec<GlobalTask>,
+    global_time: usize,
     transports: Vec<Transport>,
     constructions: Vec<Construction>,
 }

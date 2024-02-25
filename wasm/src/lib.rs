@@ -78,7 +78,10 @@ impl AsteroidColonies {
             cursor: None,
             assets: Assets::new(image_assets)?,
             viewport: Viewport {
-                offset: [0.; 2],
+                offset: [
+                    -(WIDTH as f64 / 8. - 4.) * TILE_SIZE,
+                    -(HEIGHT as f64 / 2. - 8.) * TILE_SIZE,
+                ],
                 size: [vp_width, vp_height],
             },
         })
