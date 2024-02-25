@@ -178,4 +178,10 @@ impl AsteroidColonies {
             .map(|s| serde_wasm_bindgen::to_value(&s).map_err(JsValue::from))
             .collect()
     }
+
+    pub fn deserialize(&mut self, data: &str) -> Result<(), JsValue> {
+        self.game
+            .deserialize(data.as_bytes())
+            .map_err(|e| JsValue::from(format!("{e}")))
+    }
 }

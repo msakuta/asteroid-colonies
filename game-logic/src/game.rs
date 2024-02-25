@@ -364,6 +364,9 @@ impl AsteroidColoniesGame {
 
     pub fn deserialize(&mut self, rdr: impl Read) -> serde_json::Result<()> {
         self.cells = serde_json::from_reader(rdr)?;
+        if let Some(ref f) = self.calculate_back_image {
+            f(&mut self.cells);
+        }
         Ok(())
     }
 }

@@ -58,8 +58,14 @@ const canvas = document.getElementById('canvas');
     });
     const loadedImages = await Promise.all(loadImages);
 
+    const port = 3883;
+    const baseUrl = `http://localhost:${port}`;
+    const dataRes = await fetch(`${baseUrl}/api/load`);
+    const dataText = await dataRes.text();
+
     const canvasRect = canvas.getBoundingClientRect();
     const game = new AsteroidColonies(loadedImages, canvasRect.width, canvasRect.height);
+    game.deserialize(dataText);
     function resizeHandler(evt) {
         const bodyRect = document.body.getBoundingClientRect();
         canvas.setAttribute("width", bodyRect.width);

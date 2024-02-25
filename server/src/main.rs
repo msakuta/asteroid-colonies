@@ -8,6 +8,7 @@
 // };
 // use ::actix::prelude::*;
 use ::actix_cors::Cors;
+use actix_web::HttpResponse;
 // use ::actix_files::NamedFile;
 // use ::actix_web::{error, middleware, web, App, HttpRequest, HttpResponse, HttpServer};
 use ::actix_web::{middleware, web, App, HttpServer};
@@ -31,7 +32,7 @@ struct Args {
     #[clap(
         short,
         long,
-        default_value = "8088",
+        default_value = "3883",
         help = "The port number to listen to."
     )]
     port: u16,
@@ -86,23 +87,23 @@ struct ServerData {
 //     Ok(HttpResponse::Ok().body(new_session.to_string()))
 // }
 
-// async fn get_state(data: web::Data<OrbiterData>) -> actix_web::Result<HttpResponse> {
-//     let start = Instant::now();
+async fn get_state(data: web::Data<ServerData>) -> actix_web::Result<HttpResponse> {
+    let start = Instant::now();
 
-//     let universe = data.universe.read().unwrap();
+    let game = data.game.read().unwrap();
 
-//     let serialized = serialize(&universe)?;
+    let serialized = serialize_state(&game, false)?;
 
-//     println!(
-//         "Serialized universe at tick {} in {:.3}ms",
-//         universe.get_time(),
-//         start.elapsed().as_micros() as f64 * 1e-3
-//     );
+    println!(
+        "Serialized game at tick {} in {:.3}ms",
+        game.get_global_time(),
+        start.elapsed().as_micros() as f64 * 1e-3
+    );
 
-//     Ok(HttpResponse::Ok()
-//         .content_type("application/json")
-//         .body(serialized))
-// }
+    Ok(HttpResponse::Ok()
+        .content_type("application/json")
+        .body(serialized))
+}
 
 // #[cfg(not(debug_assertions))]
 // async fn get_bundle() -> HttpResponse {
@@ -237,10 +238,10 @@ async fn main() -> std::io::Result<()> {
         let app = App::new()
             .wrap(middleware::Compress::default())
             .wrap(cors)
-            .app_data(data.clone());
-        // .service(websocket_index)
-        // .route("/api/session", web::post().to(new_session))
-        // .route("/api/load", web::get().to(get_state))
+            .app_data(data.clone())
+            // .service(websocket_index)
+            // .route("/api/session", web::post().to(new_session))
+            .route("/api/load", web::get().to(get_state));
         // .route("/api/time_scale", web::post().to(set_timescale));
         #[cfg(not(debug_assertions))]
         {
