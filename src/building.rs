@@ -7,9 +7,10 @@ use serde::{Deserialize, Serialize};
 use crate::{
     construction::Construction,
     hash_map,
+    push_pull::{pull_inputs, push_outputs},
     task::{GlobalTask, Task, RAW_ORE_SMELT_TIME},
-    transport::{expected_deliveries, find_multipath, find_path},
-    AsteroidColonies, Cell, CellState, Crew, ItemType, Pos, Transport, WIDTH,
+    transport::find_multipath,
+    AsteroidColonies, Cell, CellState, Crew, ItemType, Transport, WIDTH,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -160,7 +161,7 @@ impl Building {
         };
         // Try pushing out products
         if let Some(recipe) = this.recipe {
-            push_outputs(cells, transports, this, first, last, &|item| {
+            push_outputs(&cells, transports, this, first, last, &|item| {
                 recipe.outputs.contains_key(&item)
             });
         }
@@ -168,9 +169,10 @@ impl Building {
             if let Some(recipe) = &this.recipe {
                 pull_inputs(
                     &recipe.inputs,
-                    cells,
+                    &cells,
                     transports,
                     this.pos,
+                    this.type_.size(),
                     &mut this.inventory,
                     first,
                     last,
@@ -202,7 +204,7 @@ impl Building {
         }
         match this.type_ {
             BuildingType::Excavator => {
-                push_outputs(cells, transports, this, first, last, &|t| {
+                push_outputs(&cells, transports, this, first, last, &|t| {
                     matches!(t, ItemType::RawOre)
                 });
             }
@@ -221,10 +223,18 @@ impl Building {
                     if let Some(crew) = Crew::new_task(this.pos, gtask, cells) {
                         crews.push(crew);
                         this.crews -= 1;
-                        break;
+                        return Ok(());
                     }
                 }
                 for construction in constructions {
+                    let pos = construction.pos;
+                    if !matches!(
+                        cells[pos[0] as usize + pos[1] as usize * WIDTH].state,
+                        CellState::Empty
+                    ) {
+                        // Don't bother trying to find a path in an unreachable area.
+                        continue;
+                    }
                     let crew = construction
                         .required_ingredients(transports, crews)
                         .find_map(|(ty, _)| {
@@ -239,7 +249,7 @@ impl Building {
                                                 && 0 < o.inventory.get(&ty).copied().unwrap_or(0)
                                         })
                                     },
-                                    |pos| {
+                                    |_, pos| {
                                         matches!(
                                             cells[pos[0] as usize + pos[1] as usize * WIDTH].state,
                                             CellState::Empty
@@ -262,7 +272,7 @@ impl Building {
                                             o.pos == pos && o.inventory_size() < o.type_.capacity()
                                         })
                                     },
-                                    |pos| {
+                                    |_, pos| {
                                         matches!(
                                             cells[pos[0] as usize + pos[1] as usize * WIDTH].state,
                                             CellState::Empty
@@ -294,11 +304,12 @@ impl Building {
                     if let Some(crew) = crew {
                         crews.push(crew);
                         this.crews -= 1;
+                        return Ok(());
                     }
                 }
             }
             BuildingType::Furnace => {
-                push_outputs(cells, transports, this, first, last, &|t| {
+                push_outputs(&cells, transports, this, first, last, &|t| {
                     !matches!(t, ItemType::RawOre)
                 });
                 if !matches!(this.task, Task::None) {
@@ -312,9 +323,10 @@ impl Building {
                 };
                 pull_inputs(
                     &recipe.inputs,
-                    cells,
+                    &cells,
                     transports,
                     this.pos,
+                    this.type_.size(),
                     &mut this.inventory,
                     first,
                     last,
@@ -385,154 +397,4 @@ impl AsteroidColonies {
             }
         }
     }
-}
-
-/// Pull inputs over transportation network
-pub(crate) fn pull_inputs(
-    inputs: &HashMap<ItemType, usize>,
-    cells: &[Cell],
-    transports: &mut Vec<Transport>,
-    this_pos: Pos,
-    this_inventory: &mut HashMap<ItemType, usize>,
-    first: &mut [Building],
-    last: &mut [Building],
-) {
-    let expected = expected_deliveries(transports, this_pos);
-    for (ty, count) in inputs {
-        let this_count =
-            this_inventory.get(ty).copied().unwrap_or(0) + expected.get(ty).copied().unwrap_or(0);
-        if this_count < *count {
-            let src = find_from_other_inventory_mut(*ty, first, last);
-            if let Some((src, path)) = src.and_then(|src| {
-                if src.1 == 0 {
-                    return None;
-                }
-                let path = find_path(src.0.pos, this_pos, |pos| {
-                    let cell = &cells[pos[0] as usize + pos[1] as usize * WIDTH];
-                    cell.conveyor || this_pos == pos
-                })?;
-                Some((src.0, path))
-            }) {
-                let src_count = src.inventory.entry(*ty).or_default();
-                let amount = (*src_count).min(*count - this_count);
-                transports.push(Transport {
-                    src: src.pos,
-                    dest: this_pos,
-                    path,
-                    item: *ty,
-                    amount,
-                });
-                if *src_count <= amount {
-                    src.inventory.remove(ty);
-                } else {
-                    *src_count -= amount;
-                }
-            }
-        }
-    }
-}
-
-/// A trait for objects that has inventory and position.
-pub(crate) trait HasInventory {
-    fn pos(&self) -> Pos;
-    fn inventory(&mut self) -> &mut HashMap<ItemType, usize>;
-}
-
-impl HasInventory for Building {
-    fn pos(&self) -> Pos {
-        self.pos
-    }
-
-    fn inventory(&mut self) -> &mut HashMap<ItemType, usize> {
-        &mut self.inventory
-    }
-}
-
-pub(crate) fn push_outputs(
-    cells: &[Cell],
-    transports: &mut Vec<Transport>,
-    this: &mut impl HasInventory,
-    first: &mut [Building],
-    last: &mut [Building],
-    is_output: &impl Fn(ItemType) -> bool,
-) {
-    let pos = this.pos();
-    let dest = first.iter_mut().chain(last.iter_mut()).find_map(|b| {
-        if !b.type_.is_storage()
-            || b.type_.capacity()
-                <= b.inventory_size()
-                    + expected_deliveries(transports, b.pos)
-                        .values()
-                        .sum::<usize>()
-        {
-            return None;
-        }
-        let path = find_path(pos, b.pos, |pos| {
-            let cell = &cells[pos[0] as usize + pos[1] as usize * WIDTH];
-            cell.conveyor
-        })?;
-        Some((b, path))
-    });
-    // Push away outputs
-    if let Some((dest, path)) = dest {
-        let product = this
-            .inventory()
-            .iter_mut()
-            .find(|(t, count)| is_output(**t) && 0 < **count);
-        if let Some((&item, amount)) = product {
-            transports.push(Transport {
-                src: pos,
-                dest: dest.pos,
-                path,
-                item,
-                amount: 1,
-            });
-            // *dest.inventory.entry(*product.0).or_default() += 1;
-            if *amount <= 1 {
-                this.inventory().remove(&item);
-            } else {
-                *amount -= 1;
-            }
-            // this.output_path = Some(path);
-        }
-    }
-}
-
-fn _find_from_all_inventories(
-    item: ItemType,
-    this: &Building,
-    first: &[Building],
-    last: &[Building],
-) -> usize {
-    first
-        .iter()
-        .chain(last.iter())
-        .chain(std::iter::once(this as &_))
-        .map(|o| o.inventory.get(&item).copied().unwrap_or(0))
-        .sum::<usize>()
-}
-
-fn _find_from_other_inventory<'a>(
-    item: ItemType,
-    first: &'a [Building],
-    last: &'a [Building],
-) -> Option<(&'a Building, usize)> {
-    first
-        .iter()
-        .chain(last.iter())
-        .find_map(|o| Some((o, *o.inventory.get(&item)?)))
-}
-
-fn find_from_other_inventory_mut<'a>(
-    item: ItemType,
-    first: &'a mut [Building],
-    last: &'a mut [Building],
-) -> Option<(&'a mut Building, usize)> {
-    first.iter_mut().chain(last.iter_mut()).find_map(|o| {
-        let count = *o.inventory.get(&item)?;
-        if count == 0 {
-            return None;
-        }
-        Some((o, count))
-    })
 }

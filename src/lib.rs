@@ -1,16 +1,16 @@
 mod assets;
 mod building;
 mod construction;
+mod conveyor;
 mod crew;
 mod info;
+mod push_pull;
 mod render;
 mod task;
 mod transport;
 mod utils;
 
 use std::collections::HashMap;
-
-use construction::get_build_menu;
 
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
@@ -19,10 +19,11 @@ use web_sys::js_sys;
 use crate::{
     assets::Assets,
     building::{Building, BuildingType, Recipe},
-    construction::{Construction, ConstructionType},
+    construction::{get_build_menu, Construction, ConstructionType},
+    conveyor::Conveyor,
     crew::Crew,
     render::{calculate_back_image, TILE_SIZE},
-    task::{GlobalTask, Task, MOVE_TIME},
+    task::{Direction, GlobalTask, Task, MOVE_TIME},
     transport::{find_path, Transport},
 };
 
@@ -63,18 +64,18 @@ extern "C" {
     fn alert(s: &str);
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 enum CellState {
     Solid,
     Empty,
     Space,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 struct Cell {
     state: CellState,
     power_grid: bool,
-    conveyor: bool,
+    conveyor: Conveyor,
     /// The index into the background image for quick rendering
     image_lt: u8,
     image_lb: u8,
@@ -83,11 +84,11 @@ struct Cell {
 }
 
 impl Cell {
-    fn new() -> Self {
+    const fn new() -> Self {
         Self {
             state: CellState::Solid,
             power_grid: false,
-            conveyor: false,
+            conveyor: Conveyor::None,
             image_lt: 0,
             image_lb: 0,
             image_rb: 0,
@@ -95,11 +96,24 @@ impl Cell {
         }
     }
 
-    fn building() -> Self {
+    #[allow(dead_code)]
+    const fn new_with_conveyor(conveyor: Conveyor) -> Self {
+        Self {
+            state: CellState::Empty,
+            power_grid: false,
+            conveyor,
+            image_lt: 0,
+            image_lb: 0,
+            image_rb: 0,
+            image_rt: 0,
+        }
+    }
+
+    const fn building() -> Self {
         Self {
             state: CellState::Empty,
             power_grid: true,
-            conveyor: true,
+            conveyor: Conveyor::None,
             image_lt: 8,
             image_lb: 8,
             image_rb: 8,
@@ -136,7 +150,7 @@ fn recipes() -> &'static [Recipe] {
                 time: 100.,
             },
             Recipe {
-                inputs: hash_map!(ItemType::IronIngot => 2),
+                inputs: hash_map!(ItemType::IronIngot => 1),
                 outputs: hash_map!(ItemType::ConveyorComponent => 1),
                 time: 120.,
             },
@@ -188,6 +202,10 @@ pub struct AsteroidColonies {
     global_time: usize,
     transports: Vec<Transport>,
     constructions: Vec<Construction>,
+    /// Ghost conveyors staged for commit. After committing, they will be queued to construction plans
+    conveyor_staged: HashMap<Pos, Conveyor>,
+    /// Preview of ghost conveyors, just for visualization.
+    conveyor_preview: HashMap<Pos, Conveyor>,
     viewport: Viewport,
 }
 
@@ -212,17 +230,17 @@ impl AsteroidColonies {
         }
         let start_ofs = |pos: [i32; 2]| [pos[0] + 8, pos[1] + 20];
         let buildings = vec![
-            Building::new(start_ofs([2, 2]), BuildingType::CrewCabin),
+            Building::new(start_ofs([1, 7]), BuildingType::CrewCabin),
             Building::new(start_ofs([3, 4]), BuildingType::Power),
             Building::new(start_ofs([4, 4]), BuildingType::Excavator),
             Building::new(start_ofs([5, 4]), BuildingType::Storage),
             Building::new_inventory(
                 start_ofs([6, 3]),
                 BuildingType::MediumStorage,
-                hash_map!(ItemType::ConveyorComponent => 2, ItemType::PowerGridComponent => 2),
+                hash_map!(ItemType::ConveyorComponent => 20, ItemType::PowerGridComponent => 2),
             ),
             Building::new(start_ofs([1, 10]), BuildingType::Assembler),
-            Building::new(start_ofs([1, 5]), BuildingType::Furnace),
+            Building::new(start_ofs([1, 4]), BuildingType::Furnace),
         ];
         for building in &buildings {
             let pos = building.pos;
@@ -235,17 +253,48 @@ impl AsteroidColonies {
                 }
             }
         }
-        for pos in [[1, 7], [1, 8], [1, 9], [4, 4], [4, 5], [4, 6]] {
-            let [x, y] = start_ofs(pos);
+        let convs = [
+            [3, 5],
+            [3, 6],
+            [3, 7],
+            [3, 8],
+            [3, 9],
+            [3, 10],
+            [4, 10],
+            [5, 10],
+            [6, 10],
+            [6, 9],
+            [7, 9],
+            [7, 8],
+            [7, 7],
+            [6, 7],
+            [6, 6],
+            [6, 5],
+            [5, 5],
+            [4, 5],
+        ];
+        for ((pos0, pos1), pos2) in convs
+            .iter()
+            .zip(convs.iter().skip(1).chain(std::iter::once(&convs[0])))
+            .zip(convs.iter().skip(2).chain(convs.iter().take(2)))
+        {
+            let [x, y] = start_ofs(*pos1);
             let [x, y] = [x as usize, y as usize];
             cells[x + y * WIDTH].state = CellState::Empty;
-            cells[x + y * WIDTH].conveyor = true;
+            let conv = Conveyor::One(
+                Direction::from_vec([pos0[0] - pos1[0], pos0[1] - pos1[1]]).unwrap(),
+                Direction::from_vec([pos2[0] - pos1[0], pos2[1] - pos1[1]]).unwrap(),
+            );
+            console_log!("conv {:?}: {:?}", pos1, conv);
+            cells[x + y * WIDTH].conveyor = conv;
             cells[x + y * WIDTH].power_grid = true;
         }
-        for pos in [[4, 7], [4, 8]] {
-            let [x, y] = start_ofs(pos);
-            let [x, y] = [x as usize, y as usize];
-            cells[x + y * WIDTH].state = CellState::Empty;
+        for iy in 4..10 {
+            for ix in 2..7 {
+                let [x, y] = start_ofs([ix, iy]);
+                let [x, y] = [x as usize, y as usize];
+                cells[x + y * WIDTH].state = CellState::Empty;
+            }
         }
         calculate_back_image(&mut cells);
         Ok(Self {
@@ -259,6 +308,8 @@ impl AsteroidColonies {
             global_time: 0,
             transports: vec![],
             constructions: vec![],
+            conveyor_staged: HashMap::new(),
+            conveyor_preview: HashMap::new(),
             viewport: Viewport {
                 offset: [0.; 2],
                 size: [vp_width, vp_height],
@@ -285,7 +336,6 @@ impl AsteroidColonies {
         match com {
             "excavate" => self.excavate(ix, iy),
             "power" => self.build_power_grid(ix, iy),
-            "conveyor" => self.conveyor(ix, iy),
             "moveItem" => self.move_item(ix, iy),
             _ => Err(JsValue::from(format!("Unknown command: {}", com))),
         }
@@ -365,11 +415,6 @@ impl AsteroidColonies {
         let cell = &self.cells[ix as usize + iy as usize * WIDTH];
         if !cell.power_grid {
             return Err(JsValue::from("Power grid is required to build"));
-        }
-        if !cell.conveyor {
-            return Err(JsValue::from(
-                "Conveyor infrastructure is required to build",
-            ));
         }
 
         let intersects = |pos: Pos, o_size: [usize; 2]| {
@@ -491,6 +536,7 @@ impl AsteroidColonies {
             };
             if format!("{:?}", key) == name {
                 self.set_building_recipe(ix, iy, recipe)?;
+                break;
             }
         }
         Ok(())

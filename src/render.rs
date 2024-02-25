@@ -5,8 +5,10 @@ use web_sys::CanvasRenderingContext2d;
 
 use crate::{
     construction::ConstructionType,
-    task::{GlobalTask, Task, EXCAVATE_TIME, LABOR_EXCAVATE_TIME, MOVE_ITEM_TIME, MOVE_TIME},
-    BuildingType, Cell, CellState, ItemType, HEIGHT, WIDTH,
+    task::{
+        Direction, GlobalTask, Task, EXCAVATE_TIME, LABOR_EXCAVATE_TIME, MOVE_ITEM_TIME, MOVE_TIME,
+    },
+    BuildingType, Cell, CellState, Conveyor, ItemType, HEIGHT, WIDTH,
 };
 
 pub(crate) const TILE_SIZE: f64 = 32.;
@@ -40,18 +42,80 @@ impl AsteroidColonies {
             )
         };
 
-        let render_conveyor = |context: &CanvasRenderingContext2d, x, y| {
-            context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-                &self.assets.img_conveyor,
-                0.,
-                0.,
-                TILE_SIZE,
-                TILE_SIZE,
-                x,
-                y,
-                TILE_SIZE,
-                TILE_SIZE,
-            )
+        let render_conveyor_layer =
+            |context: &CanvasRenderingContext2d, x, y, conv: (Direction, Direction)| {
+                let (sx, sy) = match conv {
+                    (from, to) => {
+                        let mut sy = match to {
+                            Direction::Left => 0.,
+                            Direction::Up => TILE_SIZE,
+                            Direction::Right => 2. * TILE_SIZE,
+                            Direction::Down => 3. * TILE_SIZE,
+                        };
+                        let sx = match from {
+                            Direction::Left => 0.,
+                            Direction::Up => TILE_SIZE,
+                            Direction::Right => 2. * TILE_SIZE,
+                            Direction::Down => 3. * TILE_SIZE,
+                        };
+                        if sx <= sy {
+                            sy -= TILE_SIZE;
+                        }
+                        (sx, sy)
+                    }
+                };
+                context
+                    .draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+                        &self.assets.img_conveyor,
+                        sx,
+                        sy,
+                        TILE_SIZE,
+                        TILE_SIZE,
+                        x,
+                        y,
+                        TILE_SIZE,
+                        TILE_SIZE,
+                    )
+            };
+
+        let render_conveyor = |context: &CanvasRenderingContext2d,
+                               x,
+                               y,
+                               conv: Conveyor|
+         -> Result<(), JsValue> {
+            match conv {
+                Conveyor::One(from, to) => render_conveyor_layer(context, x, y, (from, to))?,
+                Conveyor::Two(first, second) => {
+                    render_conveyor_layer(context, x, y, first)?;
+                    render_conveyor_layer(context, x, y, second)?;
+                }
+                Conveyor::Splitter(dir) | Conveyor::Merger(dir) => {
+                    let sx = match dir {
+                        Direction::Left => 0.,
+                        Direction::Up => TILE_SIZE,
+                        Direction::Right => 2. * TILE_SIZE,
+                        Direction::Down => 3. * TILE_SIZE,
+                    };
+                    let sy = match conv {
+                        Conveyor::Splitter(_) => 3. * TILE_SIZE,
+                        _ => 4. * TILE_SIZE,
+                    };
+                    context
+                        .draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+                            &self.assets.img_conveyor,
+                            sx,
+                            sy,
+                            TILE_SIZE,
+                            TILE_SIZE,
+                            x,
+                            y,
+                            TILE_SIZE,
+                            TILE_SIZE,
+                        )?;
+                }
+                _ => {}
+            };
+            Ok(())
         };
 
         let mut rendered_cells = 0;
@@ -144,9 +208,7 @@ impl AsteroidColonies {
             if cell.power_grid {
                 render_power_grid(context, x, y)?;
             }
-            if cell.conveyor {
-                render_conveyor(context, x, y)?;
-            }
+            render_conveyor(context, x, y, cell.conveyor)?;
             rendered_cells += 1;
             Ok(())
         };
@@ -296,7 +358,7 @@ impl AsteroidColonies {
                         )?;
                 }
                 ConstructionType::PowerGrid => render_power_grid(context, x, y)?,
-                ConstructionType::Conveyor => render_conveyor(context, x, y)?,
+                ConstructionType::Conveyor(conv) => render_conveyor(context, x, y, conv)?,
             }
             let img = if construction.canceling() {
                 &self.assets.img_deconstruction
@@ -320,6 +382,17 @@ impl AsteroidColonies {
             // if let Some((t, pos, max_time)) = task_target {
             //     render_global_task_bar(context, pos, t, max_time);
             // }
+        }
+
+        for (pos, conv) in self
+            .conveyor_staged
+            .iter()
+            .filter(|(pos, _)| !self.conveyor_preview.contains_key(*pos))
+            .chain(self.conveyor_preview.iter())
+        {
+            let x = pos[0] as f64 * TILE_SIZE + offset[0];
+            let y = pos[1] as f64 * TILE_SIZE + offset[1];
+            render_conveyor(context, x, y, *conv)?;
         }
 
         for t in &self.transports {

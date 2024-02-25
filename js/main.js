@@ -11,6 +11,7 @@ import wire from '../images/wire.png';
 import circuit from '../images/circuit.png';
 import power_grid from '../images/power_grid.png';
 import conveyor from '../images/conveyor.png';
+import conveyorItem from '../images/conveyor-item.png';
 import power from '../images/power.png';
 import excavator from '../images/excavator.png';
 import storage from '../images/storage.png';
@@ -71,8 +72,10 @@ const canvas = document.getElementById('canvas');
     game.render(ctx);
     let mousePos = null;
     let moving = null;
+    let buildingConveyor = null;
     let dragStart = null;
     let dragLast = null;
+    const messageOverlayElem = document.getElementById("messageOverlay");
 
     canvas.addEventListener('pointerdown', evt => {
         dragStart = toLogicalCoords(evt.clientX, evt.clientY);
@@ -86,6 +89,17 @@ const canvas = document.getElementById('canvas');
             game.set_cursor(x, y);
             const info = game.get_info(x, y);
             document.getElementById('info').innerHTML = formatInfo(info);
+        }
+        if (buildingConveyor) {
+            const elem = document.getElementById("conveyor");
+            if (elem?.checked) {
+                try {
+                    game.preview_build_conveyor(buildingConveyor[0], buildingConveyor[1], x, y, true);
+                }
+                catch (e) {
+                    console.error(`build_conveyor: ${e}`);
+                }
+            }
         }
         if (dragStart) {
             if (dragLast) {
@@ -117,7 +131,6 @@ const canvas = document.getElementById('canvas');
                 return;
             }
         }
-        const messageOverlayElem = document.getElementById("messageOverlay");
         if (moving) {
             try {
                 game.move_building(moving[0], moving[1], x, y);
@@ -130,22 +143,41 @@ const canvas = document.getElementById('canvas');
             return;
         }
 
-        for (let name of ["excavate", "move", "power", "conveyor", "moveItem", "build", "cancel", "deconstruct", "recipe"]) {
+        if (buildingConveyor) {
+            const elem = document.getElementById("conveyor");
+            if (!elem?.checked) return;
+            try {
+                game.preview_build_conveyor(buildingConveyor[0], buildingConveyor[1], x, y, false);
+                buildingConveyor = [x, y];
+            }
+            catch (e) {
+                console.error(`build_conveyor: ${e}`);
+            }
+            return;
+        }
+
+        for (let name of ["excavate", "move", "power", "conveyor", "splitter", "merger", "moveItem", "build", "cancel", "deconstruct", "recipe"]) {
             const elem = document.getElementById(name);
             if (elem?.checked) {
                 const buildMenuElem = document.getElementById("buildMenu");
                 const recipesElem = document.getElementById("recipes");
                 if (name === "move") {
                     recipesElem.style.display = "none";
-                    try {
-                        messageOverlayElem.innerHTML = "Choose move destination";
-                        messageOverlayElem.style.display = "block";
-                        moving = [x, y];
-                    }
-                    catch (e) {
-                        console.error(e);
-                        messageOverlayElem.style.display = "none";
-                    }
+                    messageOverlayElem.innerHTML = "Choose move destination";
+                    messageOverlayElem.style.display = "block";
+                    moving = [x, y];
+                }
+                else if (name === "conveyor") {
+                    enterConveyorEdit();
+                    buildingConveyor = [x, y];
+                }
+                else if (name === "splitter") {
+                    enterConveyorEdit();
+                    game.build_splitter(x, y);
+                }
+                else if (name === "merger") {
+                    enterConveyorEdit();
+                    game.build_merger(x, y);
                 }
                 else if (name === "build") {
                     recipesElem.style.display = "none";
@@ -219,6 +251,35 @@ const canvas = document.getElementById('canvas');
         }
     })
 
+    function enterConveyorEdit() {
+        const buildMenuElem = document.getElementById("buildMenu");
+        const recipesElem = document.getElementById("recipes");
+        buildMenuElem.style.display = "none";
+        recipesElem.style.display = "none";
+        messageOverlayElem.innerHTML = "Drag to make build plan and click Ok";
+        messageOverlayElem.style.display = "block";
+        const okButton = document.createElement("button");
+        okButton.value = "Ok";
+        okButton.innerHTML = "Ok";
+        okButton.addEventListener('click', _ => {
+            buildingConveyor = null;
+            messageOverlayElem.style.display = "none";
+            game.commit_build_conveyor(false);
+        });
+        const cancelButton = document.createElement("button");
+        cancelButton.value = "Cancel";
+        cancelButton.innerHTML = "Cancel";
+        cancelButton.addEventListener('click', _ => {
+            buildingConveyor = null;
+            messageOverlayElem.style.display = "none";
+            game.cancel_build_conveyor(false);
+        });
+        const buttonContainer = document.createElement("div");
+        buttonContainer.appendChild(okButton);
+        buttonContainer.appendChild(cancelButton);
+        messageOverlayElem.appendChild(buttonContainer);
+    }
+
     let time = 0;
 
     setInterval(() => {
@@ -250,7 +311,7 @@ function itemToIcon(item) {
         case "Wire": return wire;
         case "Circuit": return circuit;
         case "PowerGridComponent": return power_grid;
-        case "ConveyorComponent": return conveyor;
+        case "ConveyorComponent": return conveyorItem;
         case "AssemblerComponent": return assemblerComponent;
     }
 }

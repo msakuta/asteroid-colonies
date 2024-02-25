@@ -1,5 +1,6 @@
 use std::{collections::HashMap, fmt::Display};
 
+use serde::Serialize;
 use wasm_bindgen::JsValue;
 
 use crate::{
@@ -47,7 +48,7 @@ impl Display for Task {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub(crate) enum Direction {
     Left,
     Up,
@@ -56,12 +57,35 @@ pub(crate) enum Direction {
 }
 
 impl Direction {
+    pub(crate) const fn all() -> [Direction; 4] {
+        [Self::Left, Self::Up, Self::Right, Self::Down]
+    }
+
     pub(crate) fn to_vec(&self) -> [i32; 2] {
         match self {
             Self::Left => [-1, 0],
             Self::Up => [0, -1],
             Self::Right => [1, 0],
             Self::Down => [0, 1],
+        }
+    }
+
+    pub(crate) fn from_vec(v: [i32; 2]) -> Option<Self> {
+        Some(match (v[0].signum(), v[1].signum()) {
+            (-1, _) => Self::Left,
+            (1, _) => Self::Right,
+            (0, -1) => Self::Up,
+            (0, 1) => Self::Down,
+            _ => return None,
+        })
+    }
+
+    pub(crate) fn reverse(&self) -> Self {
+        match self {
+            Self::Left => Self::Right,
+            Self::Up => Self::Down,
+            Self::Right => Self::Left,
+            Self::Down => Self::Up,
         }
     }
 }
@@ -134,41 +158,12 @@ impl AsteroidColonies {
         Ok(JsValue::from(true))
     }
 
-    pub(crate) fn conveyor(&mut self, ix: i32, iy: i32) -> Result<JsValue, JsValue> {
-        let cell = &self.cells[ix as usize + iy as usize * WIDTH];
-        if matches!(cell.state, CellState::Solid) {
-            return Err(JsValue::from("Needs excavation before building conveyor"));
-        }
-        if matches!(cell.state, CellState::Space) {
-            return Err(JsValue::from("You cannot build conveyor in space!"));
-        }
-        if cell.conveyor {
-            return Err(JsValue::from("Conveyor is already installed in this cell"));
-        }
-        for dir in [
-            Direction::Left,
-            Direction::Up,
-            Direction::Right,
-            Direction::Down,
-        ] {
-            let dir_vec = dir.to_vec();
-            let src_pos = [ix + dir_vec[0], iy + dir_vec[1]];
-            let src_cell = &self.cells[src_pos[0] as usize + src_pos[1] as usize * WIDTH];
-            if src_cell.conveyor {
-                self.constructions
-                    .push(Construction::new_conveyor([ix, iy]));
-                return Ok(JsValue::from(true));
-            }
-        }
-        Err(JsValue::from("No nearby power grid"))
-    }
-
     pub(crate) fn move_item(&mut self, ix: i32, iy: i32) -> Result<JsValue, JsValue> {
         let cell = &self.cells[ix as usize + iy as usize * WIDTH];
         if matches!(cell.state, CellState::Solid) {
             return Err(JsValue::from("Needs excavation before building conveyor"));
         }
-        if !cell.conveyor {
+        if !cell.conveyor.is_some() {
             return Err(JsValue::from("Conveyor is needed to move items"));
         }
         let Some(_dest) = self

@@ -1,11 +1,12 @@
 use std::{collections::HashMap, sync::OnceLock};
 
 use crate::{
-    building::{pull_inputs, push_outputs, Building, BuildingType, HasInventory},
+    building::{Building, BuildingType},
     crew::{expected_crew_deliveries, Crew},
-    task::{BUILD_CONVEYOR_TIME, BUILD_POWER_GRID_TIME},
+    push_pull::{pull_inputs, push_outputs, HasInventory},
+    task::{Direction, BUILD_CONVEYOR_TIME, BUILD_POWER_GRID_TIME},
     transport::{expected_deliveries, Transport},
-    Inventory, ItemType, Pos, WIDTH,
+    Conveyor, Inventory, ItemType, Pos, WIDTH,
 };
 
 use super::{hash_map, AsteroidColonies};
@@ -16,7 +17,7 @@ use wasm_bindgen::prelude::*;
 #[derive(Serialize, Debug, PartialEq, Eq, Clone, Copy)]
 pub(crate) enum ConstructionType {
     PowerGrid,
-    Conveyor,
+    Conveyor(Conveyor),
     Building(BuildingType),
 }
 
@@ -31,15 +32,19 @@ pub(crate) struct Construction {
 }
 
 impl Construction {
-    pub fn new(item: &'static BuildMenuItem, pos: Pos) -> Self {
+    fn new_ex(type_: ConstructionType, item: &'static BuildMenuItem, pos: Pos) -> Self {
         Self {
-            type_: item.type_,
+            type_,
             pos,
             ingredients: HashMap::new(),
             recipe: &item,
             canceling: false,
             progress: 0.,
         }
+    }
+
+    pub fn new(item: &'static BuildMenuItem, pos: Pos) -> Self {
+        Self::new_ex(item.type_, item, pos)
     }
 
     pub fn new_power_grid(pos: Pos) -> Self {
@@ -52,14 +57,24 @@ impl Construction {
         Self::new(recipe, pos)
     }
 
-    pub fn new_conveyor(pos: Pos) -> Self {
+    pub fn new_conveyor(pos: Pos, conv: Conveyor) -> Self {
         static BUILD: OnceLock<BuildMenuItem> = OnceLock::new();
-        let recipe = &*BUILD.get_or_init(|| BuildMenuItem {
-            type_: ConstructionType::Conveyor,
-            ingredients: hash_map!(ItemType::ConveyorComponent => 1),
-            time: BUILD_CONVEYOR_TIME,
-        });
-        Self::new(recipe, pos)
+        if matches!(conv, Conveyor::Splitter(_) | Conveyor::Merger(_)) {
+            static BUILD_SPLITTER: OnceLock<BuildMenuItem> = OnceLock::new();
+            let recipe = &*BUILD_SPLITTER.get_or_init(|| BuildMenuItem {
+                type_: ConstructionType::Conveyor(Conveyor::One(Direction::Left, Direction::Right)),
+                ingredients: hash_map!(ItemType::ConveyorComponent => 1, ItemType::Circuit => 1, ItemType::Gear => 1),
+                time: BUILD_CONVEYOR_TIME,
+            });
+            Self::new_ex(ConstructionType::Conveyor(conv), recipe, pos)
+        } else {
+            let recipe = &*BUILD.get_or_init(|| BuildMenuItem {
+                type_: ConstructionType::Conveyor(Conveyor::One(Direction::Left, Direction::Right)),
+                ingredients: hash_map!(ItemType::ConveyorComponent => 1),
+                time: BUILD_CONVEYOR_TIME,
+            });
+            Self::new_ex(ConstructionType::Conveyor(conv), recipe, pos)
+        }
     }
 
     pub fn new_deconstruct(
@@ -115,7 +130,11 @@ impl Construction {
 
     pub fn ingredients_satisfied(&self) -> bool {
         self.recipe.ingredients.iter().all(|(ty, recipe_amount)| {
-            crate::console_log!("ing {:?} => {:?}", ty, self.ingredients.get(ty));
+            crate::console_log!(
+                "ingredients_satisfied {:?} => {:?}",
+                ty,
+                self.ingredients.get(ty)
+            );
             *recipe_amount <= self.ingredients.get(ty).copied().unwrap_or(0)
         })
     }
@@ -163,6 +182,10 @@ impl Construction {
 impl HasInventory for Construction {
     fn pos(&self) -> Pos {
         self.pos
+    }
+
+    fn size(&self) -> [usize; 2] {
+        self.size()
     }
 
     fn inventory(&mut self) -> &mut HashMap<ItemType, usize> {
@@ -234,7 +257,7 @@ impl AsteroidColonies {
                     to_delete.push(i);
                 } else if construction.progress <= 0. {
                     push_outputs(
-                        &self.cells,
+                        &&self.cells[..],
                         &mut self.transports,
                         construction,
                         &mut self.buildings,
@@ -246,9 +269,10 @@ impl AsteroidColonies {
             } else {
                 pull_inputs(
                     &construction.recipe.ingredients,
-                    &self.cells,
+                    &&self.cells[..],
                     &mut self.transports,
                     construction.pos,
+                    construction.size(),
                     &mut construction.ingredients,
                     &mut self.buildings,
                     &mut [],
@@ -266,8 +290,8 @@ impl AsteroidColonies {
                     ConstructionType::PowerGrid => {
                         self.cells[pos[0] as usize + pos[1] as usize * WIDTH].power_grid = true;
                     }
-                    ConstructionType::Conveyor => {
-                        self.cells[pos[0] as usize + pos[1] as usize * WIDTH].conveyor = true;
+                    ConstructionType::Conveyor(conv) => {
+                        self.cells[pos[0] as usize + pos[1] as usize * WIDTH].conveyor = conv;
                     }
                 }
                 to_delete.push(i);
