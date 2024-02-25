@@ -381,6 +381,7 @@ impl AsteroidColoniesGame {
         self.crews = ser_data.crews;
         self.global_tasks = ser_data.global_tasks;
         self.transports = ser_data.transports;
+        self.constructions = ser_data.constructions;
         if let Some(ref f) = self.calculate_back_image {
             f(&mut self.cells);
         }
