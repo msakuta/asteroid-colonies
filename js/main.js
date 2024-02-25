@@ -26,6 +26,7 @@ import deconstruction from '../images/deconstruction.png';
 const canvas = document.getElementById('canvas');
 const serverSync = SERVER_SYNC;
 const baseUrl = BASE_URL;
+const syncPeriod = SYNC_PERIOD;
 
 (async () => {
     const wasm = await import("../wasm/Cargo.toml");
@@ -310,14 +311,21 @@ const baseUrl = BASE_URL;
 
     let time = 0;
 
-    setInterval(() => {
+    setInterval(async () => {
+        // Increment time before any await. Otherwise, this async function runs 2-4 times every tick for some reason.
+        time++;
+        if (serverSync && time % syncPeriod === 0) {
+            console.log(`serverSync period: ${time}`);
+            const dataRes = await fetch(`${baseUrl}/api/load`);
+            const dataText = await dataRes.text();
+            game.deserialize(dataText);
+        }
         game.tick();
         game.render(ctx);
         if (mousePos !== null) {
             const info = game.get_info(mousePos[0], mousePos[1]);
             document.getElementById('info').innerHTML = formatInfo(info);
         }
-        time++;
     }, 100);
 })()
 

@@ -6,6 +6,7 @@ const production = !process.env.ROLLUP_WATCH;
 const deploy = !!process.env.DEPLOY;
 const BASE_URL = process.env.BASE_URL ? `'${process.env.BASE_URL}'` : `'http://localhost:3883'`;
 const SERVER_SYNC = process.env.SERVER_SYNC ?? `false`;
+const SYNC_PERIOD = process.env.SYNC_PERIOD ?? `100`;
 
 export default {
     input: "./js/main.js",
@@ -16,6 +17,7 @@ export default {
         replace({
             BASE_URL,
             SERVER_SYNC,
+            SYNC_PERIOD,
             preventAssignment: true,
         }),
         rust({

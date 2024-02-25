@@ -57,7 +57,11 @@ struct Args {
     #[clap(long, default_value = "0.1", help = "Tick frequency in Hz")]
     tick_freq: f64,
     #[cfg(not(debug_assertions))]
-    #[clap(long, default_value = "/usr/share/asteroid-colonies/js", help = "JavaScript and Wasm path")]
+    #[clap(
+        long,
+        default_value = "/usr/share/asteroid-colonies/js",
+        help = "JavaScript and Wasm path"
+    )]
     js_path: PathBuf,
     #[cfg(debug_assertions)]
     #[clap(long, default_value = ".", help = "JavaScript and Wasm path")]
