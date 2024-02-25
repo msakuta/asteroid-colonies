@@ -24,6 +24,8 @@ import construction from '../images/construction.png';
 import deconstruction from '../images/deconstruction.png';
 
 const canvas = document.getElementById('canvas');
+const port = 3883;
+const baseUrl = `http://localhost:${port}`;
 
 (async () => {
     const wasm = await import("../wasm/Cargo.toml");
@@ -58,8 +60,6 @@ const canvas = document.getElementById('canvas');
     });
     const loadedImages = await Promise.all(loadImages);
 
-    const port = 3883;
-    const baseUrl = `http://localhost:${port}`;
     const dataRes = await fetch(`${baseUrl}/api/load`);
     const dataText = await dataRes.text();
 
@@ -141,17 +141,7 @@ const canvas = document.getElementById('canvas');
             try {
                 const from = game.transform_coords(moving[0], moving[1]);
                 const to = game.transform_coords(x, y);
-                (async () => {
-                    const res = await fetch(`${baseUrl}/api/move`, {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                        },
-                        body: JSON.stringify({from: [from[0], from[1]], to: [to[0], to[1]]}),
-                    });
-                    const text = await res.text();
-                    console.log(`excavate response: ${text}`);
-                })();
+                requestPost("move", {from: [from[0], from[1]], to: [to[0], to[1]]});
                 game.move_building(moving[0], moving[1], x, y);
             }
             catch (e) {
@@ -214,18 +204,8 @@ const canvas = document.getElementById('canvas');
                             const buildingType = buildItem.type_;
                             buildItemElem.innerHTML = formatBuildItem(buildItem);
                             buildItemElem.addEventListener("pointerup", _ => {
-                                (async () => {
-                                    const [ix, iy] = game.transform_coords(x, y);
-                                    const res = await fetch(`${baseUrl}/api/build`, {
-                                        method: "POST",
-                                        headers: {
-                                            "Content-Type": "application/json",
-                                        },
-                                        body: JSON.stringify({pos: [ix, iy], type: buildingType.Building}),
-                                    });
-                                    const text = await res.text();
-                                    console.log(`build response: ${text}`);
-                                })();
+                                const [ix, iy] = game.transform_coords(x, y);
+                                requestPost("build", {pos: [ix, iy], type: {Building: buildingType.Building}});
                                 game.build(x, y, buildingType.Building);
                                 buildMenuElem.style.display = "none";
                             })
@@ -275,17 +255,11 @@ const canvas = document.getElementById('canvas');
                     recipesElem.style.display = "none";
                     if (name === "excavate") {
                         const [ix, iy] = game.transform_coords(x, y);
-                        (async () => {
-                            const res = await fetch(`${baseUrl}/api/excavate`, {
-                                method: "POST",
-                                headers: {
-                                    "Content-Type": "application/json",
-                                },
-                                body: JSON.stringify({x: ix, y: iy}),
-                            });
-                            const text = await res.text();
-                            console.log(`excavate response: ${text}`);
-                        })();
+                        requestPost("excavate", {x: ix, y: iy});
+                    }
+                    else if (name === "power") {
+                        const [ix, iy] = game.transform_coords(x, y);
+                        requestPost("build", {pos: [ix, iy], type: "PowerGrid"});
                     }
                     if (game.command(name, x, y)) {
                         requestAnimationFrame(() => game.render(ctx));
@@ -310,17 +284,7 @@ const canvas = document.getElementById('canvas');
             buildingConveyor = null;
             messageOverlayElem.style.display = "none";
             const buildPlan = game.commit_build_conveyor(false);
-            (async () => {
-                const res = await fetch(`${baseUrl}/api/build_plan`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({buildPlan}),
-                });
-                const text = await res.text();
-                console.log(`build response: ${text}`);
-            })();
+            requestPost("build_plan", {buildPlan});
         });
         const cancelButton = document.createElement("button");
         cancelButton.value = "Cancel";
@@ -348,6 +312,20 @@ const canvas = document.getElementById('canvas');
         time++;
     }, 100);
 })()
+
+function requestPost(api, payload) {
+    (async () => {
+        const res = await fetch(`${baseUrl}/api/${api}`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+        });
+        const text = await res.text();
+        console.log(`build response: ${text}`);
+    })();
+}
 
 async function loadImage(url) {
     return new Promise((r) => {

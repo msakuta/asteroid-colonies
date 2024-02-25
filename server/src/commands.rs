@@ -1,6 +1,10 @@
 use ::actix_web::{dev::ServiceFactory, web, App, HttpResponse};
 use actix_web::dev::ServiceRequest;
-use asteroid_colonies_logic::{building::BuildingType, construction::Construction, Pos};
+use asteroid_colonies_logic::{
+    building::BuildingType,
+    construction::{Construction, ConstructionType},
+    Pos,
+};
 use serde::Deserialize;
 
 use crate::ServerData;
@@ -48,7 +52,7 @@ async fn excavate(
 struct BuildPayload {
     pos: [i32; 2],
     #[serde(rename = "type")]
-    ty: BuildingType,
+    ty: ConstructionType,
 }
 
 async fn build(
@@ -57,8 +61,21 @@ async fn build(
 ) -> actix_web::Result<HttpResponse> {
     println!("build {:?} {:?}", payload.pos, payload.ty);
     let mut game = data.game.write().unwrap();
-    game.build(payload.pos[0], payload.pos[1], payload.ty)
-        .map_err(|e| actix_web::error::ErrorInternalServerError(e.to_string()))?;
+    match payload.ty {
+        ConstructionType::Building(ty) => game
+            .build(payload.pos[0], payload.pos[1], ty)
+            .map_err(|e| actix_web::error::ErrorInternalServerError(e.to_string()))?,
+        ConstructionType::PowerGrid => {
+            let _ = game
+                .build_power_grid(payload.pos[0], payload.pos[1])
+                .map_err(|e| actix_web::error::ErrorInternalServerError(e.to_string()))?;
+        }
+        _ => {
+            return Err(actix_web::error::ErrorBadRequest(
+                "Invalid build type",
+            ))
+        }
+    };
     Ok(HttpResponse::Ok().content_type("text/plain").body("ok"))
 }
 
