@@ -10,11 +10,12 @@ use crate::{
     push_pull::{pull_inputs, push_outputs},
     task::{GlobalTask, Task, RAW_ORE_SMELT_TIME},
     transport::find_multipath,
-    AsteroidColonies, Cell, CellState, Crew, ItemType, Transport, WIDTH,
+    AsteroidColoniesGame, Cell, CellState, Crew, ItemType, Transport, WIDTH,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub(crate) enum BuildingType {
+#[non_exhaustive]
+pub enum BuildingType {
     Power,
     Excavator,
     Storage,
@@ -89,13 +90,13 @@ impl Display for BuildingType {
 }
 
 #[derive(Clone, Serialize)]
-pub(crate) struct Recipe {
+pub struct Recipe {
     pub inputs: HashMap<ItemType, usize>,
     pub outputs: HashMap<ItemType, usize>,
     pub time: f64,
 }
 
-pub(crate) struct Building {
+pub struct Building {
     pub pos: [i32; 2],
     pub type_: BuildingType,
     pub task: Task,
@@ -354,7 +355,7 @@ impl Building {
     }
 }
 
-impl AsteroidColonies {
+impl AsteroidColoniesGame {
     pub(super) fn process_buildings(&mut self) {
         let power_demand = self
             .buildings

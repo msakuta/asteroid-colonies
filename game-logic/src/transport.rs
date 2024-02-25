@@ -3,11 +3,11 @@ use std::{
     hash::Hash,
 };
 
-use crate::{task::Direction, AsteroidColonies, Conveyor, ItemType, Pos, WIDTH};
+use crate::{task::Direction, AsteroidColoniesGame, Conveyor, ItemType, Pos, WIDTH};
 
 /// Transporting item
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) struct Transport {
+pub struct Transport {
     pub src: Pos,
     pub dest: Pos,
     pub item: ItemType,
@@ -15,7 +15,7 @@ pub(crate) struct Transport {
     pub path: Vec<Pos>,
 }
 
-impl AsteroidColonies {
+impl AsteroidColoniesGame {
     pub(super) fn process_transports(&mut self) {
         let intersects = |pos: Pos, size: [usize; 2], [ix, iy]: Pos| {
             pos[0] <= ix

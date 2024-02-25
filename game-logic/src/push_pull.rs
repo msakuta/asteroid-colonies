@@ -7,8 +7,9 @@ use std::collections::{HashMap, HashSet};
 use crate::{
     building::Building,
     conveyor::Conveyor,
+    task::Direction,
     transport::{expected_deliveries, find_multipath_should_expand, CPos, LevelTarget, Transport},
-    Cell, Direction, ItemType, Pos, WIDTH,
+    Cell, ItemType, Pos, WIDTH,
 };
 
 /// An abstraction of tile map where you can pick a tile from a position.

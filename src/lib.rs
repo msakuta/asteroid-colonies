@@ -1,13 +1,7 @@
 mod assets;
-mod building;
-mod construction;
 mod conveyor;
-mod crew;
 mod info;
-mod push_pull;
 mod render;
-mod task;
-mod transport;
 mod utils;
 
 use std::collections::HashMap;
@@ -16,16 +10,12 @@ use serde::Serialize;
 use wasm_bindgen::prelude::*;
 use web_sys::js_sys;
 
-use crate::{
-    assets::Assets,
+use asteroid_colonies_logic::{
     building::{Building, BuildingType, Recipe},
-    construction::{get_build_menu, Construction, ConstructionType},
-    conveyor::Conveyor,
-    crew::Crew,
-    render::{calculate_back_image, TILE_SIZE},
-    task::{Direction, GlobalTask, Task, MOVE_TIME},
-    transport::{find_path, Transport},
+    get_build_menu, AsteroidColoniesGame, Pos, HEIGHT, TILE_SIZE, WIDTH,
 };
+
+use crate::{assets::Assets, render::calculate_back_image};
 
 #[macro_export]
 macro_rules! hash_map {
@@ -64,124 +54,6 @@ extern "C" {
     fn alert(s: &str);
 }
 
-#[derive(Clone, Copy, Debug)]
-enum CellState {
-    Solid,
-    Empty,
-    Space,
-}
-
-#[derive(Clone, Copy, Debug)]
-struct Cell {
-    state: CellState,
-    power_grid: bool,
-    conveyor: Conveyor,
-    /// The index into the background image for quick rendering
-    image_lt: u8,
-    image_lb: u8,
-    image_rb: u8,
-    image_rt: u8,
-}
-
-impl Cell {
-    const fn new() -> Self {
-        Self {
-            state: CellState::Solid,
-            power_grid: false,
-            conveyor: Conveyor::None,
-            image_lt: 0,
-            image_lb: 0,
-            image_rb: 0,
-            image_rt: 0,
-        }
-    }
-
-    #[allow(dead_code)]
-    const fn new_with_conveyor(conveyor: Conveyor) -> Self {
-        Self {
-            state: CellState::Empty,
-            power_grid: false,
-            conveyor,
-            image_lt: 0,
-            image_lb: 0,
-            image_rb: 0,
-            image_rt: 0,
-        }
-    }
-
-    const fn building() -> Self {
-        Self {
-            state: CellState::Empty,
-            power_grid: true,
-            conveyor: Conveyor::None,
-            image_lt: 8,
-            image_lb: 8,
-            image_rb: 8,
-            image_rt: 8,
-        }
-    }
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize)]
-enum ItemType {
-    /// Freshly dug soil from asteroid body. Hardly useful unless refined
-    RawOre,
-    IronIngot,
-    CopperIngot,
-    Cilicate,
-    Gear,
-    Wire,
-    Circuit,
-    PowerGridComponent,
-    ConveyorComponent,
-    AssemblerComponent,
-}
-
-const WIDTH: usize = 50;
-const HEIGHT: usize = 50;
-
-static RECIPES: std::sync::OnceLock<Vec<Recipe>> = std::sync::OnceLock::new();
-fn recipes() -> &'static [Recipe] {
-    RECIPES.get_or_init(|| {
-        vec![
-            Recipe {
-                inputs: hash_map!(ItemType::Wire => 1, ItemType::IronIngot => 1),
-                outputs: hash_map!(ItemType::PowerGridComponent => 1),
-                time: 100.,
-            },
-            Recipe {
-                inputs: hash_map!(ItemType::IronIngot => 1),
-                outputs: hash_map!(ItemType::ConveyorComponent => 1),
-                time: 120.,
-            },
-            Recipe {
-                inputs: hash_map!(ItemType::IronIngot => 1),
-                outputs: hash_map!(ItemType::Gear => 2),
-                time: 70.,
-            },
-            Recipe {
-                inputs: hash_map!(ItemType::CopperIngot => 1),
-                outputs: hash_map!(ItemType::Wire => 2),
-                time: 50.,
-            },
-            Recipe {
-                inputs: hash_map!(ItemType::Wire => 1, ItemType::IronIngot => 1),
-                outputs: hash_map!(ItemType::Circuit => 1),
-                time: 120.,
-            },
-            Recipe {
-                inputs: hash_map!(ItemType::Gear => 2, ItemType::Circuit => 2),
-                outputs: hash_map!(ItemType::AssemblerComponent => 1),
-                time: 200.,
-            },
-        ]
-    })
-}
-
-type Inventory = HashMap<ItemType, usize>;
-
-type Pos = [i32; 2];
-
 struct Viewport {
     /// View offset in pixels
     offset: [f64; 2],
@@ -191,21 +63,9 @@ struct Viewport {
 
 #[wasm_bindgen]
 pub struct AsteroidColonies {
+    game: AsteroidColoniesGame,
     cursor: Option<Pos>,
-    cells: Vec<Cell>,
-    buildings: Vec<Building>,
-    crews: Vec<Crew>,
     assets: Assets,
-    global_tasks: Vec<GlobalTask>,
-    /// Used power for the last tick, in kW
-    used_power: usize,
-    global_time: usize,
-    transports: Vec<Transport>,
-    constructions: Vec<Construction>,
-    /// Ghost conveyors staged for commit. After committing, they will be queued to construction plans
-    conveyor_staged: HashMap<Pos, Conveyor>,
-    /// Preview of ghost conveyors, just for visualization.
-    conveyor_preview: HashMap<Pos, Conveyor>,
     viewport: Viewport,
 }
 
@@ -217,99 +77,11 @@ impl AsteroidColonies {
         vp_width: f64,
         vp_height: f64,
     ) -> Result<AsteroidColonies, JsValue> {
-        let mut cells = vec![Cell::new(); WIDTH * HEIGHT];
-        let r2_thresh = (WIDTH as f64 * 3. / 8.).powi(2);
-        for y in 0..HEIGHT {
-            for x in 0..WIDTH {
-                let r2 = ((x as f64 - WIDTH as f64 / 2.) as f64).powi(2)
-                    + ((y as f64 - HEIGHT as f64 / 2.) as f64).powi(2);
-                if r2_thresh < r2 {
-                    cells[x + y * WIDTH].state = CellState::Space;
-                }
-            }
-        }
-        let start_ofs = |pos: [i32; 2]| [pos[0] + 8, pos[1] + 20];
-        let buildings = vec![
-            Building::new(start_ofs([1, 7]), BuildingType::CrewCabin),
-            Building::new(start_ofs([3, 4]), BuildingType::Power),
-            Building::new(start_ofs([4, 4]), BuildingType::Excavator),
-            Building::new(start_ofs([5, 4]), BuildingType::Storage),
-            Building::new_inventory(
-                start_ofs([6, 3]),
-                BuildingType::MediumStorage,
-                hash_map!(ItemType::ConveyorComponent => 20, ItemType::PowerGridComponent => 2),
-            ),
-            Building::new(start_ofs([1, 10]), BuildingType::Assembler),
-            Building::new(start_ofs([1, 4]), BuildingType::Furnace),
-        ];
-        for building in &buildings {
-            let pos = building.pos;
-            let size = building.type_.size();
-            for iy in 0..size[1] {
-                let y = pos[1] as usize + iy;
-                for ix in 0..size[0] {
-                    let x = pos[0] as usize + ix;
-                    cells[x + y * WIDTH] = Cell::building();
-                }
-            }
-        }
-        let convs = [
-            [3, 5],
-            [3, 6],
-            [3, 7],
-            [3, 8],
-            [3, 9],
-            [3, 10],
-            [4, 10],
-            [5, 10],
-            [6, 10],
-            [6, 9],
-            [7, 9],
-            [7, 8],
-            [7, 7],
-            [6, 7],
-            [6, 6],
-            [6, 5],
-            [5, 5],
-            [4, 5],
-        ];
-        for ((pos0, pos1), pos2) in convs
-            .iter()
-            .zip(convs.iter().skip(1).chain(std::iter::once(&convs[0])))
-            .zip(convs.iter().skip(2).chain(convs.iter().take(2)))
-        {
-            let [x, y] = start_ofs(*pos1);
-            let [x, y] = [x as usize, y as usize];
-            cells[x + y * WIDTH].state = CellState::Empty;
-            let conv = Conveyor::One(
-                Direction::from_vec([pos0[0] - pos1[0], pos0[1] - pos1[1]]).unwrap(),
-                Direction::from_vec([pos2[0] - pos1[0], pos2[1] - pos1[1]]).unwrap(),
-            );
-            console_log!("conv {:?}: {:?}", pos1, conv);
-            cells[x + y * WIDTH].conveyor = conv;
-            cells[x + y * WIDTH].power_grid = true;
-        }
-        for iy in 4..10 {
-            for ix in 2..7 {
-                let [x, y] = start_ofs([ix, iy]);
-                let [x, y] = [x as usize, y as usize];
-                cells[x + y * WIDTH].state = CellState::Empty;
-            }
-        }
-        calculate_back_image(&mut cells);
+        // calculate_back_image(&mut cells);
         Ok(Self {
+            game: AsteroidColoniesGame::new()?,
             cursor: None,
-            cells,
-            buildings,
-            crews: vec![],
             assets: Assets::new(image_assets)?,
-            global_tasks: vec![],
-            used_power: 0,
-            global_time: 0,
-            transports: vec![],
-            constructions: vec![],
-            conveyor_staged: HashMap::new(),
-            conveyor_preview: HashMap::new(),
             viewport: Viewport {
                 offset: [0.; 2],
                 size: [vp_width, vp_height],
@@ -333,12 +105,13 @@ impl AsteroidColonies {
         if ix < 0 || WIDTH as i32 <= ix || iy < 0 || HEIGHT as i32 <= iy {
             return Err(JsValue::from("Point outside cell"));
         }
-        match com {
-            "excavate" => self.excavate(ix, iy),
-            "power" => self.build_power_grid(ix, iy),
-            "moveItem" => self.move_item(ix, iy),
-            _ => Err(JsValue::from(format!("Unknown command: {}", com))),
-        }
+        let res = match com {
+            "excavate" => self.game.excavate(ix, iy),
+            "power" => self.game.build_power_grid(ix, iy),
+            "moveItem" => self.game.move_item(ix, iy),
+            _ => Err(format!("Unknown command: {}", com)),
+        };
+        res.map(|r| JsValue::from(r)).map_err(|e| JsValue::from(e))
     }
 
     pub fn move_building(
@@ -352,159 +125,38 @@ impl AsteroidColonies {
         let iy = (src_y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
         let dx = (dst_x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
         let dy = (dst_y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
-        let Some(building) = self.buildings.iter_mut().find(|b| b.pos == [ix, iy]) else {
-            return Err(JsValue::from("Building does not exist at that position"));
-        };
-        if !building.type_.is_mobile() {
-            return Err(JsValue::from("Building at that position is not mobile"));
-        }
-        if !matches!(building.task, Task::None) {
-            return Err(JsValue::from(
-                "The building is busy; wait for the building to finish the current task",
-            ));
-        }
-        let cells = &self.cells;
-        let buildings = &self.buildings;
-
-        let intersects = |pos: [i32; 2]| {
-            buildings.iter().any(|b| {
-                let size = b.type_.size();
-                b.pos[0] <= pos[0]
-                    && pos[0] < size[0] as i32 + b.pos[0]
-                    && b.pos[1] <= pos[1]
-                    && pos[1] < size[1] as i32 + b.pos[1]
-            })
-        };
-
-        let mut path = find_path([ix, iy], [dx, dy], |pos| {
-            let cell = &cells[pos[0] as usize + pos[1] as usize * WIDTH];
-            !intersects(pos) && matches!(cell.state, CellState::Empty) && cell.power_grid
-        })
-        .ok_or_else(|| JsValue::from("Failed to find the path"))?;
-
-        // Re-borrow to avoid borrow checker
-        let Some(building) = self.buildings.iter_mut().find(|b| b.pos == [ix, iy]) else {
-            return Err(JsValue::from("Building does not exist at that position"));
-        };
-        path.pop();
-        building.task = Task::Move(MOVE_TIME, path);
-        Ok(())
+        self.game
+            .move_building(ix, iy, dx, dy)
+            .map_err(|e| JsValue::from(e))
     }
 
     pub fn build(&mut self, x: f64, y: f64, type_: JsValue) -> Result<(), JsValue> {
         let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
         let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
-        if ix < 0 || WIDTH as i32 <= ix || iy < 0 || HEIGHT as i32 <= iy {
-            return Err(JsValue::from("Point outside cell"));
-        }
-
         let type_: BuildingType = serde_wasm_bindgen::from_value(type_)?;
-        let size = type_.size();
-        for jy in iy..iy + size[1] as i32 {
-            for jx in ix..ix + size[0] as i32 {
-                let cell = &self.cells[jx as usize + jy as usize * WIDTH];
-                if matches!(cell.state, CellState::Solid) {
-                    return Err(JsValue::from("Needs excavation before building"));
-                }
-                if matches!(cell.state, CellState::Space) {
-                    return Err(JsValue::from("You cannot build in space!"));
-                }
-            }
-        }
-
-        let cell = &self.cells[ix as usize + iy as usize * WIDTH];
-        if !cell.power_grid {
-            return Err(JsValue::from("Power grid is required to build"));
-        }
-
-        let intersects = |pos: Pos, o_size: [usize; 2]| {
-            pos[0] < ix + size[0] as i32
-                && ix < o_size[0] as i32 + pos[0]
-                && pos[1] < iy + size[1] as i32
-                && iy < o_size[1] as i32 + pos[1]
-        };
-
-        if self
-            .buildings
-            .iter()
-            .any(|b| intersects(b.pos, b.type_.size()))
-        {
-            return Err(JsValue::from(
-                "The destination is already occupied by a building",
-            ));
-        }
-
-        if self
-            .constructions
-            .iter()
-            .any(|c| intersects(c.pos, c.size()))
-        {
-            return Err(JsValue::from(
-                "The destination is already occupied by a construction plan",
-            ));
-        }
-
-        if let Some(build) = get_build_menu()
-            .iter()
-            .find(|it| it.type_ == ConstructionType::Building(type_))
-        {
-            self.constructions.push(Construction::new(build, [ix, iy]));
-            // self.build_building(ix, iy, type_)?;
-        }
-        Ok(())
+        self.game.build(ix, iy, type_).map_err(|e| JsValue::from(e))
     }
 
     pub fn cancel_build(&mut self, x: f64, y: f64) {
         let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
         let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
-
-        if let Some(c) = self.constructions.iter_mut().find(|c| c.pos == [ix, iy]) {
-            c.toggle_cancel();
-        }
+        self.game.cancel_build(ix, iy)
     }
 
     /// Puts a task to deconstruct a building. It is different from `cancel_build` in that it destroys already built ones.
     pub fn deconstruct(&mut self, x: f64, y: f64) -> Result<(), JsValue> {
         let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
         let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
-
-        let (i, b) = self
-            .buildings
-            .iter()
-            .enumerate()
-            .find(|(_, c)| c.pos == [ix, iy])
-            .ok_or_else(|| JsValue::from("Building not found at given position"))?;
-        let decon = Construction::new_deconstruct(b.type_, [ix, iy], &b.inventory)
-            .ok_or_else(|| JsValue::from("No build recipe was found to deconstruct"))?;
-
-        self.constructions.push(decon);
-        self.buildings.remove(i);
-
-        Ok(())
+        self.game.deconstruct(ix, iy).map_err(|e| JsValue::from(e))
     }
 
     pub fn get_recipes(&self, x: f64, y: f64) -> Result<Vec<JsValue>, JsValue> {
         let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
         let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
-        if ix < 0 || WIDTH as i32 <= ix || iy < 0 || HEIGHT as i32 <= iy {
-            return Err(JsValue::from("Point outside cell"));
-        }
-        let intersects = |b: &Building| {
-            let size = b.type_.size();
-            b.pos[0] <= ix
-                && ix < size[0] as i32 + b.pos[0]
-                && b.pos[1] <= iy
-                && iy < size[1] as i32 + b.pos[1]
-        };
+        let recipes = self.game.get_recipes(ix, iy).map_err(JsValue::from)?;
 
-        let Some(assembler) = self.buildings.iter().find(|b| intersects(*b)) else {
-            return Err(JsValue::from("The building does not exist at the target"));
-        };
-        if !matches!(assembler.type_, BuildingType::Assembler) {
-            return Err(JsValue::from("The building is not an assembler"));
-        }
-        recipes()
-            .iter()
+        recipes
+            .into_iter()
             .map(|recipe| serde_wasm_bindgen::to_value(recipe))
             .collect::<Result<_, _>>()
             .map_err(JsValue::from)
@@ -513,33 +165,7 @@ impl AsteroidColonies {
     pub fn set_recipe(&mut self, x: f64, y: f64, name: &str) -> Result<(), JsValue> {
         let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
         let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
-        if ix < 0 || WIDTH as i32 <= ix || iy < 0 || HEIGHT as i32 <= iy {
-            return Err(JsValue::from("Point outside cell"));
-        }
-        let intersects = |b: &Building| {
-            let size = b.type_.size();
-            b.pos[0] <= ix
-                && ix < size[0] as i32 + b.pos[0]
-                && b.pos[1] <= iy
-                && iy < size[1] as i32 + b.pos[1]
-        };
-
-        let Some(assembler) = self.buildings.iter().find(|b| intersects(*b)) else {
-            return Err(JsValue::from("The building does not exist at the target"));
-        };
-        if !matches!(assembler.type_, BuildingType::Assembler) {
-            return Err(JsValue::from("The building is not an assembler"));
-        }
-        for recipe in recipes() {
-            let Some((key, _)) = recipe.outputs.iter().next() else {
-                continue;
-            };
-            if format!("{:?}", key) == name {
-                self.set_building_recipe(ix, iy, recipe)?;
-                break;
-            }
-        }
-        Ok(())
+        self.game.set_recipe(ix, iy, name).map_err(JsValue::from)
     }
 
     pub fn pan(&mut self, x: f64, y: f64) {
@@ -548,14 +174,13 @@ impl AsteroidColonies {
     }
 
     pub fn tick(&mut self) -> Result<(), JsValue> {
-        self.process_global_tasks();
-        self.process_transports();
-        self.process_constructions();
-        self.process_buildings();
-        self.process_crews();
+        self.game.tick().map_err(JsValue::from)
+    }
 
-        self.global_time += 1;
-
-        Ok(())
+    pub fn get_build_menu(&self) -> Result<Vec<JsValue>, JsValue> {
+        get_build_menu()
+            .iter()
+            .map(|s| serde_wasm_bindgen::to_value(&s).map_err(JsValue::from))
+            .collect()
     }
 }

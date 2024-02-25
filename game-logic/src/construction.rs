@@ -9,20 +9,19 @@ use crate::{
     Conveyor, Inventory, ItemType, Pos, WIDTH,
 };
 
-use super::{hash_map, AsteroidColonies};
+use super::{hash_map, AsteroidColoniesGame};
 
 use serde::Serialize;
-use wasm_bindgen::prelude::*;
 
 #[derive(Serialize, Debug, PartialEq, Eq, Clone, Copy)]
-pub(crate) enum ConstructionType {
+pub enum ConstructionType {
     PowerGrid,
     Conveyor(Conveyor),
     Building(BuildingType),
 }
 
 /// A planned location for a construction. It can gather ingredients on site and start building.
-pub(crate) struct Construction {
+pub struct Construction {
     type_: ConstructionType,
     pub pos: Pos,
     pub ingredients: HashMap<ItemType, usize>,
@@ -194,13 +193,13 @@ impl HasInventory for Construction {
 }
 
 #[derive(Serialize, Debug)]
-pub(crate) struct BuildMenuItem {
+pub struct BuildMenuItem {
     pub type_: ConstructionType,
     pub ingredients: HashMap<ItemType, usize>,
     pub time: f64,
 }
 
-pub(crate) fn get_build_menu() -> &'static [BuildMenuItem] {
+pub fn get_build_menu() -> &'static [BuildMenuItem] {
     static BUILD_MENU: OnceLock<Vec<BuildMenuItem>> = OnceLock::new();
     &*BUILD_MENU.get_or_init(|| {
         vec![
@@ -238,17 +237,7 @@ pub(crate) fn get_build_menu() -> &'static [BuildMenuItem] {
     })
 }
 
-#[wasm_bindgen]
-impl AsteroidColonies {
-    pub fn get_build_menu(&self) -> Result<Vec<JsValue>, JsValue> {
-        get_build_menu()
-            .iter()
-            .map(|s| serde_wasm_bindgen::to_value(&s).map_err(JsValue::from))
-            .collect()
-    }
-}
-
-impl AsteroidColonies {
+impl AsteroidColoniesGame {
     pub(super) fn process_constructions(&mut self) {
         let mut to_delete = vec![];
         for (i, construction) in self.constructions.iter_mut().enumerate() {

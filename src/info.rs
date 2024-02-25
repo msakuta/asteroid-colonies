@@ -1,13 +1,11 @@
 use std::collections::HashMap;
 
-use crate::{
+use crate::{render::TILE_SIZE, AsteroidColonies};
+use asteroid_colonies_logic::{
     building::{BuildingType, Recipe},
     construction::{BuildMenuItem, ConstructionType},
-    render::TILE_SIZE,
     ItemType, Pos,
 };
-
-use super::AsteroidColonies;
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
@@ -49,8 +47,8 @@ impl AsteroidColonies {
                 && iy < size[1] as i32 + pos[1]
         };
         let bldg_result = self
-            .buildings
-            .iter()
+            .game
+            .iter_building()
             .find(|b| intersects(b.pos, b.type_.size()))
             .map(|building| {
                 let recipe = building.recipe.cloned();
@@ -63,7 +61,7 @@ impl AsteroidColonies {
                     max_crews: building.type_.max_crews(),
                 }
             });
-        let construction = self.constructions.iter().find_map(|c| {
+        let construction = self.game.iter_construction().find_map(|c| {
             if !intersects(c.pos, c.size()) {
                 return None;
             }
@@ -75,13 +73,13 @@ impl AsteroidColonies {
         });
         // We want to count power generation and consumption separately
         let power_capacity = self
-            .buildings
-            .iter()
+            .game
+            .iter_building()
             .map(|b| b.power().max(0))
             .sum::<isize>() as usize;
         let power_demand = self
-            .buildings
-            .iter()
+            .game
+            .iter_building()
             .map(|b| b.power().min(0))
             .sum::<isize>()
             .abs() as usize;
@@ -91,7 +89,7 @@ impl AsteroidColonies {
             construction,
             power_demand,
             power_capacity,
-            transports: self.transports.len(),
+            transports: self.game.num_transports(),
         };
 
         serde_wasm_bindgen::to_value(&result).map_err(JsValue::from)
