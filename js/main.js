@@ -233,6 +233,8 @@ const baseUrl = `http://localhost:${port}`;
                             const recipeName = recipe.outputs.keys().next().value;
                             recipeElem.innerHTML = formatRecipe(recipe);
                             recipeElem.addEventListener("pointerup", _ => {
+                                const [ix, iy] = game.transform_coords(x, y);
+                                requestPost("set_recipe", {pos: [ix, iy], name: recipeName});
                                 game.set_recipe(x, y, recipeName);
                                 recipesElem.style.display = "none";
                             })

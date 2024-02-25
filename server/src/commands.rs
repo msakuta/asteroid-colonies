@@ -121,6 +121,24 @@ async fn build_plan(
     Ok(HttpResponse::Ok().content_type("text/plain").body("ok"))
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SetRecipePayload {
+    pos: Pos,
+    name: String,
+}
+
+async fn set_recipe(
+    data: web::Data<ServerData>,
+    payload: web::Json<SetRecipePayload>,
+) -> actix_web::Result<HttpResponse> {
+    println!("set_recipe {:?}", payload);
+    let mut game = data.game.write().unwrap();
+    game.set_recipe(payload.pos[0], payload.pos[1], &payload.name)
+        .map_err(|e| actix_web::error::ErrorInternalServerError(e.to_string()))?;
+    Ok(HttpResponse::Ok().content_type("text/plain").body("ok"))
+}
+
 pub(crate) fn register_commands<T>(app: App<T>) -> App<T>
 where
     T: ServiceFactory<ServiceRequest, Config = (), Error = actix_web::Error, InitError = ()>,
@@ -131,4 +149,5 @@ where
         .route("/api/cancel_build", web::post().to(cancel_build))
         .route("/api/deconstruct", web::post().to(deconstruct))
         .route("/api/build_plan", web::post().to(build_plan))
+        .route("/api/set_recipe", web::post().to(set_recipe))
 }
