@@ -26,7 +26,7 @@ import deconstruction from '../images/deconstruction.png';
 const canvas = document.getElementById('canvas');
 
 (async () => {
-    const wasm = await import("../Cargo.toml");
+    const wasm = await import("../wasm/Cargo.toml");
     const {AsteroidColonies, set_panic_hook} = await wasm.default();
 
     set_panic_hook();
