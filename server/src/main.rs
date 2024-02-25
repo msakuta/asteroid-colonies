@@ -54,13 +54,20 @@ struct Args {
     autosave_pretty: bool,
     #[clap(long, default_value = "10")]
     push_period_s: f64,
-    #[clap(long, default_value = "10", help = "Tick frequency in Hz")]
+    #[clap(long, default_value = "0.1", help = "Tick frequency in Hz")]
     tick_freq: f64,
+    #[cfg(not(debug_assertions))]
+    #[clap(long, default_value = "/usr/share/asteroid-colonies/js", help = "JavaScript and Wasm path")]
+    js_path: PathBuf,
+    #[cfg(debug_assertions)]
+    #[clap(long, default_value = ".", help = "JavaScript and Wasm path")]
+    js_path: PathBuf,
 }
 
 struct ServerData {
     game: RwLock<AsteroidColoniesGame>,
     asset_path: PathBuf,
+    js_path: PathBuf,
     last_saved: Mutex<Instant>,
     last_pushed: Mutex<Instant>,
     autosave_file: PathBuf,
@@ -123,10 +130,10 @@ async fn get_index() -> HttpResponse {
 }
 
 async fn get_js_file(
-    _data: web::Data<ServerData>,
+    data: web::Data<ServerData>,
     req: HttpRequest,
 ) -> actix_web::Result<NamedFile> {
-    let js_path = Path::new("dist/js");
+    let js_path = &data.js_path;
     let filename: PathBuf = req.match_info().query("filename").parse().unwrap();
     let path: PathBuf = js_path.join(&filename);
     println!("Requesting {path:?} -> {:?}", path.canonicalize());
@@ -186,6 +193,7 @@ async fn main() -> std::io::Result<()> {
     let data = web::Data::new(ServerData {
         game: RwLock::new(game),
         asset_path: args.asset_path,
+        js_path: args.js_path,
         last_saved: Mutex::new(Instant::now()),
         last_pushed: Mutex::new(Instant::now()),
         autosave_file: args.autosave_file,
