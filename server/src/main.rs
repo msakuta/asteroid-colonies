@@ -70,10 +70,10 @@ struct Args {
 
 struct ServerData {
     game: RwLock<AsteroidColoniesGame>,
-    asset_path: PathBuf,
+    // asset_path: PathBuf,
     js_path: PathBuf,
     last_saved: Mutex<Instant>,
-    last_pushed: Mutex<Instant>,
+    // last_pushed: Mutex<Instant>,
     autosave_file: PathBuf,
     // srv: Addr<ChatServer>,
 }
@@ -151,13 +151,13 @@ async fn get_js_file(
 //     Ok(NamedFile::open(path)?)
 // }
 
-fn serialize_state(game: &Game, _autosave_pretty: bool) -> serde_json::Result<String> {
+fn serialize_state(game: &Game, autosave_pretty: bool) -> serde_json::Result<String> {
     // if autosave_pretty {
     //     serde_json::to_string_pretty(game)
     // } else {
     // serde_json::to_string(game.serialize())
     // }
-    game.serialize()
+    game.serialize(autosave_pretty)
 }
 
 fn save_file(autosave_file: &Path, serialized: &str) {
@@ -196,17 +196,17 @@ async fn main() -> std::io::Result<()> {
 
     let data = web::Data::new(ServerData {
         game: RwLock::new(game),
-        asset_path: args.asset_path,
+        // asset_path: args.asset_path,
         js_path: args.js_path,
         last_saved: Mutex::new(Instant::now()),
-        last_pushed: Mutex::new(Instant::now()),
+        // last_pushed: Mutex::new(Instant::now()),
         autosave_file: args.autosave_file,
         // srv: ChatServer::new().start(),
     });
     let data_copy = data.clone();
     let data_copy2 = data.clone();
 
-    // let autosave_period_s = args.autosave_period_s;
+    let autosave_period_s = args.autosave_period_s;
     let autosave_pretty = args.autosave_pretty;
     // let push_period_s = args.push_period_s;
 
@@ -223,16 +223,16 @@ async fn main() -> std::io::Result<()> {
                 println!("Tick error: {e}");
             }
 
-            // let mut last_saved = data_copy.last_saved.lock().unwrap();
-            // if autosave_period_s < last_saved.elapsed().as_micros() as f64 * 1e-6 {
-            //     if let Ok(serialized) = serialize_state(&universe, autosave_pretty) {
-            //         let autosave_file = data_copy.autosave_file.clone();
-            //         actix_web::rt::spawn(async move {
-            //             save_file(&autosave_file, &serialized);
-            //         });
-            //     }
-            //     *last_saved = Instant::now();
-            // }
+            let mut last_saved = data_copy.last_saved.lock().unwrap();
+            if autosave_period_s < last_saved.elapsed().as_secs_f64() {
+                if let Ok(serialized) = serialize_state(&game, autosave_pretty) {
+                    let autosave_file = data_copy.autosave_file.clone();
+                    actix_web::rt::spawn(async move {
+                        save_file(&autosave_file, &serialized);
+                    });
+                }
+                *last_saved = Instant::now();
+            }
 
             // let mut last_pushed = data_copy.last_pushed.lock().unwrap();
             // if push_period_s < last_pushed.elapsed().as_micros() as f64 * 1e-6 {

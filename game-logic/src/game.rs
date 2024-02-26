@@ -368,8 +368,8 @@ impl AsteroidColoniesGame {
         Ok(())
     }
 
-    pub fn serialize(&self) -> serde_json::Result<String> {
-        serde_json::to_string(&SerializeGame {
+    pub fn serialize(&self, pretty: bool) -> serde_json::Result<String> {
+        let ser_game = SerializeGame {
             cells: self.cells.clone(),
             buildings: self.buildings.clone(),
             crews: self.crews.clone(),
@@ -377,7 +377,12 @@ impl AsteroidColoniesGame {
             global_time: self.global_time,
             transports: self.transports.clone(),
             constructions: self.constructions.clone(),
-        })
+        };
+        if pretty {
+            serde_json::to_string(&ser_game)
+        } else {
+            serde_json::to_string_pretty(&ser_game)
+        }
     }
 
     pub fn deserialize(&mut self, rdr: impl Read) -> serde_json::Result<()> {
