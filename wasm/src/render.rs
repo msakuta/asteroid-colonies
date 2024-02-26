@@ -3,12 +3,14 @@ use super::AsteroidColonies;
 use wasm_bindgen::prelude::*;
 use web_sys::CanvasRenderingContext2d;
 
-use crate::{
+use asteroid_colonies_logic::{
+    building::BuildingType,
     construction::ConstructionType,
+    conveyor::Conveyor,
     task::{
         Direction, GlobalTask, Task, EXCAVATE_TIME, LABOR_EXCAVATE_TIME, MOVE_ITEM_TIME, MOVE_TIME,
     },
-    BuildingType, Cell, CellState, Conveyor, ItemType, HEIGHT, WIDTH,
+    Cell, CellState, ItemType, HEIGHT, WIDTH,
 };
 
 pub(crate) const TILE_SIZE: f64 = 32.;
@@ -138,7 +140,7 @@ impl AsteroidColonies {
                 rendered_cells += 1;
                 return Ok(());
             }
-            let cell = &self.cells[ix as usize + iy as usize * WIDTH];
+            let cell = &self.game.cell_at([ix, iy]);
             let (sx, sy) = match cell.state {
                 CellState::Empty => (0., TILE_SIZE),
                 CellState::Solid => (0., 0.),
@@ -224,19 +226,21 @@ impl AsteroidColonies {
         }
         // console_log!("rendered_cells: {}", rendered_cells);
 
-        for building in &self.buildings {
+        let time = self.game.get_global_time();
+
+        for building in self.game.iter_building() {
             let img = self.assets.building_to_img(building.type_);
             let (sx, sy) = match building.type_ {
                 BuildingType::Assembler => {
                     if !matches!(building.task, Task::None) {
-                        ((self.global_time % 4) as f64 * TILE_SIZE * 2., 0.)
+                        ((time % 4) as f64 * TILE_SIZE * 2., 0.)
                     } else {
                         (0., 0.)
                     }
                 }
                 BuildingType::Furnace => {
                     if !matches!(building.task, Task::None) {
-                        ((self.global_time % 2 + 1) as f64 * TILE_SIZE * 2., 0.)
+                        ((time % 2 + 1) as f64 * TILE_SIZE * 2., 0.)
                     } else {
                         (0., 0.)
                     }
@@ -304,7 +308,7 @@ impl AsteroidColonies {
         const CREW_SIZE: f64 = 16.;
         const CREW_OFFSET: f64 = (TILE_SIZE - CREW_SIZE) * 0.5;
 
-        for crew in &self.crews {
+        for crew in self.game.iter_crew() {
             let x = crew.pos[0] as f64 * TILE_SIZE + CREW_OFFSET + offset[0];
             let y = crew.pos[1] as f64 * TILE_SIZE + CREW_OFFSET + offset[1];
             let img = &self.assets.img_crew;
@@ -331,7 +335,7 @@ impl AsteroidColonies {
             }
         }
 
-        for task in &self.global_tasks {
+        for task in self.game.iter_global_task() {
             let task_target = match task {
                 GlobalTask::Excavate(t, pos) => Some((*t, pos, LABOR_EXCAVATE_TIME)),
             };
@@ -343,7 +347,7 @@ impl AsteroidColonies {
             }
         }
 
-        for construction in &self.constructions {
+        for construction in self.game.iter_construction() {
             let x = construction.pos[0] as f64 * TILE_SIZE + offset[0];
             let y = construction.pos[1] as f64 * TILE_SIZE + offset[1];
             match construction.get_type() {
@@ -384,18 +388,13 @@ impl AsteroidColonies {
             // }
         }
 
-        for (pos, conv) in self
-            .conveyor_staged
-            .iter()
-            .filter(|(pos, _)| !self.conveyor_preview.contains_key(*pos))
-            .chain(self.conveyor_preview.iter())
-        {
+        for (pos, conv) in self.game.iter_conveyor_plan() {
             let x = pos[0] as f64 * TILE_SIZE + offset[0];
             let y = pos[1] as f64 * TILE_SIZE + offset[1];
             render_conveyor(context, x, y, *conv)?;
         }
 
-        for t in &self.transports {
+        for t in self.game.iter_transport() {
             context.set_stroke_style(&JsValue::from("#ffff00"));
             context.set_line_width(2.);
             context.begin_path();

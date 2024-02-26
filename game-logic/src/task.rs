@@ -1,25 +1,26 @@
 use std::{collections::HashMap, fmt::Display};
 
-use serde::Serialize;
-use wasm_bindgen::JsValue;
+use serde::{Deserialize, Serialize};
 
 use crate::{
-    building::Recipe, construction::Construction, render::calculate_back_image,
-    transport::find_path, AsteroidColonies, Building, BuildingType, Cell, CellState, ItemType, Pos,
-    WIDTH,
+    building::{Building, BuildingType, Recipe},
+    construction::Construction,
+    game::CalculateBackImage,
+    transport::find_path,
+    AsteroidColoniesGame, Cell, CellState, ItemType, Pos, WIDTH,
 };
 
-pub(crate) const EXCAVATE_TIME: f64 = 10.;
-pub(crate) const LABOR_EXCAVATE_TIME: f64 = 100.;
-pub(crate) const MOVE_TIME: f64 = 2.;
-pub(crate) const BUILD_POWER_GRID_TIME: f64 = 60.;
-pub(crate) const BUILD_CONVEYOR_TIME: f64 = 90.;
-pub(crate) const MOVE_ITEM_TIME: f64 = 2.;
+pub const EXCAVATE_TIME: f64 = 10.;
+pub const LABOR_EXCAVATE_TIME: f64 = 100.;
+pub const MOVE_TIME: f64 = 2.;
+pub const BUILD_POWER_GRID_TIME: f64 = 60.;
+pub const BUILD_CONVEYOR_TIME: f64 = 90.;
+pub const MOVE_ITEM_TIME: f64 = 2.;
 pub(crate) const RAW_ORE_SMELT_TIME: f64 = 30.;
 pub(crate) const EXCAVATE_ORE_AMOUNT: usize = 5;
 
-#[derive(Clone, Debug)]
-pub(crate) enum Task {
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum Task {
     None,
     Excavate(f64, Direction),
     Move(f64, Vec<Pos>),
@@ -48,8 +49,8 @@ impl Display for Task {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-pub(crate) enum Direction {
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Direction {
     Left,
     Up,
     Right,
@@ -90,19 +91,19 @@ impl Direction {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
-pub(crate) enum GlobalTask {
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub enum GlobalTask {
     /// Excavate using human labor. Very slow and inefficient.
     Excavate(f64, [i32; 2]),
 }
 
-impl AsteroidColonies {
-    pub(crate) fn excavate(&mut self, ix: i32, iy: i32) -> Result<JsValue, JsValue> {
+impl AsteroidColoniesGame {
+    pub fn excavate(&mut self, ix: i32, iy: i32) -> Result<bool, String> {
         if !matches!(
             self.cells[ix as usize + iy as usize * WIDTH].state,
             CellState::Solid
         ) {
-            return Err(JsValue::from("Already excavated"));
+            return Err("Already excavated".to_string());
         }
         for building in &mut self.buildings {
             if building.type_ != BuildingType::Excavator {
@@ -113,7 +114,7 @@ impl AsteroidColonies {
             }
             if let Some(dir) = choose_direction(&building.pos, ix, iy) {
                 building.task = Task::Excavate(EXCAVATE_TIME, dir);
-                return Ok(JsValue::from(true));
+                return Ok(true);
             }
         }
         if self
@@ -131,47 +132,45 @@ impl AsteroidColonies {
             })
             .is_none()
         {
-            return Err(JsValue::from(
+            return Err(String::from(
                 "No crew cabin that can reach the position found",
             ));
         }
         self.global_tasks
             .push(GlobalTask::Excavate(LABOR_EXCAVATE_TIME, [ix, iy]));
-        Ok(JsValue::from(true))
+        Ok(true)
     }
 
-    pub(crate) fn build_power_grid(&mut self, ix: i32, iy: i32) -> Result<JsValue, JsValue> {
+    pub fn build_power_grid(&mut self, ix: i32, iy: i32) -> Result<bool, String> {
         let cell = &self.cells[ix as usize + iy as usize * WIDTH];
         if matches!(cell.state, CellState::Solid) {
-            return Err(JsValue::from("Needs excavation before building power grid"));
+            return Err(String::from("Needs excavation before building power grid"));
         }
         if matches!(cell.state, CellState::Space) {
-            return Err(JsValue::from("You cannot build power grid in space!"));
+            return Err(String::from("You cannot build power grid in space!"));
         }
         if cell.power_grid {
-            return Err(JsValue::from(
-                "Power grid is already installed in this cell",
-            ));
+            return Err(String::from("Power grid is already installed in this cell"));
         }
         self.constructions
             .push(Construction::new_power_grid([ix, iy]));
-        Ok(JsValue::from(true))
+        Ok(true)
     }
 
-    pub(crate) fn move_item(&mut self, ix: i32, iy: i32) -> Result<JsValue, JsValue> {
+    pub fn move_item(&mut self, ix: i32, iy: i32) -> Result<bool, String> {
         let cell = &self.cells[ix as usize + iy as usize * WIDTH];
         if matches!(cell.state, CellState::Solid) {
-            return Err(JsValue::from("Needs excavation before building conveyor"));
+            return Err(String::from("Needs excavation before building conveyor"));
         }
         if !cell.conveyor.is_some() {
-            return Err(JsValue::from("Conveyor is needed to move items"));
+            return Err(String::from("Conveyor is needed to move items"));
         }
         let Some(_dest) = self
             .buildings
             .iter()
             .find(|b| b.pos[0] == ix && b.pos[1] == iy)
         else {
-            return Err(JsValue::from("Needs a building at the destination"));
+            return Err(String::from("Needs a building at the destination"));
         };
         for building in &mut self.buildings {
             if 0 < *building.inventory.get(&ItemType::RawOre).unwrap_or(&0) {
@@ -180,10 +179,10 @@ impl AsteroidColonies {
                     item_type: ItemType::RawOre,
                     dest: [ix, iy],
                 };
-                return Ok(JsValue::from(true));
+                return Ok(true);
             }
         }
-        Err(JsValue::from("No structure to send from"))
+        Err(String::from("No structure to send from"))
     }
 
     pub(super) fn _is_clear(&self, ix: i32, iy: i32, size: [usize; 2]) -> bool {
@@ -203,7 +202,7 @@ impl AsteroidColonies {
         ix: i32,
         iy: i32,
         recipe: &'static Recipe,
-    ) -> Result<JsValue, JsValue> {
+    ) -> Result<bool, String> {
         let intersects = |b: &Building| {
             let size = b.type_.size();
             b.pos[0] <= ix
@@ -213,19 +212,20 @@ impl AsteroidColonies {
         };
 
         let Some(assembler) = self.buildings.iter_mut().find(|b| intersects(*b)) else {
-            return Err(JsValue::from("The building does not exist at the target"));
+            return Err(String::from("The building does not exist at the target"));
         };
         if !matches!(assembler.type_, BuildingType::Assembler) {
-            return Err(JsValue::from("The building is not an assembler"));
+            return Err(String::from("The building is not an assembler"));
         }
-        assembler.recipe = Some(recipe);
-        Ok(JsValue::from(true))
+        assembler.recipe = Some(recipe.clone());
+        Ok(true)
     }
 
     pub(super) fn process_task(
         cells: &mut [Cell],
         building: &mut Building,
         power_ratio: f64,
+        calculate_back_image: Option<&mut CalculateBackImage>,
     ) -> Option<(ItemType, [i32; 2])> {
         match building.task {
             Task::Excavate(ref mut t, dir) => {
@@ -238,7 +238,9 @@ impl AsteroidColonies {
                     let dir_vec = dir.to_vec();
                     let [x, y] = [building.pos[0] + dir_vec[0], building.pos[1] + dir_vec[1]];
                     cells[x as usize + y as usize * WIDTH].state = CellState::Empty;
-                    calculate_back_image(cells);
+                    if let Some(f) = calculate_back_image {
+                        f(cells);
+                    }
                 } else {
                     *t = (*t - power_ratio).max(0.);
                 }
@@ -302,7 +304,9 @@ impl AsteroidColonies {
             match task {
                 GlobalTask::Excavate(t, pos) if *t <= 0. => {
                     self.cells[pos[0] as usize + pos[1] as usize * WIDTH].state = CellState::Empty;
-                    calculate_back_image(&mut self.cells);
+                    if let Some(ref f) = self.calculate_back_image {
+                        f(&mut self.cells);
+                    }
                 }
                 _ => {}
             }

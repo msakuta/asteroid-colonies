@@ -19,12 +19,28 @@ Asteroid Colonies is a HTML5 game that is similar to [FactorishWasm](https://git
 
 This project uses following technologies:
 
-* Rust 1.74.1 (WebAssembly build)
+* Rust 1.74.1 (WebAssembly client and server build)
 * node.js 16
 * npm 8.3.1
 * rollup 4.9.6
 
-## How to build
+## Server synchronization
+
+Running on Wasm client works, but the game state will be gone when you refresh the page or restart the browser.
+We would like to save the game state in the server, and even run the simulation offline, so that when you come back after some time, the game has made progress while you were away.
+
+However, we are still in early development stage, so we still keep the option to run the game entirely on the client side.
+The only difference between client only simulation and the server backed simulation is that the server synchronization happens every few seconds.
+[The deployed web page](https://msakuta.github.io/asteroid-colonies/) on GitHub works in client only simulation.
+
+Currently, the server can synchronize a single asteroid colony, but it will expand in the future.
+
+The server saves the game state to a file `save.json` at the working directory.
+
+Note that [FactorishWasm](https://github.com/msakuta/FactorishWasm) used a different approach to save the game state, which is the browser's local storage, but its size is limited and you cannot synchronize among multiple devices easily.
+One of the Asteroid Colonies project's goals is to achieve server state persistence.
+
+## How to build web frontend
 
 Install [Rust](https://www.rust-lang.org/tools/install).
 
@@ -32,15 +48,20 @@ Install node.js.
 
 Install npm.
 
+Depending on whether you want server synchronization, there are 2 ways to set environment variables.
+
+* If you want server synchronization, set `SERVER_SYNC=true`
+* Otherwise (no server synchronization), set `SERVER_SYNC=false` or unset it
+
 Run
 
     npm run build
 
-and the game page is deployed in `dist/`.
+and the web page is deployed in `dist/`.
 
 
 
-## How to run development server
+## How to run development server for wasm
 
 Run
 
@@ -51,6 +72,40 @@ Launch another terminal and run
     cd dist && npx serve
 
 and browse http://localhost:3000/ for development.
+
+
+## How to build the game server
+
+Run
+
+    cargo b --release -p asteroid-colonies-server
+
+and it will build the binary in `target/release`.
+
+
+## How to build the debian package for the server
+
+You can build a debian package that contains all the necessary assets for the server.
+It is very combenient to deploy on a debian-based OS when the amount of memory is limited to build.
+
+First, make sure the frontend is built with `SERVER_SYNC=true` in `dist/` directory with the instructions above.
+
+Install [cargo-deb](https://crates.io/crates/cargo-deb).
+
+    cargo install cargo-deb
+
+Run
+
+    cargo deb -p asteroid-colonies-server
+
+and the debian package will be produced in `target/debian`.
+Bring it to a deployment server and install it with
+
+    apt install ./asteroid-colonies-server-*.deb
+
+and you can run the command below to run the server.
+
+    asteroid-colonies-server
 
 
 ## License

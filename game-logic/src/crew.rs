@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::{
@@ -6,10 +7,10 @@ use crate::{
     construction::Construction,
     task::{GlobalTask, EXCAVATE_ORE_AMOUNT, LABOR_EXCAVATE_TIME},
     transport::find_path,
-    AsteroidColonies, Cell, CellState, ItemType, Pos, WIDTH,
+    AsteroidColoniesGame, Cell, CellState, ItemType, Pos, WIDTH,
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 enum CrewTask {
     None,
     Return,
@@ -19,8 +20,8 @@ enum CrewTask {
     Deliver { dst: Pos, item: ItemType },
 }
 
-#[derive(Debug)]
-pub(crate) struct Crew {
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Crew {
     pub pos: Pos,
     pub path: Option<Vec<Pos>>,
     pub from: Pos,
@@ -236,7 +237,7 @@ impl Crew {
     }
 }
 
-impl AsteroidColonies {
+impl AsteroidColoniesGame {
     pub(super) fn process_crews(&mut self) {
         let try_return = |crew: &mut Crew, buildings: &mut [Building]| {
             if let Some(building) = buildings.iter_mut().find(|b| b.pos == crew.from) {

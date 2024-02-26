@@ -1,15 +1,14 @@
 use std::cmp::Ordering;
 
 use crate::{
-    console_log, construction::Construction, push_pull::TileSampler, render::TILE_SIZE,
-    task::Direction, AsteroidColonies, Cell, WIDTH,
+    console_log, construction::Construction, push_pull::TileSampler, task::Direction,
+    AsteroidColoniesGame, Cell, WIDTH,
 };
-use serde::Serialize;
-use wasm_bindgen::prelude::*;
+use serde::{Deserialize, Serialize};
 
 /// Conveyor can stack up to 2 levels
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-pub(crate) enum Conveyor {
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Conveyor {
     None,
     One(Direction, Direction),
     Two((Direction, Direction), (Direction, Direction)),
@@ -88,22 +87,17 @@ impl Conveyor {
     }
 }
 
-#[wasm_bindgen]
-impl AsteroidColonies {
+impl AsteroidColoniesGame {
     /// Preview or stage conveyor build plan.
     pub fn preview_build_conveyor(
         &mut self,
-        x0: f64,
-        y0: f64,
-        x1: f64,
-        y1: f64,
+        ix0: i32,
+        iy0: i32,
+        ix1: i32,
+        iy1: i32,
         preview: bool,
-    ) -> Result<(), JsValue> {
+    ) -> Result<(), String> {
         use {Conveyor::*, Direction::*};
-        let ix0 = (x0 - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
-        let iy0 = (y0 - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
-        let ix1 = (x1 - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
-        let iy1 = (y1 - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
         let x_rev = ix1.cmp(&ix0);
         let y_rev = iy1.cmp(&iy0);
 
@@ -183,10 +177,8 @@ impl AsteroidColonies {
         Ok(())
     }
 
-    pub fn build_splitter(&mut self, x: f64, y: f64) {
+    pub fn build_splitter(&mut self, ix0: i32, iy0: i32) {
         use {Conveyor::*, Direction::*};
-        let ix0 = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
-        let iy0 = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
 
         let filter_conv = |cell: Conveyor, staged| match cell {
             One(from, _) => Splitter(from),
@@ -210,10 +202,8 @@ impl AsteroidColonies {
             .insert([ix0, iy0], filter_conv(cell, staged));
     }
 
-    pub fn build_merger(&mut self, x: f64, y: f64) {
+    pub fn build_merger(&mut self, ix0: i32, iy0: i32) {
         use {Conveyor::*, Direction::*};
-        let ix0 = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
-        let iy0 = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
 
         let pos0 = [ix0, iy0];
         let cell = self
@@ -243,11 +233,15 @@ impl AsteroidColonies {
         self.conveyor_preview.clear();
     }
 
-    pub fn commit_build_conveyor(&mut self) {
-        for (pos, conv) in self.conveyor_staged.drain() {
+    pub fn commit_build_conveyor(&mut self) -> Vec<Construction> {
+        for (pos, conv) in self.conveyor_staged.iter() {
             self.constructions
-                .push(Construction::new_conveyor(pos, conv));
+                .push(Construction::new_conveyor(*pos, *conv));
         }
         self.conveyor_preview.clear();
+        std::mem::take(&mut self.conveyor_staged)
+            .into_iter()
+            .map(|(pos, conv)| Construction::new_conveyor(pos, conv))
+            .collect()
     }
 }

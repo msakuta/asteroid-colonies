@@ -1,7 +1,7 @@
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{js_sys, HtmlImageElement};
 
-use crate::building::BuildingType;
+use asteroid_colonies_logic::building::BuildingType;
 
 pub(crate) struct Assets {
     pub img_bg: HtmlImageElement,
@@ -84,6 +84,7 @@ impl Assets {
             BuildingType::CrewCabin => &self.img_crew_cabin,
             BuildingType::Assembler => &self.img_assembler,
             BuildingType::Furnace => &self.img_furnace,
+            _ => panic!("Uncovered building type!"),
         }
     }
 }

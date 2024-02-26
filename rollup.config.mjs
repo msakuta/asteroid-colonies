@@ -1,7 +1,12 @@
 import rust from '@wasm-tool/rollup-plugin-rust';
 import url from '@rollup/plugin-url';
+import replace from '@rollup/plugin-replace';
 
+const production = !process.env.ROLLUP_WATCH;
 const deploy = !!process.env.DEPLOY;
+const BASE_URL = process.env.BASE_URL ? `'${process.env.BASE_URL}'` : `'http://localhost:3883'`;
+const SERVER_SYNC = process.env.SERVER_SYNC ?? `false`;
+const SYNC_PERIOD = process.env.SYNC_PERIOD ?? `100`;
 
 export default {
     input: "./js/main.js",
@@ -9,6 +14,12 @@ export default {
         dir: 'dist/js/',
     },
     plugins:[
+        replace({
+            BASE_URL,
+            SERVER_SYNC,
+            SYNC_PERIOD,
+            preventAssignment: true,
+        }),
         rust({
             serverPath: deploy ? "/asteroid-colonies/js/" : "./js/",
         }),

@@ -1,8 +1,10 @@
-use std::{collections::HashMap, fmt::Display};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Display,
+};
 
+use ::serde::{Deserialize, Serialize};
 use rand::Rng;
-
-use serde::{Deserialize, Serialize};
 
 use crate::{
     construction::Construction,
@@ -10,11 +12,12 @@ use crate::{
     push_pull::{pull_inputs, push_outputs},
     task::{GlobalTask, Task, RAW_ORE_SMELT_TIME},
     transport::find_multipath,
-    AsteroidColonies, Cell, CellState, Crew, ItemType, Transport, WIDTH,
+    AsteroidColoniesGame, Cell, CellState, Crew, ItemType, Transport, WIDTH,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub(crate) enum BuildingType {
+#[non_exhaustive]
+pub enum BuildingType {
     Power,
     Excavator,
     Storage,
@@ -88,21 +91,24 @@ impl Display for BuildingType {
     }
 }
 
-#[derive(Clone, Serialize)]
-pub(crate) struct Recipe {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Recipe {
     pub inputs: HashMap<ItemType, usize>,
     pub outputs: HashMap<ItemType, usize>,
     pub time: f64,
 }
 
-pub(crate) struct Building {
+#[derive(Clone, Serialize, Deserialize)]
+pub struct Building {
     pub pos: [i32; 2],
     pub type_: BuildingType,
     pub task: Task,
     pub inventory: HashMap<ItemType, usize>,
     /// The number of crews attending this building.
     pub crews: usize,
-    pub recipe: Option<&'static Recipe>,
+    // TODO: We want to avoid copies of recipes, but deserializing a recipe with static is
+    // extremely hard with serde.
+    pub recipe: Option<Recipe>,
 }
 
 impl Building {
@@ -160,9 +166,10 @@ impl Building {
             return Ok(());
         };
         // Try pushing out products
-        if let Some(recipe) = this.recipe {
+        if let Some(ref recipe) = this.recipe {
+            let outputs: HashSet<_> = recipe.outputs.keys().copied().collect();
             push_outputs(&cells, transports, this, first, last, &|item| {
-                recipe.outputs.contains_key(&item)
+                outputs.contains(&item)
             });
         }
         if matches!(this.task, Task::None) {
@@ -354,7 +361,7 @@ impl Building {
     }
 }
 
-impl AsteroidColonies {
+impl AsteroidColoniesGame {
     pub(super) fn process_buildings(&mut self) {
         let power_demand = self
             .buildings
@@ -385,7 +392,12 @@ impl AsteroidColonies {
             };
         }
         for building in &mut self.buildings {
-            if let Some((item, dest)) = Self::process_task(&mut self.cells, building, power_ratio) {
+            if let Some((item, dest)) = Self::process_task(
+                &mut self.cells,
+                building,
+                power_ratio,
+                self.calculate_back_image.as_mut(),
+            ) {
                 moving_items.push((item, dest));
             }
         }

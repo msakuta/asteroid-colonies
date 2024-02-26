@@ -24,9 +24,12 @@ import construction from '../images/construction.png';
 import deconstruction from '../images/deconstruction.png';
 
 const canvas = document.getElementById('canvas');
+const serverSync = SERVER_SYNC;
+const baseUrl = BASE_URL;
+const syncPeriod = SYNC_PERIOD;
 
 (async () => {
-    const wasm = await import("../Cargo.toml");
+    const wasm = await import("../wasm/Cargo.toml");
     const {AsteroidColonies, set_panic_hook} = await wasm.default();
 
     set_panic_hook();
@@ -58,8 +61,14 @@ const canvas = document.getElementById('canvas');
     });
     const loadedImages = await Promise.all(loadImages);
 
+
     const canvasRect = canvas.getBoundingClientRect();
     const game = new AsteroidColonies(loadedImages, canvasRect.width, canvasRect.height);
+    if (serverSync) {
+        const dataRes = await fetch(`${baseUrl}/api/load`);
+        const dataText = await dataRes.text();
+        game.deserialize(dataText);
+    }
     function resizeHandler(evt) {
         const bodyRect = document.body.getBoundingClientRect();
         canvas.setAttribute("width", bodyRect.width);
@@ -133,6 +142,9 @@ const canvas = document.getElementById('canvas');
         }
         if (moving) {
             try {
+                const from = game.transform_coords(moving[0], moving[1]);
+                const to = game.transform_coords(x, y);
+                requestPost("move", {from: [from[0], from[1]], to: [to[0], to[1]]});
                 game.move_building(moving[0], moving[1], x, y);
             }
             catch (e) {
@@ -195,6 +207,8 @@ const canvas = document.getElementById('canvas');
                             const buildingType = buildItem.type_;
                             buildItemElem.innerHTML = formatBuildItem(buildItem);
                             buildItemElem.addEventListener("pointerup", _ => {
+                                const [ix, iy] = game.transform_coords(x, y);
+                                requestPost("build", {pos: [ix, iy], type: {Building: buildingType.Building}});
                                 game.build(x, y, buildingType.Building);
                                 buildMenuElem.style.display = "none";
                             })
@@ -222,6 +236,8 @@ const canvas = document.getElementById('canvas');
                             const recipeName = recipe.outputs.keys().next().value;
                             recipeElem.innerHTML = formatRecipe(recipe);
                             recipeElem.addEventListener("pointerup", _ => {
+                                const [ix, iy] = game.transform_coords(x, y);
+                                requestPost("set_recipe", {pos: [ix, iy], name: recipeName});
                                 game.set_recipe(x, y, recipeName);
                                 recipesElem.style.display = "none";
                             })
@@ -234,14 +250,26 @@ const canvas = document.getElementById('canvas');
                     }
                 }
                 else if (name === "cancel") {
+                    const pos = game.transform_coords(x, y);
+                    requestPost("cancel_build", {pos: [pos[0], pos[1]]});
                     game.cancel_build(x, y);
                 }
                 else if (name === "deconstruct") {
+                    const pos = game.transform_coords(x, y);
+                    requestPost("deconstruct", {pos: [pos[0], pos[1]]});
                     game.deconstruct(x, y);
                 }
                 else {
                     buildMenuElem.style.display = "none";
                     recipesElem.style.display = "none";
+                    if (name === "excavate") {
+                        const [ix, iy] = game.transform_coords(x, y);
+                        requestPost("excavate", {x: ix, y: iy});
+                    }
+                    else if (name === "power") {
+                        const [ix, iy] = game.transform_coords(x, y);
+                        requestPost("build", {pos: [ix, iy], type: "PowerGrid"});
+                    }
                     if (game.command(name, x, y)) {
                         requestAnimationFrame(() => game.render(ctx));
                     }
@@ -264,7 +292,8 @@ const canvas = document.getElementById('canvas');
         okButton.addEventListener('click', _ => {
             buildingConveyor = null;
             messageOverlayElem.style.display = "none";
-            game.commit_build_conveyor(false);
+            const buildPlan = game.commit_build_conveyor(false);
+            requestPost("build_plan", {buildPlan});
         });
         const cancelButton = document.createElement("button");
         cancelButton.value = "Cancel";
@@ -282,16 +311,40 @@ const canvas = document.getElementById('canvas');
 
     let time = 0;
 
-    setInterval(() => {
+    setInterval(async () => {
+        // Increment time before any await. Otherwise, this async function runs 2-4 times every tick for some reason.
+        time++;
+        if (serverSync && time % syncPeriod === 0) {
+            console.log(`serverSync period: ${time}`);
+            const dataRes = await fetch(`${baseUrl}/api/load`);
+            const dataText = await dataRes.text();
+            game.deserialize(dataText);
+        }
         game.tick();
         game.render(ctx);
         if (mousePos !== null) {
             const info = game.get_info(mousePos[0], mousePos[1]);
             document.getElementById('info').innerHTML = formatInfo(info);
         }
-        time++;
     }, 100);
 })()
+
+function requestPost(api, payload) {
+    if (!serverSync) {
+        return;
+    }
+    (async () => {
+        const res = await fetch(`${baseUrl}/api/${api}`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+        });
+        const text = await res.text();
+        console.log(`build response: ${text}`);
+    })();
+}
 
 async function loadImage(url) {
     return new Promise((r) => {
