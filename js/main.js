@@ -27,6 +27,9 @@ const canvas = document.getElementById('canvas');
 const serverSync = SERVER_SYNC;
 const baseUrl = BASE_URL;
 const syncPeriod = SYNC_PERIOD;
+const port = 3883;
+let websocket = null;
+let sessionId = null;
 
 (async () => {
     const wasm = await import("../wasm/Cargo.toml");
@@ -61,14 +64,23 @@ const syncPeriod = SYNC_PERIOD;
     });
     const loadedImages = await Promise.all(loadImages);
 
-
     const canvasRect = canvas.getBoundingClientRect();
     const game = new AsteroidColonies(loadedImages, canvasRect.width, canvasRect.height);
-    if (serverSync) {
+
+    if(serverSync && !sessionId){
+        const sessionRes = await fetch(`http://${location.hostname}:${port}/api/session`, {
+            method: "POST"
+        });
+        sessionId = await sessionRes.text();
         const dataRes = await fetch(`${baseUrl}/api/load`);
         const dataText = await dataRes.text();
         game.deserialize(dataText);
     }
+
+    if(!websocket){
+        reconnectWebSocket();
+    }
+
     function resizeHandler(evt) {
         const bodyRect = document.body.getBoundingClientRect();
         canvas.setAttribute("width", bodyRect.width);
@@ -314,12 +326,12 @@ const syncPeriod = SYNC_PERIOD;
     setInterval(async () => {
         // Increment time before any await. Otherwise, this async function runs 2-4 times every tick for some reason.
         time++;
-        if (serverSync && time % syncPeriod === 0) {
-            console.log(`serverSync period: ${time}`);
-            const dataRes = await fetch(`${baseUrl}/api/load`);
-            const dataText = await dataRes.text();
-            game.deserialize(dataText);
-        }
+        // if (serverSync && time % syncPeriod === 0) {
+        //     console.log(`serverSync period: ${time}`);
+        //     const dataRes = await fetch(`${baseUrl}/api/load`);
+        //     const dataText = await dataRes.text();
+        //     game.deserialize(dataText);
+        // }
         game.tick();
         game.render(ctx);
         if (mousePos !== null) {
@@ -327,6 +339,26 @@ const syncPeriod = SYNC_PERIOD;
             document.getElementById('info').innerHTML = formatInfo(info);
         }
     }, 100);
+
+    function reconnectWebSocket(){
+        if(sessionId){
+            websocket = new WebSocket(`ws://${location.hostname}:${port}/ws/${sessionId}`);
+            websocket.addEventListener("message", (event) => {
+                // console.log(`Event through WebSocket: ${event.data}`);
+                const data = JSON.parse(event.data);
+                if(data.type === "clientUpdate"){
+                    if(game){
+                        game.deserialize(data.payload.setState);
+                    }
+                    // const payload = data.payload;
+                    // const body = CelestialBody.celestialBodies.get(payload.bodyState.name);
+                    // if(body){
+                    //     body.clientUpdate(payload.bodyState);
+                    // }
+                }
+            });
+        }
+    }
 })()
 
 function requestPost(api, payload) {

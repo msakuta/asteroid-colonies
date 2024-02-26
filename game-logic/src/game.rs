@@ -402,7 +402,7 @@ impl AsteroidColoniesGame {
 }
 
 #[derive(Serialize, Deserialize)]
-struct SerializeGame {
+pub struct SerializeGame {
     cells: Vec<Cell>,
     buildings: Vec<Building>,
     crews: Vec<Crew>,

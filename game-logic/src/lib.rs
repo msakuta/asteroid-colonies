@@ -1,7 +1,10 @@
 use std::collections::HashMap;
 
 use crate::{building::Recipe, conveyor::Conveyor, crew::Crew, transport::Transport};
-pub use crate::{construction::get_build_menu, game::AsteroidColoniesGame};
+pub use crate::{
+    construction::get_build_menu,
+    game::{AsteroidColoniesGame, SerializeGame},
+};
 use serde::{Deserialize, Serialize};
 
 pub mod building;
