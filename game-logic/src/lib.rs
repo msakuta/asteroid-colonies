@@ -4,6 +4,7 @@ use crate::{building::Recipe, conveyor::Conveyor, crew::Crew, transport::Transpo
 pub use crate::{
     construction::get_build_menu,
     game::{AsteroidColoniesGame, SerializeGame},
+    xor128::Xor128,
 };
 use serde::{Deserialize, Serialize};
 
@@ -15,6 +16,7 @@ mod game;
 mod push_pull;
 pub mod task;
 mod transport;
+mod xor128;
 
 #[macro_export]
 macro_rules! hash_map {

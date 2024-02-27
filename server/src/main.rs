@@ -23,7 +23,7 @@ use std::{
     sync::{Mutex, RwLock},
     time::Instant,
 };
-use websocket::{websocket_index, NotifyState, NotifyStateEnum, SetStateBinWs, SetStateWs};
+use websocket::{websocket_index, NotifyState, NotifyStateEnum, SetStateBinWs};
 
 type Game = AsteroidColoniesGame;
 

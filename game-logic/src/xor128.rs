@@ -1,5 +1,8 @@
+use serde::{Deserialize, Serialize};
+
 /// Xor128, a compact and fast pseudo random number generator
-pub(crate) struct Xor128 {
+#[derive(Clone, Copy, Serialize, Deserialize, Debug)]
+pub struct Xor128 {
     x: u32,
     y: u32,
     z: u32,

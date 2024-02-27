@@ -1,6 +1,6 @@
 use crate::{
     // humanhash::human_hash,
-    session::{self, SessionId},
+    session::SessionId,
     websocket::{NotifyState, NotifyStateEnum},
 };
 use ::actix::prelude::*;

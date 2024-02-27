@@ -10,7 +10,7 @@ use crate::{
     hash_map, recipes,
     task::{Direction, GlobalTask, Task, MOVE_TIME},
     transport::{find_path, Transport},
-    Cell, CellState, ItemType, Pos, HEIGHT, WIDTH,
+    Cell, CellState, ItemType, Pos, Xor128, HEIGHT, WIDTH,
 };
 
 pub type CalculateBackImage = Box<dyn Fn(&mut [Cell]) + Send + Sync>;
@@ -30,6 +30,7 @@ pub struct AsteroidColoniesGame {
     /// Preview of ghost conveyors, just for visualization.
     pub(crate) conveyor_preview: HashMap<Pos, Conveyor>,
     pub(crate) calculate_back_image: Option<CalculateBackImage>,
+    pub(crate) rng: Xor128,
 }
 
 impl AsteroidColoniesGame {
@@ -133,6 +134,7 @@ impl AsteroidColoniesGame {
             conveyor_staged: HashMap::new(),
             conveyor_preview: HashMap::new(),
             calculate_back_image,
+            rng: Xor128::new(412135),
         })
     }
 
@@ -402,6 +404,7 @@ impl AsteroidColoniesGame {
         self.global_time = ser_data.global_time;
         self.transports = ser_data.transports;
         self.constructions = ser_data.constructions;
+        self.rng = ser_data.rng;
         if let Some(ref f) = self.calculate_back_image {
             f(&mut self.cells);
         }
@@ -417,6 +420,7 @@ pub struct SerializeGame {
     global_time: usize,
     transports: Vec<Transport>,
     constructions: Vec<Construction>,
+    rng: Xor128,
 }
 
 impl From<&AsteroidColoniesGame> for SerializeGame {
@@ -429,6 +433,7 @@ impl From<&AsteroidColoniesGame> for SerializeGame {
             global_time: value.global_time,
             transports: value.transports.clone(),
             constructions: value.constructions.clone(),
+            rng: value.rng.clone(),
         }
     }
 }
