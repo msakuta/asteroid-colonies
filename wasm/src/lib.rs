@@ -202,4 +202,10 @@ impl AsteroidColonies {
             .deserialize(data.as_bytes())
             .map_err(|e| JsValue::from(format!("{e}")))
     }
+
+    pub fn deserialize_bin(&mut self, data: &[u8]) -> Result<(), JsValue> {
+        self.game
+            .deserialize_bin(data)
+            .map_err(|e| JsValue::from(format!("{e}")))
+    }
 }

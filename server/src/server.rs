@@ -1,7 +1,7 @@
 use crate::{
     // humanhash::human_hash,
-    session::SessionId,
-    websocket::NotifyState,
+    session::{self, SessionId},
+    websocket::{NotifyState, NotifyStateEnum},
 };
 use ::actix::prelude::*;
 // use ::orbiter_logic::SessionId;
@@ -27,7 +27,10 @@ pub struct Connect {
 /// Chat server sends this messages to session
 #[derive(Message)]
 #[rtype(result = "()")]
-pub struct Message(pub String);
+pub enum Message {
+    Text(String),
+    Bin(Vec<u8>),
+}
 
 // const CHAT_HISTORY_MAX: usize = 100;
 // const CHAT_LOG_FILE: &'static str = "chatlog.json";
@@ -80,7 +83,16 @@ impl ChatServer {
     fn send_message(&self, message: &str, skip_id: Option<SessionId>) {
         for (i, addr) in &self.sessions {
             if Some(*i) != skip_id {
-                let _ = addr.do_send(Message(message.to_owned()));
+                let _ = addr.do_send(Message::Text(message.to_owned()));
+            }
+        }
+    }
+
+    /// Send message to all users
+    fn send_message_bin(&self, message: &[u8], skip_id: Option<SessionId>) {
+        for (i, addr) in &self.sessions {
+            if Some(*i) != skip_id {
+                let _ = addr.do_send(Message::Bin(message.to_owned()));
             }
         }
     }
@@ -127,12 +139,17 @@ impl Handler<NotifyState> for ChatServer {
     fn handle(&mut self, msg: NotifyState, _: &mut Context<Self>) {
         let session_id = msg.session_id;
 
-        let payload = Payload {
-            type_: "clientUpdate",
-            payload: msg,
-        };
+        match msg.set_state {
+            NotifyStateEnum::SetState(msg) => {
+                let payload = Payload {
+                    type_: "clientUpdate",
+                    payload: msg,
+                };
 
-        self.send_message(&serde_json::to_string(&payload).unwrap(), session_id);
+                self.send_message(&serde_json::to_string(&payload).unwrap(), session_id);
+            }
+            NotifyStateEnum::SetStateBin(msg) => self.send_message_bin(&msg.0, session_id),
+        }
     }
 }
 

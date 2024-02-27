@@ -343,18 +343,25 @@ let sessionId = null;
     function reconnectWebSocket(){
         if(sessionId){
             websocket = new WebSocket(`ws://${location.hostname}:${port}/ws/${sessionId}`);
+            websocket.binaryType = "arraybuffer";
             websocket.addEventListener("message", (event) => {
+                if (event.data instanceof ArrayBuffer) {
+                    const byteArray = new Uint8Array(event.data);
+                    game.deserialize_bin(byteArray);
+                }
+                else {
                 // console.log(`Event through WebSocket: ${event.data}`);
-                const data = JSON.parse(event.data);
-                if(data.type === "clientUpdate"){
-                    if(game){
-                        game.deserialize(data.payload.setState);
+                    const data = JSON.parse(event.data);
+                    if(data.type === "clientUpdate"){
+                        if(game){
+                            game.deserialize(data.payload);
+                        }
+                        // const payload = data.payload;
+                        // const body = CelestialBody.celestialBodies.get(payload.bodyState.name);
+                        // if(body){
+                        //     body.clientUpdate(payload.bodyState);
+                        // }
                     }
-                    // const payload = data.payload;
-                    // const body = CelestialBody.celestialBodies.get(payload.bodyState.name);
-                    // if(body){
-                    //     body.clientUpdate(payload.bodyState);
-                    // }
                 }
             });
         }

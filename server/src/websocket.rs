@@ -89,7 +89,10 @@ impl Handler<Message> for SessionWs {
     type Result = ();
 
     fn handle(&mut self, msg: Message, ctx: &mut Self::Context) {
-        ctx.text(msg.0);
+        match msg {
+            Message::Text(txt) => ctx.text(txt),
+            Message::Bin(bin) => ctx.binary(bin),
+        }
     }
 }
 
@@ -102,12 +105,27 @@ impl std::fmt::Debug for SetStateWs {
     }
 }
 
+#[derive(Deserialize, Serialize)]
+pub(crate) struct SetStateBinWs(pub Vec<u8>);
+
+impl std::fmt::Debug for SetStateBinWs {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<SetStateBinWs>")
+    }
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub(crate) enum NotifyStateEnum {
+    SetState(SetStateWs),
+    SetStateBin(SetStateBinWs),
+}
+
 #[derive(Deserialize, Serialize, Debug, Message)]
 #[rtype(result = "()")]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct NotifyState {
     pub session_id: Option<SessionId>,
-    pub set_state: SetStateWs,
+    pub set_state: NotifyStateEnum,
 }
 
 #[derive(Deserialize, Serialize, Debug, Message, Clone)]

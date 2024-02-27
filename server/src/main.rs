@@ -23,7 +23,7 @@ use std::{
     sync::{Mutex, RwLock},
     time::Instant,
 };
-use websocket::{websocket_index, NotifyState, SetStateWs};
+use websocket::{websocket_index, NotifyState, NotifyStateEnum, SetStateBinWs, SetStateWs};
 
 type Game = AsteroidColoniesGame;
 
@@ -249,10 +249,16 @@ async fn main() -> std::io::Result<()> {
 
             let mut last_pushed = data_copy.last_pushed.lock().unwrap();
             if push_period_s < last_pushed.elapsed().as_secs_f64() {
-                if let Ok(serialized) = serialize_state(&game, false) {
+                // if let Ok(serialized) = serialize_state(&game, false) {
+                //     data_copy.srv.do_send(NotifyState {
+                //         session_id: None,
+                //         set_state: NotifyStateEnum::SetState(SetStateWs(serialized)),
+                //     });
+                // }
+                if let Ok(serialized) = game.serialize_bin() {
                     data_copy.srv.do_send(NotifyState {
                         session_id: None,
-                        set_state: SetStateWs(serialized),
+                        set_state: NotifyStateEnum::SetStateBin(SetStateBinWs(serialized)),
                     });
                 }
                 *last_pushed = Instant::now();
