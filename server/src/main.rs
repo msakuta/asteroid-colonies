@@ -38,7 +38,7 @@ struct Args {
     )]
     port: u16,
     #[clap(
-        short,
+        short = 'H',
         long,
         default_value = "127.0.0.1",
         help = "The host address to listen to. By default, only the localhost can access."
