@@ -1,15 +1,12 @@
 use crate::{
     // humanhash::human_hash,
     session::SessionId,
-    websocket::{ChatHistoryRequest, ClientMessage, NotifyState},
+    websocket::NotifyState,
 };
 use ::actix::prelude::*;
 // use ::orbiter_logic::SessionId;
 use ::serde::{Deserialize, Serialize};
-use std::{
-    collections::{HashMap, VecDeque},
-    io::Write,
-};
+use std::collections::HashMap;
 
 /// Message for chat server communications
 #[derive(Deserialize, Serialize, Debug, Message)]
@@ -32,48 +29,48 @@ pub struct Connect {
 #[rtype(result = "()")]
 pub struct Message(pub String);
 
-const CHAT_HISTORY_MAX: usize = 100;
-const CHAT_LOG_FILE: &'static str = "chatlog.json";
+// const CHAT_HISTORY_MAX: usize = 100;
+// const CHAT_LOG_FILE: &'static str = "chatlog.json";
 
 /// `ChatServer` manages chat rooms and responsible for coordinating chat session.
 ///
 /// Implementation is very naïve.
 pub(crate) struct ChatServer {
     sessions: HashMap<SessionId, Recipient<Message>>,
-    chat_history: VecDeque<ClientMessage>,
+    // chat_history: VecDeque<ClientMessage>,
 }
 
 impl ChatServer {
     pub fn new() -> ChatServer {
-        fn load_log() -> anyhow::Result<VecDeque<ClientMessage>> {
-            #[derive(Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            struct ClientMessageSerial {
-                session_id: String,
-                message: String,
-            }
-            let data = std::fs::read(CHAT_LOG_FILE)?;
-            let data = String::from_utf8(data)?;
-            let ret: Vec<ClientMessageSerial> = serde_json::from_str(&data)?;
-            println!("Loaded {} chat items from log file", ret.len());
-            Ok(ret
-                .into_iter()
-                .map(|val| ClientMessage {
-                    session_id: SessionId::from(val.session_id),
-                    message: val.message,
-                })
-                .collect())
-        }
+        // fn load_log() -> anyhow::Result<VecDeque<ClientMessage>> {
+        //     #[derive(Deserialize)]
+        //     #[serde(rename_all = "camelCase")]
+        //     struct ClientMessageSerial {
+        //         session_id: String,
+        //         message: String,
+        //     }
+        //     let data = std::fs::read(CHAT_LOG_FILE)?;
+        //     let data = String::from_utf8(data)?;
+        //     let ret: Vec<ClientMessageSerial> = serde_json::from_str(&data)?;
+        //     println!("Loaded {} chat items from log file", ret.len());
+        //     Ok(ret
+        //         .into_iter()
+        //         .map(|val| ClientMessage {
+        //             session_id: SessionId::from(val.session_id),
+        //             message: val.message,
+        //         })
+        //         .collect())
+        // }
 
         ChatServer {
             sessions: HashMap::new(),
-            chat_history: match load_log() {
-                Ok(val) => val,
-                Err(e) => {
-                    println!("Failed to load chat log: {:?}", e);
-                    VecDeque::new()
-                }
-            },
+            // chat_history: match load_log() {
+            //     Ok(val) => val,
+            //     Err(e) => {
+            //         println!("Failed to load chat log: {:?}", e);
+            //         VecDeque::new()
+            //     }
+            // },
         }
     }
 }

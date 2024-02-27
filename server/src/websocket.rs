@@ -1,21 +1,17 @@
 use crate::{
     server::ChatServer,
-    server::{Connect, Message, TimeScaleMessage},
+    server::{Connect, Message},
     session::SessionId,
     ServerData,
 };
 use ::actix::{prelude::*, Actor, StreamHandler};
 use ::actix_web::{web, HttpRequest, HttpResponse};
-use ::asteroid_colonies_logic::{
-    // CelestialBody, SessionId, SetRocketStateWs,
-    AsteroidColoniesGame as Game,
-    // WsMessage
-};
+
 use ::serde::{Deserialize, Serialize};
 use actix_web_actors::ws;
 use asteroid_colonies_logic::{
     construction::{Construction, ConstructionType},
-    Pos, SerializeGame,
+    Pos,
 };
 
 /// Open a WebSocket instance and give it to the client.

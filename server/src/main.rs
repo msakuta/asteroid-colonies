@@ -1,11 +1,10 @@
-mod commands;
 mod server;
 mod session;
 mod websocket;
 
 use crate::{
     // api::set_timescale::set_timescale,
-    server::{ChatServer, NotifyNewBody},
+    server::ChatServer,
     // websocket::{websocket_index, NotifyBodyState, SetRocketStateWs},
 };
 use ::actix::prelude::*;
@@ -15,7 +14,6 @@ use ::actix_web::{middleware, web, App, HttpRequest, HttpServer};
 use ::asteroid_colonies_logic::AsteroidColoniesGame;
 use ::clap::Parser;
 use actix_web::HttpResponse;
-use commands::register_commands;
 use session::SessionId;
 use std::{
     collections::HashSet,
@@ -285,7 +283,6 @@ async fn main() -> std::io::Result<()> {
             .service(websocket_index)
             .route("/api/session", web::post().to(new_session))
             .route("/api/load", web::get().to(get_state));
-        let app = register_commands(app);
         // .route("/api/time_scale", web::post().to(set_timescale));
         #[cfg(not(debug_assertions))]
         {
