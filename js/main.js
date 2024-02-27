@@ -156,7 +156,7 @@ let sessionId = null;
             try {
                 const from = game.transform_coords(moving[0], moving[1]);
                 const to = game.transform_coords(x, y);
-                requestPost("move", {from: [from[0], from[1]], to: [to[0], to[1]]});
+                requestWs({"type": "Move", from: [from[0], from[1]], to: [to[0], to[1]]});
                 game.move_building(moving[0], moving[1], x, y);
             }
             catch (e) {

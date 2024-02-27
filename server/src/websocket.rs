@@ -13,7 +13,7 @@ use ::asteroid_colonies_logic::{
 };
 use ::serde::{Deserialize, Serialize};
 use actix_web_actors::ws;
-use asteroid_colonies_logic::SerializeGame;
+use asteroid_colonies_logic::{Pos, SerializeGame};
 
 /// Open a WebSocket instance and give it to the client.
 /// `session_id` should be created by `/api/session` beforehand.
@@ -130,6 +130,7 @@ type WsResult = Result<ws::Message, ws::ProtocolError>;
 #[serde(tag = "type")]
 enum WsMessage {
     Excavate { x: i32, y: i32 },
+    Move { from: Pos, to: Pos },
 }
 
 impl StreamHandler<WsResult> for SessionWs {
@@ -190,8 +191,15 @@ impl SessionWs {
     fn handle_excavate(&mut self, payload: WsMessage) -> anyhow::Result<()> {
         let mut game = self.data.game.write().unwrap();
 
-        let WsMessage::Excavate { x, y } = payload;
-        game.excavate(x, y).map_err(|e| anyhow::anyhow!("{e}"))?;
+        match payload {
+            WsMessage::Excavate { x, y } => {
+                game.excavate(x, y).map_err(|e| anyhow::anyhow!("{e}"))?;
+            }
+            WsMessage::Move { from, to } => {
+                game.move_building(from[0], from[1], to[0], to[1])
+                    .map_err(|e| anyhow::anyhow!("{e}"))?;
+            }
+        }
 
         // self.addr.do_send(NotifyBodyState {
         //     session_id: Some(self.session_id),
