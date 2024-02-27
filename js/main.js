@@ -249,7 +249,7 @@ let sessionId = null;
                             recipeElem.innerHTML = formatRecipe(recipe);
                             recipeElem.addEventListener("pointerup", _ => {
                                 const [ix, iy] = game.transform_coords(x, y);
-                                requestPost("set_recipe", {pos: [ix, iy], name: recipeName});
+                                requestWs("SetRecipe", {pos: [ix, iy], name: recipeName});
                                 game.set_recipe(x, y, recipeName);
                                 recipesElem.style.display = "none";
                             })

@@ -148,6 +148,10 @@ enum WsMessage {
     BuildPlan {
         build_plan: Vec<Construction>,
     },
+    SetRecipe {
+        pos: Pos,
+        name: String,
+    },
 }
 
 impl StreamHandler<WsResult> for SessionWs {
@@ -168,35 +172,6 @@ impl StreamHandler<WsResult> for SessionWs {
                         e.to_string()
                     ));
                 }
-
-                // match payload {
-                //     WsMessage::SetRocketState(payload) => {
-                //         if let Err(e) = self.handle_set_rocket_state(payload) {
-                //             return ctx.text(&*format!(
-                //                 "{{\"type\": \"response\", \"payload\": \"fail: {}\"}}",
-                //                 e.to_string()
-                //             ));
-                //         }
-                //     }
-                //     WsMessage::Message { payload } => {
-                //         println!("Got message: {:?}", payload);
-                //         self.addr.do_send(ClientMessage {
-                //             session_id: self.session_id,
-                //             message: payload,
-                //         });
-                //     }
-                //     WsMessage::TimeScale { payload } => {
-                //         let mut data = self.data.universe.write().unwrap();
-                //         println!("Got timeScale: {}", payload.time_scale);
-                //         data.time_scale = payload.time_scale;
-                //         self.addr.do_send(TimeScaleMessage {
-                //             time_scale: payload.time_scale,
-                //         });
-                //     }
-                //     WsMessage::ChatHistoryRequest => {
-                //         self.addr.do_send(ChatHistoryRequest(self.session_id));
-                //     }
-                // }
             }
             Ok(ws::Message::Binary(bin)) => ctx.binary(bin),
             _ => (),
@@ -229,6 +204,10 @@ impl SessionWs {
             },
             WsMessage::BuildPlan { build_plan } => {
                 game.build_plan(&build_plan);
+            }
+            WsMessage::SetRecipe { pos, name } => {
+                game.set_recipe(pos[0], pos[1], &name)
+                    .map_err(|e| anyhow::anyhow!("{e}"))?;
             }
         }
 
