@@ -280,7 +280,7 @@ let sessionId = null;
                     }
                     else if (name === "power") {
                         const [ix, iy] = game.transform_coords(x, y);
-                        requestPost("build", {pos: [ix, iy], type: "PowerGrid"});
+                        requestWs({pos: [ix, iy], type: "PowerGrid"});
                     }
                     if (game.command(name, x, y)) {
                         requestAnimationFrame(() => game.render(ctx));

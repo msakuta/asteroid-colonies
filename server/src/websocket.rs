@@ -131,6 +131,7 @@ type WsResult = Result<ws::Message, ws::ProtocolError>;
 enum WsMessage {
     Excavate { x: i32, y: i32 },
     Move { from: Pos, to: Pos },
+    PowerGrid { pos: Pos},
 }
 
 impl StreamHandler<WsResult> for SessionWs {
@@ -145,7 +146,7 @@ impl StreamHandler<WsResult> for SessionWs {
                     return ctx.text("{\"type\": \"response\", \"payload\": \"fail\"}");
                 };
 
-                if let Err(e) = self.handle_excavate(payload) {
+                if let Err(e) = self.handle_message(payload) {
                     return ctx.text(&*format!(
                         "{{\"type\": \"response\", \"payload\": \"fail: {}\"}}",
                         e.to_string()
@@ -188,7 +189,7 @@ impl StreamHandler<WsResult> for SessionWs {
 }
 
 impl SessionWs {
-    fn handle_excavate(&mut self, payload: WsMessage) -> anyhow::Result<()> {
+    fn handle_message(&mut self, payload: WsMessage) -> anyhow::Result<()> {
         let mut game = self.data.game.write().unwrap();
 
         match payload {
@@ -197,6 +198,10 @@ impl SessionWs {
             }
             WsMessage::Move { from, to } => {
                 game.move_building(from[0], from[1], to[0], to[1])
+                    .map_err(|e| anyhow::anyhow!("{e}"))?;
+            }
+            WsMessage::PowerGrid { pos } => {
+                game.build_power_grid(pos[0], pos[1])
                     .map_err(|e| anyhow::anyhow!("{e}"))?;
             }
         }
