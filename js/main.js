@@ -263,12 +263,12 @@ let sessionId = null;
                 }
                 else if (name === "cancel") {
                     const pos = game.transform_coords(x, y);
-                    requestPost("cancel_build", {pos: [pos[0], pos[1]]});
+                    requestWs("CancelBuild", {pos: [pos[0], pos[1]]});
                     game.cancel_build(x, y);
                 }
                 else if (name === "deconstruct") {
                     const pos = game.transform_coords(x, y);
-                    requestPost("deconstruct", {pos: [pos[0], pos[1]]});
+                    requestWs("Deconstruct", {pos: [pos[0], pos[1]]});
                     game.deconstruct(x, y);
                 }
                 else {
@@ -370,23 +370,6 @@ let sessionId = null;
         }));
     }
 })()
-
-function requestPost(api, payload) {
-    if (!serverSync) {
-        return;
-    }
-    (async () => {
-        const res = await fetch(`${baseUrl}/api/${api}`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(payload),
-        });
-        const text = await res.text();
-        console.log(`build response: ${text}`);
-    })();
-}
 
 async function loadImage(url) {
     return new Promise((r) => {

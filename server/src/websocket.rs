@@ -148,6 +148,12 @@ enum WsMessage {
     BuildPlan {
         build_plan: Vec<Construction>,
     },
+    CancelBuild {
+        pos: Pos,
+    },
+    Deconstruct {
+        pos: Pos,
+    },
     SetRecipe {
         pos: Pos,
         name: String,
@@ -204,6 +210,13 @@ impl SessionWs {
             },
             WsMessage::BuildPlan { build_plan } => {
                 game.build_plan(&build_plan);
+            }
+            WsMessage::CancelBuild { pos } => {
+                game.cancel_build(pos[0], pos[1]);
+            }
+            WsMessage::Deconstruct { pos } => {
+                game.deconstruct(pos[0], pos[1])
+                    .map_err(|e| anyhow::anyhow!("{e}"))?;
             }
             WsMessage::SetRecipe { pos, name } => {
                 game.set_recipe(pos[0], pos[1], &name)
