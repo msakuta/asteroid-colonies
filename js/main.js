@@ -156,7 +156,7 @@ let sessionId = null;
             try {
                 const from = game.transform_coords(moving[0], moving[1]);
                 const to = game.transform_coords(x, y);
-                requestWs({"type": "Move", from: [from[0], from[1]], to: [to[0], to[1]]});
+                requestWs("Move", {from: [from[0], from[1]], to: [to[0], to[1]]});
                 game.move_building(moving[0], moving[1], x, y);
             }
             catch (e) {
@@ -220,7 +220,7 @@ let sessionId = null;
                             buildItemElem.innerHTML = formatBuildItem(buildItem);
                             buildItemElem.addEventListener("pointerup", _ => {
                                 const [ix, iy] = game.transform_coords(x, y);
-                                requestPost("build", {pos: [ix, iy], type: {Building: buildingType.Building}});
+                                requestWs("Build", {pos: [ix, iy], type: {Building: buildingType.Building}});
                                 game.build(x, y, buildingType.Building);
                                 buildMenuElem.style.display = "none";
                             })
@@ -276,11 +276,11 @@ let sessionId = null;
                     recipesElem.style.display = "none";
                     if (name === "excavate") {
                         const [ix, iy] = game.transform_coords(x, y);
-                        requestWs({"type": "Excavate", x: ix, y: iy});
+                        requestWs("Excavate", {x: ix, y: iy});
                     }
                     else if (name === "power") {
                         const [ix, iy] = game.transform_coords(x, y);
-                        requestWs({pos: [ix, iy], type: "PowerGrid"});
+                        requestWs("Build", {type: "PowerGrid", pos: [ix, iy]});
                     }
                     if (game.command(name, x, y)) {
                         requestAnimationFrame(() => game.render(ctx));
@@ -305,7 +305,7 @@ let sessionId = null;
             buildingConveyor = null;
             messageOverlayElem.style.display = "none";
             const buildPlan = game.commit_build_conveyor(false);
-            requestWs({type: "BuildPlan", build_plan: buildPlan});
+            requestWs("BuildPlan", {build_plan: buildPlan});
         });
         const cancelButton = document.createElement("button");
         cancelButton.value = "Cancel";
@@ -360,11 +360,14 @@ let sessionId = null;
         }
     }
 
-    function requestWs(payload) {
+    function requestWs(type, payload) {
         if (!websocket) {
             return;
         }
-        websocket.send(JSON.stringify(payload));
+        websocket.send(JSON.stringify({
+            type,
+            payload
+        }));
     }
 })()
 
