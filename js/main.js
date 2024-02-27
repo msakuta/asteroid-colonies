@@ -305,7 +305,7 @@ let sessionId = null;
             buildingConveyor = null;
             messageOverlayElem.style.display = "none";
             const buildPlan = game.commit_build_conveyor(false);
-            requestPost("build_plan", {buildPlan});
+            requestWs({type: "BuildPlan", build_plan: buildPlan});
         });
         const cancelButton = document.createElement("button");
         cancelButton.value = "Cancel";

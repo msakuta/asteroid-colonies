@@ -13,7 +13,7 @@ use ::asteroid_colonies_logic::{
 };
 use ::serde::{Deserialize, Serialize};
 use actix_web_actors::ws;
-use asteroid_colonies_logic::{Pos, SerializeGame};
+use asteroid_colonies_logic::{construction::Construction, Pos, SerializeGame};
 
 /// Open a WebSocket instance and give it to the client.
 /// `session_id` should be created by `/api/session` beforehand.
@@ -131,7 +131,8 @@ type WsResult = Result<ws::Message, ws::ProtocolError>;
 enum WsMessage {
     Excavate { x: i32, y: i32 },
     Move { from: Pos, to: Pos },
-    PowerGrid { pos: Pos},
+    PowerGrid { pos: Pos },
+    BuildPlan { build_plan: Vec<Construction> },
 }
 
 impl StreamHandler<WsResult> for SessionWs {
@@ -203,6 +204,9 @@ impl SessionWs {
             WsMessage::PowerGrid { pos } => {
                 game.build_power_grid(pos[0], pos[1])
                     .map_err(|e| anyhow::anyhow!("{e}"))?;
+            }
+            WsMessage::BuildPlan { build_plan } => {
+                game.build_plan(&build_plan);
             }
         }
 
