@@ -379,9 +379,9 @@ impl AsteroidColoniesGame {
             constructions: self.constructions.clone(),
         };
         if pretty {
-            serde_json::to_string(&ser_game)
-        } else {
             serde_json::to_string_pretty(&ser_game)
+        } else {
+            serde_json::to_string(&ser_game)
         }
     }
 

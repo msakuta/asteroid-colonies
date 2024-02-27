@@ -249,7 +249,7 @@ async fn main() -> std::io::Result<()> {
 
             let mut last_pushed = data_copy.last_pushed.lock().unwrap();
             if push_period_s < last_pushed.elapsed().as_secs_f64() {
-                if let Ok(serialized) = serialize_state(&game, autosave_pretty) {
+                if let Ok(serialized) = serialize_state(&game, false) {
                     data_copy.srv.do_send(NotifyState {
                         session_id: None,
                         set_state: SetStateWs(serialized),
