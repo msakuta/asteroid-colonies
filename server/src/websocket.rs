@@ -126,16 +126,30 @@ pub(crate) struct ChatHistoryRequest(pub SessionId);
 
 type WsResult = Result<ws::Message, ws::ProtocolError>;
 
+#[derive(Deserialize)]
+#[serde(tag = "type")]
+enum WsMessage {
+    Excavate { x: i32, y: i32 },
+}
+
 impl StreamHandler<WsResult> for SessionWs {
     fn handle(&mut self, msg: WsResult, ctx: &mut Self::Context) {
         match msg {
             Ok(ws::Message::Ping(msg)) => ctx.pong(&msg),
             Ok(ws::Message::Text(text)) => {
-                // let payload: WsMessage = if let Ok(payload) = serde_json::from_str(&text) {
-                //     payload
-                // } else {
-                //     return ctx.text("{\"type\": \"response\", \"payload\": \"fail\"}");
-                // };
+                println!("received ws text: {text}");
+                let payload: WsMessage = if let Ok(payload) = serde_json::from_str(&text) {
+                    payload
+                } else {
+                    return ctx.text("{\"type\": \"response\", \"payload\": \"fail\"}");
+                };
+
+                if let Err(e) = self.handle_excavate(payload) {
+                    return ctx.text(&*format!(
+                        "{{\"type\": \"response\", \"payload\": \"fail: {}\"}}",
+                        e.to_string()
+                    ));
+                }
 
                 // match payload {
                 //     WsMessage::SetRocketState(payload) => {
@@ -173,8 +187,11 @@ impl StreamHandler<WsResult> for SessionWs {
 }
 
 impl SessionWs {
-    fn handle_set_rocket_state(&mut self, payload: SetStateWs) -> anyhow::Result<()> {
+    fn handle_excavate(&mut self, payload: WsMessage) -> anyhow::Result<()> {
         let mut game = self.data.game.write().unwrap();
+
+        let WsMessage::Excavate { x, y } = payload;
+        game.excavate(x, y).map_err(|e| anyhow::anyhow!("{e}"))?;
 
         // self.addr.do_send(NotifyBodyState {
         //     session_id: Some(self.session_id),

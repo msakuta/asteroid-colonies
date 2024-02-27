@@ -276,7 +276,7 @@ let sessionId = null;
                     recipesElem.style.display = "none";
                     if (name === "excavate") {
                         const [ix, iy] = game.transform_coords(x, y);
-                        requestPost("excavate", {x: ix, y: iy});
+                        requestWs({"type": "Excavate", x: ix, y: iy});
                     }
                     else if (name === "power") {
                         const [ix, iy] = game.transform_coords(x, y);
@@ -358,6 +358,13 @@ let sessionId = null;
                 }
             });
         }
+    }
+
+    function requestWs(payload) {
+        if (!websocket) {
+            return;
+        }
+        websocket.send(JSON.stringify(payload));
     }
 })()
 
