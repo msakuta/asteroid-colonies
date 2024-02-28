@@ -9,7 +9,7 @@ use crate::{
     conveyor::Conveyor,
     task::Direction,
     transport::{expected_deliveries, find_multipath_should_expand, CPos, LevelTarget, Transport},
-    Cell, ItemType, Pos, WIDTH,
+    Cell, ItemType, Pos, Tiles, WIDTH,
 };
 
 /// An abstraction of tile map where you can pick a tile from a position.
@@ -27,6 +27,12 @@ impl TileSampler for &[Cell] {
 impl TileSampler for Vec<Cell> {
     fn at(&self, pos: [i32; 2]) -> Option<&Cell> {
         Some(&self[pos[0] as usize + pos[1] as usize * WIDTH])
+    }
+}
+
+impl TileSampler for Tiles {
+    fn at(&self, pos: [i32; 2]) -> Option<&Cell> {
+        Some(&self[pos])
     }
 }
 

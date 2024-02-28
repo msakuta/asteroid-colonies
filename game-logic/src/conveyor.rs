@@ -106,7 +106,7 @@ impl AsteroidColoniesGame {
         let mut prev_from = Option::None;
 
         let pos = [ix0, iy0];
-        let cell = &self.cells[pos[0] as usize + pos[1] as usize * WIDTH];
+        let cell = &self.cells[pos];
         if let Some(from) = self
             .conveyor_staged
             .get(&pos)
@@ -145,7 +145,7 @@ impl AsteroidColoniesGame {
 
         // console_log!("conv pos ix0: {ix0}, ix1: {ix1}, xrev: {x_rev}, iy0: {iy0}, iy1: {iy1}, yrev: {y_rev}, {:?}", convs);
         for (pos0, pos1) in convs.iter().zip(convs.iter().skip(1)) {
-            let cell = &self.cells[pos0[0] as usize + pos0[1] as usize * WIDTH];
+            let cell = &self.cells[*pos0];
             let staged = self.conveyor_staged.get(pos0).copied().unwrap_or(None);
             let Some(to) = Direction::from_vec([pos1[0] - pos0[0], pos1[1] - pos0[1]]) else {
                 continue;
@@ -159,7 +159,7 @@ impl AsteroidColoniesGame {
         }
 
         if let Some((pos, prev_from)) = convs.last().zip(prev_from) {
-            let cell = &self.cells[pos[0] as usize + pos[1] as usize * WIDTH];
+            let cell = &self.cells[*pos];
             let staged = self.conveyor_staged.get(pos).copied().unwrap_or(None);
             let to = self
                 .conveyor_staged

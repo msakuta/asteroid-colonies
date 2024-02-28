@@ -77,7 +77,7 @@ impl AsteroidColoniesGame {
                         std::iter::once(t.dest),
                         |pos| pos == t.src,
                         |from_direction, pos| {
-                            let cell = &cells[pos[0] as usize + pos[1] as usize * WIDTH];
+                            let cell = &cells[pos];
                             if let Some(from_direction) = from_direction {
                                 matches!(cell.conveyor, Conveyor::One(_, dir) if dir == from_direction)
                                     && cell.conveyor.is_some()

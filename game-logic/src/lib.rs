@@ -4,6 +4,7 @@ use crate::{building::Recipe, conveyor::Conveyor, crew::Crew, transport::Transpo
 pub use crate::{
     construction::get_build_menu,
     game::{AsteroidColoniesGame, SerializeGame},
+    tile::{Cell, CellState, Chunk, Tiles},
     xor128::Xor128,
 };
 use serde::{Deserialize, Serialize};
@@ -15,6 +16,7 @@ mod crew;
 mod game;
 mod push_pull;
 pub mod task;
+mod tile;
 mod transport;
 mod xor128;
 
@@ -59,68 +61,6 @@ pub(crate) fn log(s: &str) {
 pub const TILE_SIZE: f64 = 32.;
 pub const WIDTH: usize = 100;
 pub const HEIGHT: usize = 100;
-
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub enum CellState {
-    Solid,
-    Empty,
-    Space,
-}
-
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub struct Cell {
-    pub state: CellState,
-    pub power_grid: bool,
-    pub conveyor: Conveyor,
-    /// The index into the background image for quick rendering
-    #[serde(skip)]
-    pub image_lt: u8,
-    #[serde(skip)]
-    pub image_lb: u8,
-    #[serde(skip)]
-    pub image_rb: u8,
-    #[serde(skip)]
-    pub image_rt: u8,
-}
-
-impl Cell {
-    const fn new() -> Self {
-        Self {
-            state: CellState::Solid,
-            power_grid: false,
-            conveyor: Conveyor::None,
-            image_lt: 0,
-            image_lb: 0,
-            image_rb: 0,
-            image_rt: 0,
-        }
-    }
-
-    #[allow(dead_code)]
-    const fn new_with_conveyor(conveyor: Conveyor) -> Self {
-        Self {
-            state: CellState::Empty,
-            power_grid: false,
-            conveyor,
-            image_lt: 0,
-            image_lb: 0,
-            image_rb: 0,
-            image_rt: 0,
-        }
-    }
-
-    const fn building() -> Self {
-        Self {
-            state: CellState::Empty,
-            power_grid: true,
-            conveyor: Conveyor::None,
-            image_lt: 8,
-            image_lb: 8,
-            image_rb: 8,
-            image_rt: 8,
-        }
-    }
-}
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub enum ItemType {

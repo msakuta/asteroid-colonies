@@ -10,6 +10,7 @@ use crate::{
     hash_map,
     push_pull::{pull_inputs, push_outputs},
     task::{GlobalTask, Task, RAW_ORE_SMELT_TIME},
+    tile::Tiles,
     transport::find_multipath,
     AsteroidColoniesGame, Cell, CellState, Crew, ItemType, Transport, Xor128, WIDTH,
 };
@@ -154,7 +155,7 @@ impl Building {
     pub fn tick(
         bldgs: &mut [Building],
         idx: usize,
-        cells: &[Cell],
+        cells: &Tiles,
         transports: &mut Vec<Transport>,
         constructions: &mut [Construction],
         crews: &mut Vec<Crew>,
@@ -168,7 +169,7 @@ impl Building {
         // Try pushing out products
         if let Some(ref recipe) = this.recipe {
             let outputs: HashSet<_> = recipe.outputs.keys().copied().collect();
-            push_outputs(&cells, transports, this, first, last, &|item| {
+            push_outputs(cells, transports, this, first, last, &|item| {
                 outputs.contains(&item)
             });
         }
@@ -176,7 +177,7 @@ impl Building {
             if let Some(recipe) = &this.recipe {
                 pull_inputs(
                     &recipe.inputs,
-                    &cells,
+                    cells,
                     transports,
                     this.pos,
                     this.type_.size(),
@@ -211,7 +212,7 @@ impl Building {
         }
         match this.type_ {
             BuildingType::Excavator => {
-                push_outputs(&cells, transports, this, first, last, &|t| {
+                push_outputs(cells, transports, this, first, last, &|t| {
                     matches!(t, ItemType::RawOre)
                 });
             }
@@ -235,10 +236,7 @@ impl Building {
                 }
                 for construction in constructions {
                     let pos = construction.pos;
-                    if !matches!(
-                        cells[pos[0] as usize + pos[1] as usize * WIDTH].state,
-                        CellState::Empty
-                    ) {
+                    if !matches!(cells[pos].state, CellState::Empty) {
                         // Don't bother trying to find a path in an unreachable area.
                         continue;
                     }
@@ -256,12 +254,7 @@ impl Building {
                                                 && 0 < o.inventory.get(&ty).copied().unwrap_or(0)
                                         })
                                     },
-                                    |_, pos| {
-                                        matches!(
-                                            cells[pos[0] as usize + pos[1] as usize * WIDTH].state,
-                                            CellState::Empty
-                                        )
-                                    },
+                                    |_, pos| matches!(cells[pos].state, CellState::Empty),
                                 );
                                 path_to_source
                                     .and_then(|src| src.first().copied())
@@ -279,12 +272,7 @@ impl Building {
                                             o.pos == pos && o.inventory_size() < o.type_.capacity()
                                         })
                                     },
-                                    |_, pos| {
-                                        matches!(
-                                            cells[pos[0] as usize + pos[1] as usize * WIDTH].state,
-                                            CellState::Empty
-                                        )
-                                    },
+                                    |_, pos| matches!(cells[pos].state, CellState::Empty),
                                 );
 
                                 path_to_dest
@@ -316,7 +304,7 @@ impl Building {
                 }
             }
             BuildingType::Furnace => {
-                push_outputs(&cells, transports, this, first, last, &|t| {
+                push_outputs(cells, transports, this, first, last, &|t| {
                     !matches!(t, ItemType::RawOre)
                 });
                 if !matches!(this.task, Task::None) {
@@ -330,7 +318,7 @@ impl Building {
                 };
                 pull_inputs(
                     &recipe.inputs,
-                    &cells,
+                    cells,
                     transports,
                     this.pos,
                     this.type_.size(),
