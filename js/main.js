@@ -27,6 +27,9 @@ const canvas = document.getElementById('canvas');
 const serverSync = SERVER_SYNC;
 const baseUrl = BASE_URL;
 const syncPeriod = SYNC_PERIOD;
+const port = 3883;
+let websocket = null;
+let sessionId = null;
 
 (async () => {
     const wasm = await import("../wasm/Cargo.toml");
@@ -61,14 +64,23 @@ const syncPeriod = SYNC_PERIOD;
     });
     const loadedImages = await Promise.all(loadImages);
 
-
     const canvasRect = canvas.getBoundingClientRect();
     const game = new AsteroidColonies(loadedImages, canvasRect.width, canvasRect.height);
-    if (serverSync) {
+
+    if(serverSync && !sessionId){
+        const sessionRes = await fetch(`http://${location.hostname}:${port}/api/session`, {
+            method: "POST"
+        });
+        sessionId = await sessionRes.text();
         const dataRes = await fetch(`${baseUrl}/api/load`);
         const dataText = await dataRes.text();
         game.deserialize(dataText);
     }
+
+    if(!websocket){
+        reconnectWebSocket();
+    }
+
     function resizeHandler(evt) {
         const bodyRect = document.body.getBoundingClientRect();
         canvas.setAttribute("width", bodyRect.width);
@@ -144,7 +156,7 @@ const syncPeriod = SYNC_PERIOD;
             try {
                 const from = game.transform_coords(moving[0], moving[1]);
                 const to = game.transform_coords(x, y);
-                requestPost("move", {from: [from[0], from[1]], to: [to[0], to[1]]});
+                requestWs("Move", {from: [from[0], from[1]], to: [to[0], to[1]]});
                 game.move_building(moving[0], moving[1], x, y);
             }
             catch (e) {
@@ -208,7 +220,7 @@ const syncPeriod = SYNC_PERIOD;
                             buildItemElem.innerHTML = formatBuildItem(buildItem);
                             buildItemElem.addEventListener("pointerup", _ => {
                                 const [ix, iy] = game.transform_coords(x, y);
-                                requestPost("build", {pos: [ix, iy], type: {Building: buildingType.Building}});
+                                requestWs("Build", {pos: [ix, iy], type: {Building: buildingType.Building}});
                                 game.build(x, y, buildingType.Building);
                                 buildMenuElem.style.display = "none";
                             })
@@ -237,7 +249,7 @@ const syncPeriod = SYNC_PERIOD;
                             recipeElem.innerHTML = formatRecipe(recipe);
                             recipeElem.addEventListener("pointerup", _ => {
                                 const [ix, iy] = game.transform_coords(x, y);
-                                requestPost("set_recipe", {pos: [ix, iy], name: recipeName});
+                                requestWs("SetRecipe", {pos: [ix, iy], name: recipeName});
                                 game.set_recipe(x, y, recipeName);
                                 recipesElem.style.display = "none";
                             })
@@ -251,12 +263,12 @@ const syncPeriod = SYNC_PERIOD;
                 }
                 else if (name === "cancel") {
                     const pos = game.transform_coords(x, y);
-                    requestPost("cancel_build", {pos: [pos[0], pos[1]]});
+                    requestWs("CancelBuild", {pos: [pos[0], pos[1]]});
                     game.cancel_build(x, y);
                 }
                 else if (name === "deconstruct") {
                     const pos = game.transform_coords(x, y);
-                    requestPost("deconstruct", {pos: [pos[0], pos[1]]});
+                    requestWs("Deconstruct", {pos: [pos[0], pos[1]]});
                     game.deconstruct(x, y);
                 }
                 else {
@@ -264,11 +276,11 @@ const syncPeriod = SYNC_PERIOD;
                     recipesElem.style.display = "none";
                     if (name === "excavate") {
                         const [ix, iy] = game.transform_coords(x, y);
-                        requestPost("excavate", {x: ix, y: iy});
+                        requestWs("Excavate", {x: ix, y: iy});
                     }
                     else if (name === "power") {
                         const [ix, iy] = game.transform_coords(x, y);
-                        requestPost("build", {pos: [ix, iy], type: "PowerGrid"});
+                        requestWs("Build", {type: "PowerGrid", pos: [ix, iy]});
                     }
                     if (game.command(name, x, y)) {
                         requestAnimationFrame(() => game.render(ctx));
@@ -293,7 +305,7 @@ const syncPeriod = SYNC_PERIOD;
             buildingConveyor = null;
             messageOverlayElem.style.display = "none";
             const buildPlan = game.commit_build_conveyor(false);
-            requestPost("build_plan", {buildPlan});
+            requestWs("BuildPlan", {build_plan: buildPlan});
         });
         const cancelButton = document.createElement("button");
         cancelButton.value = "Cancel";
@@ -314,12 +326,12 @@ const syncPeriod = SYNC_PERIOD;
     setInterval(async () => {
         // Increment time before any await. Otherwise, this async function runs 2-4 times every tick for some reason.
         time++;
-        if (serverSync && time % syncPeriod === 0) {
-            console.log(`serverSync period: ${time}`);
-            const dataRes = await fetch(`${baseUrl}/api/load`);
-            const dataText = await dataRes.text();
-            game.deserialize(dataText);
-        }
+        // if (serverSync && time % syncPeriod === 0) {
+        //     console.log(`serverSync period: ${time}`);
+        //     const dataRes = await fetch(`${baseUrl}/api/load`);
+        //     const dataText = await dataRes.text();
+        //     game.deserialize(dataText);
+        // }
         game.tick();
         game.render(ctx);
         if (mousePos !== null) {
@@ -327,24 +339,44 @@ const syncPeriod = SYNC_PERIOD;
             document.getElementById('info').innerHTML = formatInfo(info);
         }
     }, 100);
-})()
 
-function requestPost(api, payload) {
-    if (!serverSync) {
-        return;
+    function reconnectWebSocket(){
+        if(sessionId){
+            websocket = new WebSocket(`ws://${location.hostname}:${port}/ws/${sessionId}`);
+            websocket.binaryType = "arraybuffer";
+            websocket.addEventListener("message", (event) => {
+                if (event.data instanceof ArrayBuffer) {
+                    const byteArray = new Uint8Array(event.data);
+                    game.deserialize_bin(byteArray);
+                }
+                else {
+                // console.log(`Event through WebSocket: ${event.data}`);
+                    const data = JSON.parse(event.data);
+                    if(data.type === "clientUpdate"){
+                        if(game){
+                            game.deserialize(data.payload);
+                        }
+                        // const payload = data.payload;
+                        // const body = CelestialBody.celestialBodies.get(payload.bodyState.name);
+                        // if(body){
+                        //     body.clientUpdate(payload.bodyState);
+                        // }
+                    }
+                }
+            });
+        }
     }
-    (async () => {
-        const res = await fetch(`${baseUrl}/api/${api}`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(payload),
-        });
-        const text = await res.text();
-        console.log(`build response: ${text}`);
-    })();
-}
+
+    function requestWs(type, payload) {
+        if (!websocket) {
+            return;
+        }
+        websocket.send(JSON.stringify({
+            type,
+            payload
+        }));
+    }
+})()
 
 async function loadImage(url) {
     return new Promise((r) => {

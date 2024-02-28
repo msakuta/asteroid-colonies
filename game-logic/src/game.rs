@@ -10,7 +10,7 @@ use crate::{
     hash_map, recipes,
     task::{Direction, GlobalTask, Task, MOVE_TIME},
     transport::{find_path, Transport},
-    Cell, CellState, ItemType, Pos, HEIGHT, WIDTH,
+    Cell, CellState, ItemType, Pos, Xor128, HEIGHT, WIDTH,
 };
 
 pub type CalculateBackImage = Box<dyn Fn(&mut [Cell]) + Send + Sync>;
@@ -30,6 +30,7 @@ pub struct AsteroidColoniesGame {
     /// Preview of ghost conveyors, just for visualization.
     pub(crate) conveyor_preview: HashMap<Pos, Conveyor>,
     pub(crate) calculate_back_image: Option<CalculateBackImage>,
+    pub(crate) rng: Xor128,
 }
 
 impl AsteroidColoniesGame {
@@ -133,6 +134,7 @@ impl AsteroidColoniesGame {
             conveyor_staged: HashMap::new(),
             conveyor_preview: HashMap::new(),
             calculate_back_image,
+            rng: Xor128::new(412135),
         })
     }
 
@@ -369,24 +371,32 @@ impl AsteroidColoniesGame {
     }
 
     pub fn serialize(&self, pretty: bool) -> serde_json::Result<String> {
-        let ser_game = SerializeGame {
-            cells: self.cells.clone(),
-            buildings: self.buildings.clone(),
-            crews: self.crews.clone(),
-            global_tasks: self.global_tasks.clone(),
-            global_time: self.global_time,
-            transports: self.transports.clone(),
-            constructions: self.constructions.clone(),
-        };
+        let ser_game = SerializeGame::from(self);
         if pretty {
-            serde_json::to_string(&ser_game)
-        } else {
             serde_json::to_string_pretty(&ser_game)
+        } else {
+            serde_json::to_string(&ser_game)
         }
+    }
+
+    pub fn serialize_bin(&self) -> Result<Vec<u8>, String> {
+        let ser_game = SerializeGame::from(self);
+        bincode::serialize(&ser_game).map_err(|e| format!("{e}"))
     }
 
     pub fn deserialize(&mut self, rdr: impl Read) -> serde_json::Result<()> {
         let ser_data: SerializeGame = serde_json::from_reader(rdr)?;
+        self.from_serialized(ser_data);
+        Ok(())
+    }
+
+    pub fn deserialize_bin(&mut self, rdr: &[u8]) -> Result<(), String> {
+        let ser_data: SerializeGame = bincode::deserialize(rdr).map_err(|e| format!("{e}"))?;
+        self.from_serialized(ser_data);
+        Ok(())
+    }
+
+    fn from_serialized(&mut self, ser_data: SerializeGame) {
         self.cells = ser_data.cells;
         self.buildings = ser_data.buildings;
         self.crews = ser_data.crews;
@@ -394,15 +404,15 @@ impl AsteroidColoniesGame {
         self.global_time = ser_data.global_time;
         self.transports = ser_data.transports;
         self.constructions = ser_data.constructions;
+        self.rng = ser_data.rng;
         if let Some(ref f) = self.calculate_back_image {
             f(&mut self.cells);
         }
-        Ok(())
     }
 }
 
 #[derive(Serialize, Deserialize)]
-struct SerializeGame {
+pub struct SerializeGame {
     cells: Vec<Cell>,
     buildings: Vec<Building>,
     crews: Vec<Crew>,
@@ -410,4 +420,20 @@ struct SerializeGame {
     global_time: usize,
     transports: Vec<Transport>,
     constructions: Vec<Construction>,
+    rng: Xor128,
+}
+
+impl From<&AsteroidColoniesGame> for SerializeGame {
+    fn from(value: &AsteroidColoniesGame) -> Self {
+        Self {
+            cells: value.cells.clone(),
+            buildings: value.buildings.clone(),
+            crews: value.crews.clone(),
+            global_tasks: value.global_tasks.clone(),
+            global_time: value.global_time,
+            transports: value.transports.clone(),
+            constructions: value.constructions.clone(),
+            rng: value.rng.clone(),
+        }
+    }
 }

@@ -1,7 +1,11 @@
 use std::collections::HashMap;
 
 use crate::{building::Recipe, conveyor::Conveyor, crew::Crew, transport::Transport};
-pub use crate::{construction::get_build_menu, game::AsteroidColoniesGame};
+pub use crate::{
+    construction::get_build_menu,
+    game::{AsteroidColoniesGame, SerializeGame},
+    xor128::Xor128,
+};
 use serde::{Deserialize, Serialize};
 
 pub mod building;
@@ -12,6 +16,7 @@ mod game;
 mod push_pull;
 pub mod task;
 mod transport;
+mod xor128;
 
 #[macro_export]
 macro_rules! hash_map {

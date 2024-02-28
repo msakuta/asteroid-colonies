@@ -4,7 +4,6 @@ use std::{
 };
 
 use ::serde::{Deserialize, Serialize};
-use rand::Rng;
 
 use crate::{
     construction::Construction,
@@ -12,7 +11,7 @@ use crate::{
     push_pull::{pull_inputs, push_outputs},
     task::{GlobalTask, Task, RAW_ORE_SMELT_TIME},
     transport::find_multipath,
-    AsteroidColoniesGame, Cell, CellState, Crew, ItemType, Transport, WIDTH,
+    AsteroidColoniesGame, Cell, CellState, Crew, ItemType, Transport, Xor128, WIDTH,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -160,6 +159,7 @@ impl Building {
         constructions: &mut [Construction],
         crews: &mut Vec<Crew>,
         gtasks: &[GlobalTask],
+        rng: &mut Xor128,
     ) -> Result<(), String> {
         let (first, rest) = bldgs.split_at_mut(idx);
         let Some((this, last)) = rest.split_first_mut() else {
@@ -343,7 +343,8 @@ impl Building {
                         return Ok(());
                     };
                     *source -= 1;
-                    let outputs = hash_map!(match rand::thread_rng().gen_range(0..7) {
+                    let dice = rng.nexti() % 7;
+                    let outputs = hash_map!(match dice {
                         0..=3 => ItemType::Cilicate,
                         4..=5 => ItemType::IronIngot,
                         _ => ItemType::CopperIngot,
@@ -386,6 +387,7 @@ impl AsteroidColoniesGame {
                 &mut self.constructions,
                 &mut self.crews,
                 &self.global_tasks,
+                &mut self.rng,
             );
             if let Err(e) = res {
                 crate::console_log!("Building::tick error: {}", e);
