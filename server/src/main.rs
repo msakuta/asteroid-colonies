@@ -238,6 +238,7 @@ async fn main() -> std::io::Result<()> {
 
             let mut last_saved = data_copy.last_saved.lock().unwrap();
             if autosave_period_s < last_saved.elapsed().as_secs_f64() {
+                game.uniformify_tiles();
                 if let Ok(serialized) = serialize_state(&game, autosave_pretty) {
                     let autosave_file = data_copy.autosave_file.clone();
                     actix_web::rt::spawn(async move {
@@ -249,6 +250,7 @@ async fn main() -> std::io::Result<()> {
 
             let mut last_pushed = data_copy.last_pushed.lock().unwrap();
             if push_period_s < last_pushed.elapsed().as_secs_f64() {
+                game.uniformify_tiles();
                 // if let Ok(serialized) = serialize_state(&game, false) {
                 //     data_copy.srv.do_send(NotifyState {
                 //         session_id: None,

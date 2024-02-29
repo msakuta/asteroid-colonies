@@ -41,8 +41,8 @@ impl AsteroidColoniesGame {
             for x in 0..WIDTH {
                 let r2 = ((x as f64 - WIDTH as f64 / 2.) as f64).powi(2)
                     + ((y as f64 - HEIGHT as f64 / 2.) as f64).powi(2);
-                if r2_thresh < r2 {
-                    cells[[x as i32, y as i32]].state = CellState::Space;
+                if r2 < r2_thresh {
+                    cells[[x as i32, y as i32]].state = CellState::Solid;
                 }
             }
         }
@@ -117,6 +117,7 @@ impl AsteroidColoniesGame {
                 cells[iofs].state = CellState::Empty;
             }
         }
+        cells.uniformify();
         // if let Some(ref f) = calculate_back_image {
         //     f(&mut cells);
         // }
@@ -366,6 +367,10 @@ impl AsteroidColoniesGame {
         self.global_time += 1;
 
         Ok(())
+    }
+
+    pub fn uniformify_tiles(&mut self) {
+        self.cells.uniformify();
     }
 
     pub fn serialize(&self, pretty: bool) -> serde_json::Result<String> {
