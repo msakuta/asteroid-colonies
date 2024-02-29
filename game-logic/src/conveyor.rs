@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 
 use crate::{
     console_log, construction::Construction, push_pull::TileSampler, task::Direction,
-    AsteroidColoniesGame, Cell, WIDTH,
+    AsteroidColoniesGame, Cell,
 };
 use serde::{Deserialize, Serialize};
 

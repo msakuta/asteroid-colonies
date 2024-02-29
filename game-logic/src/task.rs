@@ -7,7 +7,7 @@ use crate::{
     construction::Construction,
     game::CalculateBackImage,
     transport::find_path,
-    AsteroidColoniesGame, Cell, CellState, ItemType, Pos, Tiles, WIDTH,
+    AsteroidColoniesGame, CellState, ItemType, Pos, Tiles,
 };
 
 pub const EXCAVATE_TIME: f64 = 10.;
@@ -219,7 +219,7 @@ impl AsteroidColoniesGame {
         cells: &mut Tiles,
         building: &mut Building,
         power_ratio: f64,
-        calculate_back_image: Option<&mut CalculateBackImage>,
+        _calculate_back_image: Option<&mut CalculateBackImage>,
     ) -> Option<(ItemType, [i32; 2])> {
         match building.task {
             Task::Excavate(ref mut t, dir) => {

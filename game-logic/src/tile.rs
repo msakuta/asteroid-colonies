@@ -3,7 +3,7 @@ use std::{
     ops::{Index, IndexMut},
 };
 
-use serde::{Deserialize, Serialize};
+use serde::{de::Visitor, Deserialize, Serialize};
 
 use crate::{conveyor::Conveyor, Pos};
 
@@ -84,9 +84,57 @@ impl Chunk {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Position {
+    pub x: i32,
+    pub y: i32,
+}
+
+impl Serialize for Position {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&format!("{},{}", self.x, self.y))
+    }
+}
+
+struct I32Visitor;
+
+impl<'de> Visitor<'de> for I32Visitor {
+    type Value = Position;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("a string in pair of integers \"x,y\"")
+    }
+
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        let Some(comma) = value.find(',') else {
+            return Err(serde::de::Error::custom("Needs comma"));
+        };
+        let first = &value[..comma];
+        let last = &value[comma + 1..];
+        let x = first.parse().map_err(serde::de::Error::custom)?;
+        let y = last.parse().map_err(serde::de::Error::custom)?;
+        Ok(Position { x, y })
+    }
+}
+
+impl<'de> Deserialize<'de> for Position {
+    fn deserialize<D>(deserializer: D) -> Result<Position, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_str(I32Visitor)
+    }
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Tiles {
-    chunks: HashMap<Pos, Chunk>,
+    chunks: HashMap<Position, Chunk>,
 }
 
 impl Tiles {
@@ -101,10 +149,10 @@ impl Tiles {
     }
 
     pub fn try_get_mut(&mut self, index: [i32; 2]) -> Option<&mut Cell> {
-        let chunk_pos = [
-            index[0].div_euclid(CHUNK_SIZE as i32),
-            index[1].div_euclid(CHUNK_SIZE as i32),
-        ];
+        let chunk_pos = Position {
+            x: index[0].div_euclid(CHUNK_SIZE as i32),
+            y: index[1].div_euclid(CHUNK_SIZE as i32),
+        };
         self.chunks.get_mut(&chunk_pos).map(|chunk| {
             let tile_pos = [
                 index[0].rem_euclid(CHUNK_SIZE as i32),
@@ -119,10 +167,10 @@ impl Index<[i32; 2]> for Tiles {
     type Output = Cell;
     fn index(&self, index: [i32; 2]) -> &Self::Output {
         static SPACE: Cell = Cell::new();
-        let chunk_pos = [
-            index[0].div_euclid(CHUNK_SIZE as i32),
-            index[1].div_euclid(CHUNK_SIZE as i32),
-        ];
+        let chunk_pos = Position {
+            x: index[0].div_euclid(CHUNK_SIZE as i32),
+            y: index[1].div_euclid(CHUNK_SIZE as i32),
+        };
         self.chunks
             .get(&chunk_pos)
             .map(|chunk| {
@@ -139,10 +187,10 @@ impl Index<[i32; 2]> for Tiles {
 impl IndexMut<[i32; 2]> for Tiles {
     /// Allocate a chunk if the given position doesn't have one.
     fn index_mut(&mut self, index: [i32; 2]) -> &mut Self::Output {
-        let chunk_pos = [
-            index[0].div_euclid(CHUNK_SIZE as i32),
-            index[1].div_euclid(CHUNK_SIZE as i32),
-        ];
+        let chunk_pos = Position {
+            x: index[0].div_euclid(CHUNK_SIZE as i32),
+            y: index[1].div_euclid(CHUNK_SIZE as i32),
+        };
         let chunk = self.chunks.entry(chunk_pos).or_insert_with(Chunk::new);
         let tile_pos = [
             index[0].rem_euclid(CHUNK_SIZE as i32),
@@ -154,8 +202,8 @@ impl IndexMut<[i32; 2]> for Tiles {
 
 pub struct TilesIter<'a> {
     // tiles: &'a Tiles,
-    iter_chunks: Option<Box<dyn Iterator<Item = (&'a Pos, &'a Chunk)> + 'a>>,
-    chunk_pos: Option<Pos>,
+    iter_chunks: Option<Box<dyn Iterator<Item = (&'a Position, &'a Chunk)> + 'a>>,
+    chunk_pos: Option<Position>,
     iter: Option<Box<dyn Iterator<Item = (usize, &'a Cell)> + 'a>>,
 }
 
@@ -188,8 +236,8 @@ impl<'a> Iterator for TilesIter<'a> {
                 let pos = [(i % CHUNK_SIZE) as i32, (i / CHUNK_SIZE) as i32];
                 Some((
                     [
-                        chunk_pos[0] * CHUNK_SIZE as i32 + pos[0],
-                        chunk_pos[1] * CHUNK_SIZE as i32 + pos[1],
+                        chunk_pos.x * CHUNK_SIZE as i32 + pos[0],
+                        chunk_pos.y * CHUNK_SIZE as i32 + pos[1],
                     ],
                     item,
                 ))
@@ -205,8 +253,8 @@ impl<'a> Iterator for TilesIter<'a> {
                 ret.map(|(i, c)| {
                     (
                         [
-                            chunk_pos[0] * CHUNK_SIZE as i32 + i.rem_euclid(CHUNK_SIZE) as i32,
-                            chunk_pos[1] * CHUNK_SIZE as i32 + i.div_euclid(CHUNK_SIZE) as i32,
+                            chunk_pos.x * CHUNK_SIZE as i32 + i.rem_euclid(CHUNK_SIZE) as i32,
+                            chunk_pos.y * CHUNK_SIZE as i32 + i.div_euclid(CHUNK_SIZE) as i32,
                         ],
                         c,
                     )

@@ -12,7 +12,7 @@ use crate::{
     task::{GlobalTask, Task, RAW_ORE_SMELT_TIME},
     tile::Tiles,
     transport::find_multipath,
-    AsteroidColoniesGame, Cell, CellState, Crew, ItemType, Transport, Xor128, WIDTH,
+    AsteroidColoniesGame, CellState, Crew, ItemType, Transport, Xor128,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]

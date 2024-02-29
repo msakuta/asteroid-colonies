@@ -6,7 +6,7 @@ use crate::{
     push_pull::{pull_inputs, push_outputs, HasInventory},
     task::{Direction, BUILD_CONVEYOR_TIME, BUILD_POWER_GRID_TIME},
     transport::{expected_deliveries, Transport},
-    Conveyor, Inventory, ItemType, Pos, WIDTH,
+    Conveyor, Inventory, ItemType, Pos,
 };
 
 use super::{hash_map, AsteroidColoniesGame};

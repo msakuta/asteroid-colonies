@@ -303,8 +303,9 @@ async fn main() -> std::io::Result<()> {
     .run()
     .await;
 
-    if let Ok(serialized) = serialize_state(&data_copy2.game.read().unwrap(), autosave_pretty) {
-        save_file(&data_copy2.autosave_file, &serialized);
+    match serialize_state(&data_copy2.game.read().unwrap(), autosave_pretty) {
+        Ok(serialized) => save_file(&data_copy2.autosave_file, &serialized),
+        Err(e) => println!("Error saving file: {e}"),
     }
     Ok(())
 }

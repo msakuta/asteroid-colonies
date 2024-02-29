@@ -7,7 +7,7 @@ use crate::{
     construction::Construction,
     task::{GlobalTask, EXCAVATE_ORE_AMOUNT, LABOR_EXCAVATE_TIME},
     transport::find_path,
-    AsteroidColoniesGame, Cell, CellState, ItemType, Pos, Tiles, WIDTH,
+    AsteroidColoniesGame, CellState, ItemType, Pos, Tiles,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
