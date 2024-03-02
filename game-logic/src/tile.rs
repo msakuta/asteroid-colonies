@@ -1,8 +1,10 @@
 use std::{
     collections::HashMap,
+    hash::{Hash, Hasher},
     ops::{Index, IndexMut},
 };
 
+use fnv::FnvHasher;
 use serde::{de::Visitor, Deserialize, Serialize};
 
 use crate::{conveyor::Conveyor, Pos};
@@ -14,6 +16,12 @@ pub enum CellState {
     Solid,
     Empty,
     Space,
+}
+
+impl Hash for CellState {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        ((*self) as u8).hash(state)
+    }
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, Eq)]
@@ -37,6 +45,14 @@ impl PartialEq for Cell {
         self.state == other.state
             && self.power_grid == other.power_grid
             && self.conveyor == other.conveyor
+    }
+}
+
+impl Hash for Cell {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.state.hash(state);
+        self.power_grid.hash(state);
+        self.conveyor.hash(state);
     }
 }
 
@@ -81,37 +97,83 @@ impl Cell {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub enum Chunk {
-    Tiles(Vec<Cell>),
-    Uniform(Cell),
+    Tiles(Vec<Cell>, u64),
+    Uniform(Cell, u64),
+}
+
+impl std::hash::Hash for Chunk {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        match self {
+            Self::Tiles(tiles, _) => tiles.hash(state),
+            Self::Uniform(tile, _) => tile.hash(state),
+        }
+    }
+}
+
+fn new_hasher() -> FnvHasher {
+    FnvHasher::default()
 }
 
 impl Chunk {
     pub fn new() -> Self {
-        Self::Uniform(Cell::new())
+        let mut hasher = new_hasher();
+        let cell = Cell::new();
+        cell.hash(&mut hasher);
+        let hash = hasher.finish();
+        Self::Uniform(Cell::new(), hash)
     }
 
+    /// Attempt to compress uniform chunks and save space.
+    /// Returns false if it is uniform space and can be removed without losing information.
     pub fn uniformify(&mut self) -> bool {
         match self {
-            Chunk::Tiles(tiles) => {
+            Chunk::Tiles(tiles, hash) => {
                 let first = tiles[0];
                 let is_uniform = tiles.iter().fold(true, |acc, cur| acc && first == *cur);
-                if is_uniform {
-                    if first == Cell::new() {
-                        return false;
+                if !is_uniform {
+                    let mut hasher = new_hasher();
+                    for tile in tiles {
+                        tile.hash(&mut hasher);
                     }
-                    *self = Chunk::Uniform(first);
+                    *hash = hasher.finish();
+                    return true;
                 }
+                if first == Cell::new() {
+                    return false;
+                }
+                let mut hasher = new_hasher();
+                first.hash(&mut hasher);
+                let hash = hasher.finish();
+                *self = Chunk::Uniform(first, hash);
                 true
             }
-            Chunk::Uniform(tile) => *tile != Cell::new(),
+            Chunk::Uniform(tile, _) => *tile != Cell::new(),
         }
     }
+
+    /// Get the cached hash
+    pub fn get_hash(&self) -> u64 {
+        match self {
+            Chunk::Tiles(_, hash) | Chunk::Uniform(_, hash) => *hash,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChunkDigest {
+    hash: u64,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Position {
     pub x: i32,
     pub y: i32,
+}
+
+impl Position {
+    pub fn new(x: i32, y: i32) -> Self {
+        Self { x, y }
+    }
 }
 
 impl Serialize for Position {
@@ -158,7 +220,7 @@ impl<'de> Deserialize<'de> for Position {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Tiles {
-    chunks: HashMap<Position, Chunk>,
+    pub(crate) chunks: HashMap<Position, Chunk>,
 }
 
 impl Tiles {
@@ -168,8 +230,34 @@ impl Tiles {
         }
     }
 
+    pub fn filter_with_diffs(
+        &self,
+        chunks_digest: &HashMap<Position, u64>,
+    ) -> Result<Self, String> {
+        let chunks: HashMap<Position, Chunk> = self
+            .chunks()
+            .iter()
+            .filter_map(|(pos, c)| {
+                if chunks_digest
+                    .get(pos)
+                    .map(|d| c.get_hash() != *d)
+                    .unwrap_or(true)
+                {
+                    Some((*pos, c.clone()))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        Ok(Self { chunks })
+    }
+
     pub fn iter(&self) -> TilesIter {
         TilesIter::new(self)
+    }
+
+    pub fn chunks(&self) -> &HashMap<Position, Chunk> {
+        &self.chunks
     }
 
     pub fn try_get_mut(&mut self, index: [i32; 2]) -> Option<&mut Cell> {
@@ -180,19 +268,19 @@ impl Tiles {
         self.chunks
             .get_mut(&chunk_pos)
             .and_then(|chunk| match chunk {
-                Chunk::Tiles(tiles) => {
+                Chunk::Tiles(tiles, _) => {
                     let tile_pos = [
                         index[0].rem_euclid(CHUNK_SIZE as i32),
                         index[1].rem_euclid(CHUNK_SIZE as i32),
                     ];
                     Some(&mut tiles[tile_pos[0] as usize + tile_pos[1] as usize * CHUNK_SIZE])
                 }
-                Chunk::Uniform(_) => None,
+                Chunk::Uniform(_, _) => None,
             })
     }
 
     pub fn uniformify(&mut self) {
-        self.chunks.retain(|_k, v| v.uniformify())
+        self.chunks.retain(|_k, v| v.uniformify());
     }
 }
 
@@ -207,14 +295,14 @@ impl Index<[i32; 2]> for Tiles {
         self.chunks
             .get(&chunk_pos)
             .map(|chunk| match chunk {
-                Chunk::Tiles(tiles) => {
+                Chunk::Tiles(tiles, _) => {
                     let tile_pos = [
                         index[0].rem_euclid(CHUNK_SIZE as i32),
                         index[1].rem_euclid(CHUNK_SIZE as i32),
                     ];
                     &tiles[tile_pos[0] as usize + tile_pos[1] as usize * CHUNK_SIZE]
                 }
-                Chunk::Uniform(tile) => tile,
+                Chunk::Uniform(tile, _) => tile,
             })
             .unwrap_or(&SPACE)
     }
@@ -233,15 +321,20 @@ impl IndexMut<[i32; 2]> for Tiles {
             index[1].rem_euclid(CHUNK_SIZE as i32),
         ];
         match chunk {
-            Chunk::Tiles(tiles) => {
+            Chunk::Tiles(tiles, _) => {
                 &mut tiles[tile_pos[0] as usize + tile_pos[1] as usize * CHUNK_SIZE]
             }
-            Chunk::Uniform(tile) => {
+            Chunk::Uniform(tile, _) => {
                 let mut tiles = vec![Cell::new(); CHUNK_SIZE * CHUNK_SIZE];
                 tiles[tile_pos[0] as usize + tile_pos[1] as usize * CHUNK_SIZE] = *tile;
-                *chunk = Chunk::Tiles(tiles);
+                let mut hasher = new_hasher();
+                for tile in &tiles {
+                    tile.hash(&mut hasher);
+                }
+                let hash = hasher.finish();
+                *chunk = Chunk::Tiles(tiles, hash);
                 match chunk {
-                    Chunk::Tiles(tiles) => {
+                    Chunk::Tiles(tiles, _) => {
                         &mut tiles[tile_pos[0] as usize + tile_pos[1] as usize * CHUNK_SIZE]
                     }
                     _ => unreachable!(),
@@ -264,8 +357,8 @@ impl<'a> TilesIter<'a> {
         let first = iter_chunks.next();
         let chunk_pos = first.map(|(k, _)| *k);
         let iter = first.map(|(_, v)| match v {
-            Chunk::Tiles(tiles) => Box::new(tiles.iter().enumerate()) as _,
-            Chunk::Uniform(tile) => Box::new(std::iter::once(tile).enumerate()) as _,
+            Chunk::Tiles(tiles, _) => Box::new(tiles.iter().enumerate()) as _,
+            Chunk::Uniform(tile, _) => Box::new(std::iter::once(tile).enumerate()) as _,
         });
         Self {
             // tiles,
@@ -302,8 +395,8 @@ impl<'a> Iterator for TilesIter<'a> {
                     return None;
                 };
                 let mut iter: Box<dyn Iterator<Item = (usize, &'a Cell)>> = match chunk {
-                    Chunk::Tiles(tiles) => Box::new(tiles.iter().enumerate()) as _,
-                    Chunk::Uniform(tile) => Box::new(std::iter::once(tile).enumerate()) as _,
+                    Chunk::Tiles(tiles, _) => Box::new(tiles.iter().enumerate()) as _,
+                    Chunk::Uniform(tile, _) => Box::new(std::iter::once(tile).enumerate()) as _,
                 };
                 let ret = iter.next();
                 self.iter = Some(iter);

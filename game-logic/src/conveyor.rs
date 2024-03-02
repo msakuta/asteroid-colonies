@@ -1,4 +1,4 @@
-use std::cmp::Ordering;
+use std::{cmp::Ordering, hash::Hash};
 
 use crate::{
     console_log, construction::Construction, push_pull::TileSampler, task::Direction,
@@ -16,6 +16,37 @@ pub enum Conveyor {
     Splitter(Direction),
     /// Assume a splitter merges from the other 3 directions
     Merger(Direction),
+}
+
+impl Hash for Conveyor {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        // It's annoying to define hash logic for all cases, but we need to do it
+        // manually to ensure it's compatible among CPU architectures, namely
+        // Wasm32 and x64.
+        match self {
+            Self::None => 0u8.hash(state),
+            Self::One(a, b) => {
+                1u8.hash(state);
+                a.hash(state);
+                b.hash(state);
+            }
+            Self::Two((a, b), (c, d)) => {
+                2u8.hash(state);
+                a.hash(state);
+                b.hash(state);
+                c.hash(state);
+                d.hash(state);
+            }
+            Self::Splitter(a) => {
+                3u8.hash(state);
+                a.hash(state);
+            }
+            Self::Merger(a) => {
+                4u8.hash(state);
+                a.hash(state);
+            }
+        }
+    }
 }
 
 impl Conveyor {

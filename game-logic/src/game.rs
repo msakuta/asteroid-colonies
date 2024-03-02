@@ -10,7 +10,7 @@ use crate::{
     hash_map, recipes,
     task::{Direction, GlobalTask, Task, MOVE_TIME},
     transport::{find_path, Transport},
-    Cell, CellState, ItemType, Pos, Tiles, Xor128, HEIGHT, WIDTH,
+    Cell, CellState, ItemType, Pos, Position, Tiles, Xor128, HEIGHT, WIDTH,
 };
 
 pub type CalculateBackImage = Box<dyn Fn(&mut [Cell]) + Send + Sync>;
@@ -400,7 +400,9 @@ impl AsteroidColoniesGame {
     }
 
     fn from_serialized(&mut self, ser_data: SerializeGame) {
-        self.cells = ser_data.cells;
+        for (pos, chunk) in ser_data.cells.chunks {
+            self.cells.chunks.insert(pos, chunk);
+        }
         self.buildings = ser_data.buildings;
         self.crews = ser_data.crews;
         self.global_tasks = ser_data.global_tasks;
@@ -411,6 +413,34 @@ impl AsteroidColoniesGame {
         // if let Some(ref f) = self.calculate_back_image {
         //     f(&mut self.cells);
         // }
+    }
+
+    pub fn serialize_chunks_digest(&self) -> serde_json::Result<String> {
+        let digests = self
+            .cells
+            .chunks()
+            .iter()
+            .map(|(pos, chunk)| (pos, chunk.get_hash()))
+            .collect::<HashMap<_, _>>();
+        serde_json::to_string(&digests)
+    }
+
+    pub fn serialize_with_diffs(
+        &self,
+        chunks_digest: &HashMap<Position, u64>,
+    ) -> Result<Vec<u8>, String> {
+        let cells = self.cells.filter_with_diffs(chunks_digest)?;
+        let ser_game = SerializeGame {
+            cells,
+            buildings: self.buildings.clone(),
+            crews: self.crews.clone(),
+            global_tasks: self.global_tasks.clone(),
+            global_time: self.global_time,
+            transports: self.transports.clone(),
+            constructions: self.constructions.clone(),
+            rng: self.rng.clone(),
+        };
+        bincode::serialize(&ser_game).map_err(|e| format!("{e}"))
     }
 }
 

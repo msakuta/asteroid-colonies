@@ -57,6 +57,12 @@ pub enum Direction {
     Down,
 }
 
+impl std::hash::Hash for Direction {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        ((*self) as u8).hash(state)
+    }
+}
+
 impl Direction {
     pub(crate) const fn all() -> [Direction; 4] {
         [Self::Left, Self::Up, Self::Right, Self::Down]

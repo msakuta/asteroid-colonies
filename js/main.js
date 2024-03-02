@@ -348,6 +348,7 @@ let sessionId = null;
                 if (event.data instanceof ArrayBuffer) {
                     const byteArray = new Uint8Array(event.data);
                     game.deserialize_bin(byteArray);
+                    postChunksDigest();
                 }
                 else {
                 // console.log(`Event through WebSocket: ${event.data}`);
@@ -355,6 +356,7 @@ let sessionId = null;
                     if(data.type === "clientUpdate"){
                         if(game){
                             game.deserialize(data.payload);
+                            postChunksDigest();
                         }
                         // const payload = data.payload;
                         // const body = CelestialBody.celestialBodies.get(payload.bodyState.name);
@@ -364,6 +366,7 @@ let sessionId = null;
                     }
                 }
             });
+            websocket.addEventListener("open", postChunksDigest);
         }
     }
 
@@ -375,6 +378,12 @@ let sessionId = null;
             type,
             payload
         }));
+    }
+
+    function postChunksDigest() {
+        game.uniformify_tiles();
+        const chunksDigest = game.serialize_chunks_digest();
+        websocket.send(JSON.stringify({type: "ChunksDigest", payload: {chunks_digest: chunksDigest}}));
     }
 })()
 

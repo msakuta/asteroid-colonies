@@ -208,4 +208,14 @@ impl AsteroidColonies {
             .deserialize_bin(data)
             .map_err(|e| JsValue::from(format!("{e}")))
     }
+
+    pub fn uniformify_tiles(&mut self) {
+        self.game.uniformify_tiles();
+    }
+
+    pub fn serialize_chunks_digest(&self) -> Result<String, JsValue> {
+        self.game
+            .serialize_chunks_digest()
+            .map_err(|e| JsValue::from(e.to_string()))
+    }
 }
