@@ -552,28 +552,30 @@ pub(crate) fn calculate_back_image(tiles: &mut Tiles) {
 
 const CHUNK_SIZE_I: i32 = CHUNK_SIZE as i32;
 
+/// Determine if the chunk designated by `pos` has an edge that is adjacent to a non-solid edge.
+/// It is necessary to non-uniformify this chunk if this function returns true.
 fn has_edge(tiles: &Tiles, pos: &Position) -> bool {
     for x in -1..=CHUNK_SIZE_I {
         let top = [x + pos.x * CHUNK_SIZE_I, pos.y * CHUNK_SIZE_I];
         let beyond_top = [x + pos.x * CHUNK_SIZE_I, pos.y * CHUNK_SIZE_I - 1];
-        if tiles[top] != tiles[beyond_top] {
+        if tiles[top].state != tiles[beyond_top].state {
             return true;
         }
         let bottom = [x + pos.x * CHUNK_SIZE_I, (pos.y + 1) * CHUNK_SIZE_I - 1];
         let beyond_bottom = [x + pos.x * CHUNK_SIZE_I, (pos.y + 1) * CHUNK_SIZE_I];
-        if tiles[bottom] != tiles[beyond_bottom] {
+        if tiles[bottom].state != tiles[beyond_bottom].state {
             return true;
         }
     }
     for y in -1..=CHUNK_SIZE_I {
         let left = [pos.x * CHUNK_SIZE_I, y + pos.y * CHUNK_SIZE_I];
         let beyond_left = [pos.x * CHUNK_SIZE_I - 1, y + pos.y * CHUNK_SIZE_I];
-        if tiles[left] != tiles[beyond_left] {
+        if tiles[left].state != tiles[beyond_left].state {
             return true;
         }
         let right = [(pos.x + 1) * CHUNK_SIZE_I - 1, y + pos.y * CHUNK_SIZE_I];
         let beyond_bottom = [(pos.x + 1) * CHUNK_SIZE_I, y + pos.y * CHUNK_SIZE_I];
-        if tiles[right] != tiles[beyond_bottom] {
+        if tiles[right].state != tiles[beyond_bottom].state {
             return true;
         }
     }
