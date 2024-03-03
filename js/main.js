@@ -33,6 +33,7 @@ const syncPeriod = SYNC_PERIOD;
 const port = 3883;
 let websocket = null;
 let sessionId = null;
+let reconnectTime = 10;
 let debugDrawChunks = false;
 
 const heartbeatDiv = document.getElementById("heartbeat");
@@ -375,6 +376,11 @@ heartbeatDiv.appendChild(heartbeatElem);
         if (websocket) {
             heartbeatOpacity = Math.max(0, heartbeatOpacity - 0.2);
             updateHeartbeatOpacity();
+            if (websocket.readyState === 3 && reconnectTime-- <= 0) {
+                reconnectWebSocket();
+                // Randomize retry time in attempt to avoid contention
+                reconnectTime = Math.floor(Math.random() * 50) + 10;
+            }
         }
     }, 100);
 
