@@ -13,10 +13,8 @@ use asteroid_colonies_logic::{
     construction::ConstructionType,
     conveyor::Conveyor,
     new_hasher,
-    task::{
-        Direction, GlobalTask, Task, EXCAVATE_TIME, LABOR_EXCAVATE_TIME, MOVE_ITEM_TIME, MOVE_TIME,
-    },
-    Chunk, ImageIdx, ItemType, Position, TileState, Tiles, CHUNK_SIZE,
+    task::{GlobalTask, Task, EXCAVATE_TIME, LABOR_EXCAVATE_TIME, MOVE_ITEM_TIME, MOVE_TIME},
+    Chunk, Direction, ImageIdx, ItemType, Position, TileState, Tiles, CHUNK_SIZE,
 };
 
 pub(crate) const TILE_SIZE: f64 = 32.;

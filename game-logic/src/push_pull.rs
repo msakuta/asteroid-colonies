@@ -7,7 +7,7 @@ use std::collections::{HashMap, HashSet};
 use crate::{
     building::Building,
     conveyor::Conveyor,
-    task::Direction,
+    direction::Direction,
     transport::{expected_deliveries, find_multipath_should_expand, CPos, LevelTarget, Transport},
     ItemType, Pos, Tile, Tiles, WIDTH,
 };

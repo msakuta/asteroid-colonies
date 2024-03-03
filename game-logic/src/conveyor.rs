@@ -1,7 +1,7 @@
 use std::{cmp::Ordering, hash::Hash};
 
 use crate::{
-    console_log, construction::Construction, push_pull::TileSampler, task::Direction,
+    console_log, construction::Construction, direction::Direction, push_pull::TileSampler,
     AsteroidColoniesGame, Tile,
 };
 use serde::{Deserialize, Serialize};

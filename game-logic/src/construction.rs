@@ -3,8 +3,9 @@ use std::{collections::HashMap, sync::OnceLock};
 use crate::{
     building::{Building, BuildingType},
     crew::{expected_crew_deliveries, Crew},
+    direction::Direction,
     push_pull::{pull_inputs, push_outputs, HasInventory},
-    task::{Direction, BUILD_CONVEYOR_TIME, BUILD_POWER_GRID_TIME},
+    task::{BUILD_CONVEYOR_TIME, BUILD_POWER_GRID_TIME},
     transport::{expected_deliveries, Transport},
     Conveyor, Inventory, ItemType, Pos,
 };

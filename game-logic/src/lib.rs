@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::{building::Recipe, conveyor::Conveyor, crew::Crew, transport::Transport};
 pub use crate::{
     construction::get_build_menu,
+    direction::Direction,
     game::{AsteroidColoniesGame, SerializeGame},
     tile::{new_hasher, Chunk, ImageIdx, Position, Tile, TileState, Tiles, CHUNK_SIZE},
     xor128::Xor128,
@@ -13,6 +14,7 @@ pub mod building;
 pub mod construction;
 pub mod conveyor;
 mod crew;
+mod direction;
 mod game;
 mod push_pull;
 pub mod task;
