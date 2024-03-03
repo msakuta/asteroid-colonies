@@ -24,6 +24,7 @@ import construction from '../images/construction.png';
 import deconstruction from '../images/deconstruction.png';
 import cleanup from '../images/cleanup.png';
 import heart from '../images/heart.png';
+import brokenHeart from '../images/brokenHeart.png';
 
 const canvas = document.getElementById('canvas');
 const serverSync = SERVER_SYNC;
@@ -371,8 +372,10 @@ heartbeatDiv.appendChild(heartbeatElem);
             const info = game.get_info(mousePos[0], mousePos[1]);
             document.getElementById('info').innerHTML = formatInfo(info);
         }
-        heartbeatOpacity = Math.max(0, heartbeatOpacity - 0.2);
-        updateHeartbeatOpacity();
+        if (websocket) {
+            heartbeatOpacity = Math.max(0, heartbeatOpacity - 0.2);
+            updateHeartbeatOpacity();
+        }
     }, 100);
 
     function reconnectWebSocket(){
@@ -410,8 +413,19 @@ heartbeatDiv.appendChild(heartbeatElem);
     }
 
     function updateHeartbeatOpacity() {
-        heartbeatDiv.style.opacity = heartbeatOpacity;
-        heartbeatDiv.style.display = 0 < heartbeatOpacity ? "block" : "none";
+        if(!websocket) return;
+        switch (websocket.readyState) {
+            case 1:
+                heartbeatElem.setAttribute("src", heart);
+                heartbeatDiv.style.opacity = heartbeatOpacity;
+                heartbeatDiv.style.display = 0 < heartbeatOpacity ? "block" : "none";
+                break;
+            case 3:
+                heartbeatElem.setAttribute("src", brokenHeart);
+                heartbeatDiv.style.opacity = 1;
+                heartbeatDiv.style.display = "block";
+                break;
+        }
     }
 
     function requestWs(type, payload) {
