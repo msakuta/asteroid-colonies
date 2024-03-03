@@ -30,6 +30,7 @@ const syncPeriod = SYNC_PERIOD;
 const port = 3883;
 let websocket = null;
 let sessionId = null;
+let debugDrawChunks = false;
 
 (async () => {
     const wasm = await import("../wasm/Cargo.toml");
@@ -290,6 +291,15 @@ let sessionId = null;
             }
         }
     })
+
+    document.body.addEventListener("keydown", evt => {
+        switch (evt.code) {
+            case "KeyD":
+                debugDrawChunks = !debugDrawChunks;
+                game.set_debug_draw_chunks(debugDrawChunks);
+                break;
+        }
+    });
 
     function enterConveyorEdit() {
         const buildMenuElem = document.getElementById("buildMenu");

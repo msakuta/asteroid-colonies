@@ -63,6 +63,7 @@ pub struct AsteroidColonies {
     cursor: Option<Pos>,
     assets: Assets,
     viewport: Viewport,
+    debug_draw_chunks: bool,
 }
 
 #[wasm_bindgen]
@@ -84,6 +85,7 @@ impl AsteroidColonies {
                 ],
                 size: [vp_width, vp_height],
             },
+            debug_draw_chunks: false,
         })
     }
 
@@ -188,6 +190,10 @@ impl AsteroidColonies {
 
     pub fn tick(&mut self) -> Result<(), JsValue> {
         self.game.tick().map_err(JsValue::from)
+    }
+
+    pub fn set_debug_draw_chunks(&mut self, v: bool) {
+        self.debug_draw_chunks = v;
     }
 
     pub fn get_build_menu(&self) -> Result<Vec<JsValue>, JsValue> {

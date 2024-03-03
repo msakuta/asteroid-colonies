@@ -434,6 +434,19 @@ impl AsteroidColonies {
             }
         }
 
+        if self.debug_draw_chunks {
+            const CHUNK_TILE_SIZE: f64 = CHUNK_SIZE as f64 * TILE_SIZE;
+            for (pos, chunk) in self.game.tiles().chunks() {
+                let x = pos.x as f64 * CHUNK_TILE_SIZE + offset[0] + 2.;
+                let y = pos.y as f64 * CHUNK_TILE_SIZE + offset[1] + 2.;
+                context.set_stroke_style(&JsValue::from(match chunk {
+                    Chunk::Tiles(_, _) => "#f00",
+                    Chunk::Uniform(_, _) => "#0f0",
+                }));
+                context.stroke_rect(x, y, CHUNK_TILE_SIZE - 4., CHUNK_TILE_SIZE - 4.);
+            }
+        }
+
         if let Some(cursor) = self.cursor {
             let img = &self.assets.img_cursor;
             let x = cursor[0] as f64 * TILE_SIZE + offset[0];

@@ -49,7 +49,7 @@ impl AsteroidColoniesGame {
         }
         let start_ofs = |pos: [i32; 2]| {
             [
-                pos[0] + 24, //+ WIDTH as i32 / 8,
+                pos[0] + 23, //+ WIDTH as i32 / 8,
                 pos[1] - 5 + HEIGHT as i32 / 2,
             ]
         };
@@ -145,6 +145,10 @@ impl AsteroidColoniesGame {
     // pub fn iter_tile(&self) -> impl Iterator<Item = &Tile> {
     //     self.tiles.iter().map(|(_, c)| c)
     // }
+
+    pub fn tiles(&self) -> &Tiles {
+        &self.tiles
+    }
 
     pub fn count_tiles(&self) -> usize {
         self.tiles.chunks.len() * CHUNK_SIZE * CHUNK_SIZE
