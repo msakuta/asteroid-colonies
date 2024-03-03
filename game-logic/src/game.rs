@@ -415,14 +415,14 @@ impl AsteroidColoniesGame {
         // }
     }
 
-    pub fn serialize_chunks_digest(&self) -> serde_json::Result<String> {
+    pub fn serialize_chunks_digest(&self) -> bincode::Result<Vec<u8>> {
         let digests = self
             .cells
             .chunks()
             .iter()
             .map(|(pos, chunk)| (pos, chunk.get_hash()))
             .collect::<HashMap<_, _>>();
-        serde_json::to_string(&digests)
+        bincode::serialize(&digests)
     }
 
     pub fn serialize_with_diffs(

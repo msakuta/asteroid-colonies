@@ -383,7 +383,8 @@ let sessionId = null;
     function postChunksDigest() {
         game.uniformify_tiles();
         const chunksDigest = game.serialize_chunks_digest();
-        websocket.send(JSON.stringify({type: "ChunksDigest", payload: {chunks_digest: chunksDigest}}));
+        // websocket.send(JSON.stringify({type: "ChunksDigest", payload: {chunks_digest: chunksDigest}}));
+        websocket.send(chunksDigest);
     }
 })()
 

@@ -210,7 +210,11 @@ impl StreamHandler<WsResult> for SessionWs {
                     ));
                 }
             }
-            Ok(ws::Message::Binary(bin)) => ctx.binary(bin),
+            Ok(ws::Message::Binary(bin)) => {
+                if let Ok(chunks_digest) = bincode::deserialize(&bin) {
+                    self.chunks_digest = chunks_digest;
+                }
+            }
             _ => (),
         }
     }

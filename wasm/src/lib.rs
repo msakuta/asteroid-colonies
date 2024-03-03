@@ -213,7 +213,7 @@ impl AsteroidColonies {
         self.game.uniformify_tiles();
     }
 
-    pub fn serialize_chunks_digest(&self) -> Result<String, JsValue> {
+    pub fn serialize_chunks_digest(&self) -> Result<Vec<u8>, JsValue> {
         self.game
             .serialize_chunks_digest()
             .map_err(|e| JsValue::from(e.to_string()))
