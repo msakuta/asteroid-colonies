@@ -142,15 +142,15 @@ impl AsteroidColoniesGame {
     }
 
     pub fn build_power_grid(&mut self, ix: i32, iy: i32) -> Result<bool, String> {
-        let cell = &self.tiles[[ix, iy]];
-        if matches!(cell.state, TileState::Solid) {
+        let tile = &self.tiles[[ix, iy]];
+        if matches!(tile.state, TileState::Solid) {
             return Err(String::from("Needs excavation before building power grid"));
         }
-        if matches!(cell.state, TileState::Space) {
+        if matches!(tile.state, TileState::Space) {
             return Err(String::from("You cannot build power grid in space!"));
         }
-        if cell.power_grid {
-            return Err(String::from("Power grid is already installed in this cell"));
+        if tile.power_grid {
+            return Err(String::from("Power grid is already installed in this tile"));
         }
         self.constructions
             .push(Construction::new_power_grid([ix, iy]));
@@ -158,11 +158,11 @@ impl AsteroidColoniesGame {
     }
 
     pub fn move_item(&mut self, ix: i32, iy: i32) -> Result<bool, String> {
-        let cell = &self.tiles[[ix, iy]];
-        if matches!(cell.state, TileState::Solid) {
+        let tile = &self.tiles[[ix, iy]];
+        if matches!(tile.state, TileState::Solid) {
             return Err(String::from("Needs excavation before building conveyor"));
         }
-        if !cell.conveyor.is_some() {
+        if !tile.conveyor.is_some() {
             return Err(String::from("Conveyor is needed to move items"));
         }
         let Some(_dest) = self
@@ -188,8 +188,8 @@ impl AsteroidColoniesGame {
     pub(super) fn _is_clear(&self, ix: i32, iy: i32, size: [usize; 2]) -> bool {
         for jy in iy..iy + size[1] as i32 {
             for jx in ix..ix + size[0] as i32 {
-                let j_cell = &self.tiles[[jx, jy]];
-                if matches!(j_cell.state, TileState::Solid) {
+                let j_tile = &self.tiles[[jx, jy]];
+                if matches!(j_tile.state, TileState::Solid) {
                     return false;
                 }
             }

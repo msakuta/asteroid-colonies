@@ -224,10 +224,10 @@ fn push_pull_passable(
     start_neighbors: &HashSet<Pos>,
     pos: Pos,
 ) -> bool {
-    let Some(cell) = tiles.at(pos) else {
+    let Some(tile) = tiles.at(pos) else {
         return false;
     };
-    if cell.conveyor.is_some() && start_neighbors.contains(&pos) {
+    if tile.conveyor.is_some() && start_neighbors.contains(&pos) {
         // crate::console_log!("next to start");
         return true;
     }
@@ -235,8 +235,8 @@ fn push_pull_passable(
         return false;
     }
     from_direction
-        .map(|from| cell.conveyor.has_from(from.reverse()))
-        .unwrap_or_else(|| cell.conveyor.is_some())
+        .map(|from| tile.conveyor.has_from(from.reverse()))
+        .unwrap_or_else(|| tile.conveyor.is_some())
 }
 
 fn prev_tile_connects_to(tiles: &impl TileSampler, from_dir: Option<Direction>, pos: Pos) -> bool {
@@ -245,12 +245,12 @@ fn prev_tile_connects_to(tiles: &impl TileSampler, from_dir: Option<Direction>, 
     };
     let dir_vec = dir.to_vec();
     let prev_pos = [pos[0] - dir_vec[0], pos[1] - dir_vec[1]];
-    let Some(prev_cell) = tiles.at(prev_pos) else {
+    let Some(prev_tile) = tiles.at(prev_pos) else {
         return true;
     };
-    // If the previous cell didn't have a conveyor, it's not a failure, because we want to be
+    // If the previous tile didn't have a conveyor, it's not a failure, because we want to be
     // able to depart from a building.
-    prev_cell.conveyor.has_to(dir)
+    prev_tile.conveyor.has_to(dir)
 }
 
 fn push_pull_should_expand(
@@ -260,23 +260,23 @@ fn push_pull_should_expand(
     from: Option<Direction>,
 ) -> LevelTarget {
     use Direction::*;
-    let Some(cell) = tiles.at(cpos.pos) else {
+    let Some(tile) = tiles.at(cpos.pos) else {
         return LevelTarget::One;
     };
-    let conv = &cell.conveyor;
+    let conv = &tile.conveyor;
     let dir_vec = to.to_vec();
     let next_pos = [cpos.pos[0] + dir_vec[0], cpos.pos[1] + dir_vec[1]];
-    let Some(next_cell) = tiles.at(next_pos) else {
+    let Some(next_tile) = tiles.at(next_pos) else {
         return LevelTarget::One;
     };
-    let next_conv = &next_cell.conveyor;
+    let next_conv = &next_tile.conveyor;
     if next_conv.has_two()
         && (conv.has_to(Up) || conv.has_to(Down))
         && (next_conv.has(Up) || next_conv.has(Down))
     {
         return LevelTarget::Two;
     }
-    match cell.conveyor {
+    match tile.conveyor {
         Conveyor::One(_, _) => LevelTarget::One,
         Conveyor::Two(_, _) => {
             if from.is_some_and(|from| to == from) {

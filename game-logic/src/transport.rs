@@ -77,12 +77,12 @@ impl AsteroidColoniesGame {
                         std::iter::once(t.dest),
                         |pos| pos == t.src,
                         |from_direction, pos| {
-                            let cell = &tiles[pos];
+                            let tile = &tiles[pos];
                             if let Some(from_direction) = from_direction {
-                                matches!(cell.conveyor, Conveyor::One(_, dir) if dir == from_direction)
-                                    && cell.conveyor.is_some()
+                                matches!(tile.conveyor, Conveyor::One(_, dir) if dir == from_direction)
+                                    && tile.conveyor.is_some()
                             } else {
-                                cell.conveyor.is_some()
+                                tile.conveyor.is_some()
                             }
                         },
                     );

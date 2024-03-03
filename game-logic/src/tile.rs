@@ -117,8 +117,8 @@ fn new_hasher() -> FnvHasher {
 impl Chunk {
     pub fn new() -> Self {
         let mut hasher = new_hasher();
-        let cell = Tile::new();
-        cell.hash(&mut hasher);
+        let tile = Tile::new();
+        tile.hash(&mut hasher);
         let hash = hasher.finish();
         Self::Uniform(Tile::new(), hash)
     }

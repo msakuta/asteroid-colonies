@@ -121,7 +121,7 @@ impl AsteroidColonies {
         };
 
         let mut rendered_tiles = 0;
-        let mut render_cell = |ix: i32, iy: i32| -> Result<(), JsValue> {
+        let mut render_tile = |ix: i32, iy: i32| -> Result<(), JsValue> {
             let y = iy as f64 * TILE_SIZE + offset[1];
             let x = ix as f64 * TILE_SIZE + offset[0];
             if ix < 0 || (WIDTH as i32) <= ix || iy < 0 || (HEIGHT as i32) <= iy {
@@ -140,8 +140,8 @@ impl AsteroidColonies {
                 rendered_tiles += 1;
                 return Ok(());
             }
-            let cell = &self.game.cell_at([ix, iy]);
-            let (sx, sy) = match cell.state {
+            let tile = &self.game.tile_at([ix, iy]);
+            let (sx, sy) = match tile.state {
                 TileState::Empty => (0., TILE_SIZE),
                 TileState::Solid => (0., 0.),
                 TileState::Space => (0., 2. * TILE_SIZE),
@@ -194,23 +194,23 @@ impl AsteroidColonies {
                 Ok(())
             };
 
-            if cell.image_lt & NEIGHBOR_BITS != 0 {
-                render_quarter_tile(cell.image_lt, 0., 0.)?;
+            if tile.image_lt & NEIGHBOR_BITS != 0 {
+                render_quarter_tile(tile.image_lt, 0., 0.)?;
             }
-            if cell.image_lb & NEIGHBOR_BITS != 0 {
-                render_quarter_tile(cell.image_lb, 0., TILE_SIZE / 2.)?;
+            if tile.image_lb & NEIGHBOR_BITS != 0 {
+                render_quarter_tile(tile.image_lb, 0., TILE_SIZE / 2.)?;
             }
-            if cell.image_rb & NEIGHBOR_BITS != 0 {
-                render_quarter_tile(cell.image_rb, TILE_SIZE / 2., TILE_SIZE / 2.)?;
+            if tile.image_rb & NEIGHBOR_BITS != 0 {
+                render_quarter_tile(tile.image_rb, TILE_SIZE / 2., TILE_SIZE / 2.)?;
             }
-            if cell.image_rt & NEIGHBOR_BITS != 0 {
-                render_quarter_tile(cell.image_rt, TILE_SIZE / 2., 0.)?;
+            if tile.image_rt & NEIGHBOR_BITS != 0 {
+                render_quarter_tile(tile.image_rt, TILE_SIZE / 2., 0.)?;
             }
 
-            if cell.power_grid {
+            if tile.power_grid {
                 render_power_grid(context, x, y)?;
             }
-            render_conveyor(context, x, y, cell.conveyor)?;
+            render_conveyor(context, x, y, tile.conveyor)?;
             rendered_tiles += 1;
             Ok(())
         };
@@ -221,7 +221,7 @@ impl AsteroidColonies {
         let xmax = (-offset[0] + vp.size[0] + TILE_SIZE).div_euclid(TILE_SIZE) as i32;
         for iy in ymin..ymax {
             for ix in xmin..xmax {
-                render_cell(ix, iy)?;
+                render_tile(ix, iy)?;
             }
         }
         // console_log!("rendered_tiles: {}", rendered_tiles);
@@ -500,11 +500,11 @@ pub(crate) fn calculate_back_image(ret: &mut [Tile]) {
         for ux in 0..WIDTH {
             let x = ux as i32;
             if !matches!(ret[(ux + uy * WIDTH) as usize].state, TileState::Solid) {
-                let cell = &mut ret[(ux + uy * WIDTH) as usize];
-                cell.image_lt = 0;
-                cell.image_lb = 0;
-                cell.image_rb = 0;
-                cell.image_rt = 0;
+                let tile = &mut ret[(ux + uy * WIDTH) as usize];
+                tile.image_lt = 0;
+                tile.image_lb = 0;
+                tile.image_rb = 0;
+                tile.image_rt = 0;
                 continue;
             }
             let get_at = |x: i32, y: i32| {
@@ -534,29 +534,29 @@ pub(crate) fn calculate_back_image(ret: &mut [Tile]) {
             // Encode information of neighboring tiles around a quater piece of a tile into a byte.
             // Lower 5 bits (0-31) contains the offset of the image coordinates,
             // and the 6th bit indicates if it's Space (or Empty if unset)
-            let cell = &mut ret[(ux + uy * WIDTH) as usize];
-            cell.image_lt = match (l.0, lt.0, t.0) {
+            let tile = &mut ret[(ux + uy * WIDTH) as usize];
+            tile.image_lt = match (l.0, lt.0, t.0) {
                 (1, _, 1) => 2,
                 (0, _, 1) => 3 + 4 * 4,
                 (1, _, 0) => 2 + 4 * 4,
                 (0, 1, 0) => 3 + 3 * 4,
                 _ => 0,
             } | vote(l.1, lt.1, t.1);
-            cell.image_lb = match (b.0, lb.0, l.0) {
+            tile.image_lb = match (b.0, lb.0, l.0) {
                 (1, _, 1) => 2 + 4,
                 (0, _, 1) => 2 + 4 * 4,
                 (1, _, 0) => 2 + 5 * 4,
                 (0, 1, 0) => 3 + 2 * 4,
                 _ => 0,
             } | vote(b.1, lb.1, l.1);
-            cell.image_rb = match (b.0, rb.0, r.0) {
+            tile.image_rb = match (b.0, rb.0, r.0) {
                 (1, _, 1) => 3 + 4,
                 (0, _, 1) => 3 + 5 * 4,
                 (1, _, 0) => 2 + 5 * 4,
                 (0, 1, 0) => 2 + 2 * 4,
                 _ => 0,
             } | vote(b.1, rb.1, r.1);
-            cell.image_rt = match (r.0, rt.0, t.0) {
+            tile.image_rt = match (r.0, rt.0, t.0) {
                 (1, _, 1) => 3,
                 (0, _, 1) => 3 + 4 * 4,
                 (1, _, 0) => 3 + 5 * 4,

@@ -278,13 +278,13 @@ impl AsteroidColoniesGame {
                         self.buildings.push(Building::new(pos, ty));
                     }
                     ConstructionType::PowerGrid => {
-                        if let Some(cell) = self.tiles.try_get_mut(pos) {
-                            cell.power_grid = true;
+                        if let Some(tile) = self.tiles.try_get_mut(pos) {
+                            tile.power_grid = true;
                         }
                     }
                     ConstructionType::Conveyor(conv) => {
-                        if let Some(cell) = self.tiles.try_get_mut(pos) {
-                            cell.conveyor = conv;
+                        if let Some(tile) = self.tiles.try_get_mut(pos) {
+                            tile.conveyor = conv;
                         }
                     }
                 }

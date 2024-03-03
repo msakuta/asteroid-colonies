@@ -107,7 +107,7 @@ impl AsteroidColonies {
         let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
         let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
         if ix < 0 || WIDTH as i32 <= ix || iy < 0 || HEIGHT as i32 <= iy {
-            return Err(JsValue::from("Point outside cell"));
+            return Err(JsValue::from("Point outside tile"));
         }
         let res = match com {
             "excavate" => self.game.excavate(ix, iy),

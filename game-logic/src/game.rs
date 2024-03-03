@@ -142,7 +142,7 @@ impl AsteroidColoniesGame {
         self.global_time
     }
 
-    // pub fn iter_cell(&self) -> impl Iterator<Item = &Tile> {
+    // pub fn iter_tile(&self) -> impl Iterator<Item = &Tile> {
     //     self.tiles.iter().map(|(_, c)| c)
     // }
 
@@ -150,7 +150,7 @@ impl AsteroidColoniesGame {
         self.tiles.chunks.len() * CHUNK_SIZE * CHUNK_SIZE
     }
 
-    pub fn cell_at(&self, pos: [i32; 2]) -> &Tile {
+    pub fn tile_at(&self, pos: [i32; 2]) -> &Tile {
         &self.tiles[pos]
     }
 
@@ -211,8 +211,8 @@ impl AsteroidColoniesGame {
         };
 
         let mut path = find_path([ix, iy], [dx, dy], |pos| {
-            let cell = &tiles[pos];
-            !intersects(pos) && matches!(cell.state, TileState::Empty) && cell.power_grid
+            let tile = &tiles[pos];
+            !intersects(pos) && matches!(tile.state, TileState::Empty) && tile.power_grid
         })
         .ok_or_else(|| String::from("Failed to find the path"))?;
 
@@ -227,24 +227,24 @@ impl AsteroidColoniesGame {
 
     pub fn build(&mut self, ix: i32, iy: i32, type_: BuildingType) -> Result<(), String> {
         if ix < 0 || WIDTH as i32 <= ix || iy < 0 || HEIGHT as i32 <= iy {
-            return Err(String::from("Point outside cell"));
+            return Err(String::from("Point outside tile"));
         }
 
         let size = type_.size();
         for jy in iy..iy + size[1] as i32 {
             for jx in ix..ix + size[0] as i32 {
-                let cell = &self.tiles[[jx, jy]];
-                if matches!(cell.state, TileState::Solid) {
+                let tile = &self.tiles[[jx, jy]];
+                if matches!(tile.state, TileState::Solid) {
                     return Err(String::from("Needs excavation before building"));
                 }
-                if matches!(cell.state, TileState::Space) {
+                if matches!(tile.state, TileState::Space) {
                     return Err(String::from("You cannot build in space!"));
                 }
             }
         }
 
-        let cell = &self.tiles[[ix, iy]];
-        if !cell.power_grid {
+        let tile = &self.tiles[[ix, iy]];
+        if !tile.power_grid {
             return Err(String::from("Power grid is required to build"));
         }
 
@@ -313,7 +313,7 @@ impl AsteroidColoniesGame {
 
     pub fn get_recipes(&self, ix: i32, iy: i32) -> Result<Vec<&'static Recipe>, String> {
         if ix < 0 || WIDTH as i32 <= ix || iy < 0 || HEIGHT as i32 <= iy {
-            return Err(String::from("Point outside cell"));
+            return Err(String::from("Point outside tile"));
         }
         let intersects = |b: &Building| {
             let size = b.type_.size();
@@ -334,7 +334,7 @@ impl AsteroidColoniesGame {
 
     pub fn set_recipe(&mut self, ix: i32, iy: i32, name: &str) -> Result<(), String> {
         if ix < 0 || WIDTH as i32 <= ix || iy < 0 || HEIGHT as i32 <= iy {
-            return Err(String::from("Point outside cell"));
+            return Err(String::from("Point outside tile"));
         }
         let intersects = |b: &Building| {
             let size = b.type_.size();
