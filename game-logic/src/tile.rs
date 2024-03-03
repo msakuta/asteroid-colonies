@@ -24,20 +24,13 @@ impl Hash for TileState {
     }
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct Tile {
     pub state: TileState,
     pub power_grid: bool,
     pub conveyor: Conveyor,
-    /// The index into the background image for quick rendering
     #[serde(skip)]
-    pub image_lt: u8,
-    #[serde(skip)]
-    pub image_lb: u8,
-    #[serde(skip)]
-    pub image_rb: u8,
-    #[serde(skip)]
-    pub image_rt: u8,
+    pub image_idx: ImageIdx,
 }
 
 impl PartialEq for Tile {
@@ -47,6 +40,8 @@ impl PartialEq for Tile {
             && self.conveyor == other.conveyor
     }
 }
+
+impl Eq for Tile {}
 
 impl Hash for Tile {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -62,10 +57,7 @@ impl Tile {
             state: TileState::Space,
             power_grid: false,
             conveyor: Conveyor::None,
-            image_lt: 0,
-            image_lb: 0,
-            image_rb: 0,
-            image_rt: 0,
+            image_idx: ImageIdx::new(),
         }
     }
 
@@ -75,10 +67,7 @@ impl Tile {
             state: TileState::Empty,
             power_grid: false,
             conveyor,
-            image_lt: 0,
-            image_lb: 0,
-            image_rb: 0,
-            image_rt: 0,
+            image_idx: ImageIdx::new(),
         }
     }
 
@@ -87,10 +76,34 @@ impl Tile {
             state: TileState::Empty,
             power_grid: true,
             conveyor: Conveyor::None,
-            image_lt: 8,
-            image_lb: 8,
-            image_rb: 8,
-            image_rt: 8,
+            image_idx: ImageIdx::splat(8),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, Default)]
+/// The index into the background image for quick rendering
+pub struct ImageIdx {
+    pub lt: u8,
+    #[serde(skip)]
+    pub lb: u8,
+    #[serde(skip)]
+    pub rb: u8,
+    #[serde(skip)]
+    pub rt: u8,
+}
+
+impl ImageIdx {
+    pub const fn new() -> Self {
+        Self::splat(0)
+    }
+
+    pub const fn splat(idx: u8) -> Self {
+        Self {
+            lt: idx,
+            lb: idx,
+            rb: idx,
+            rt: idx,
         }
     }
 }
@@ -253,6 +266,10 @@ impl Tiles {
 
     pub fn chunks(&self) -> &HashMap<Position, Chunk> {
         &self.chunks
+    }
+
+    pub fn chunks_mut(&mut self) -> &mut HashMap<Position, Chunk> {
+        &mut self.chunks
     }
 
     pub fn try_get_mut(&mut self, index: [i32; 2]) -> Option<&mut Tile> {

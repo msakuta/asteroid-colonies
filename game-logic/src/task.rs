@@ -225,7 +225,7 @@ impl AsteroidColoniesGame {
         tiles: &mut Tiles,
         building: &mut Building,
         power_ratio: f64,
-        _calculate_back_image: Option<&mut CalculateBackImage>,
+        calculate_back_image: Option<&mut CalculateBackImage>,
     ) -> Option<(ItemType, [i32; 2])> {
         match building.task {
             Task::Excavate(ref mut t, dir) => {
@@ -238,9 +238,9 @@ impl AsteroidColoniesGame {
                     let dir_vec = dir.to_vec();
                     let pos = [building.pos[0] + dir_vec[0], building.pos[1] + dir_vec[1]];
                     tiles[pos].state = TileState::Empty;
-                    // if let Some(f) = calculate_back_image {
-                    //     f(tiles);
-                    // }
+                    if let Some(f) = calculate_back_image {
+                        f(tiles);
+                    }
                 } else {
                     *t = (*t - power_ratio).max(0.);
                 }
@@ -304,9 +304,9 @@ impl AsteroidColoniesGame {
             match task {
                 GlobalTask::Excavate(t, pos) if *t <= 0. => {
                     self.tiles[*pos].state = TileState::Empty;
-                    // if let Some(ref f) = self.calculate_back_image {
-                    //     f(&mut self.tiles);
-                    // }
+                    if let Some(ref f) = self.calculate_back_image {
+                        f(&mut self.tiles);
+                    }
                 }
                 _ => {}
             }

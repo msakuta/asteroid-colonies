@@ -4,7 +4,7 @@ use crate::{building::Recipe, conveyor::Conveyor, crew::Crew, transport::Transpo
 pub use crate::{
     construction::get_build_menu,
     game::{AsteroidColoniesGame, SerializeGame},
-    tile::{Chunk, Position, Tile, TileState, Tiles},
+    tile::{Chunk, ImageIdx, Position, Tile, TileState, Tiles, CHUNK_SIZE},
     xor128::Xor128,
 };
 use serde::{Deserialize, Serialize};

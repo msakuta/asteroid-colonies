@@ -14,7 +14,7 @@ use crate::{
     ItemType, Pos, Position, Tile, TileState, Tiles, Xor128, HEIGHT, WIDTH,
 };
 
-pub type CalculateBackImage = Box<dyn Fn(&mut [Tile]) + Send + Sync>;
+pub type CalculateBackImage = Box<dyn Fn(&mut Tiles) + Send + Sync>;
 
 pub struct AsteroidColoniesGame {
     pub(crate) tiles: Tiles,
@@ -119,9 +119,9 @@ impl AsteroidColoniesGame {
             }
         }
         tiles.uniformify();
-        // if let Some(ref f) = calculate_back_image {
-        //     f(&mut tiles);
-        // }
+        if let Some(ref f) = calculate_back_image {
+            f(&mut tiles);
+        }
         Ok(Self {
             tiles,
             buildings,
@@ -415,9 +415,9 @@ impl AsteroidColoniesGame {
         self.transports = ser_data.transports;
         self.constructions = ser_data.constructions;
         self.rng = ser_data.rng;
-        // if let Some(ref f) = self.calculate_back_image {
-        //     f(&mut self.tiles);
-        // }
+        if let Some(ref f) = self.calculate_back_image {
+            f(&mut self.tiles);
+        }
     }
 
     pub fn serialize_chunks_digest(&self) -> bincode::Result<Vec<u8>> {
