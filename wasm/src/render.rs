@@ -16,7 +16,7 @@ use asteroid_colonies_logic::{
     task::{
         Direction, GlobalTask, Task, EXCAVATE_TIME, LABOR_EXCAVATE_TIME, MOVE_ITEM_TIME, MOVE_TIME,
     },
-    Chunk, ImageIdx, ItemType, Position, TileState, Tiles, CHUNK_SIZE, HEIGHT, WIDTH,
+    Chunk, ImageIdx, ItemType, Position, TileState, Tiles, CHUNK_SIZE,
 };
 
 pub(crate) const TILE_SIZE: f64 = 32.;
@@ -130,22 +130,6 @@ impl AsteroidColonies {
         let mut render_tile = |ix: i32, iy: i32| -> Result<(), JsValue> {
             let y = iy as f64 * TILE_SIZE + offset[1];
             let x = ix as f64 * TILE_SIZE + offset[0];
-            if ix < 0 || (WIDTH as i32) <= ix || iy < 0 || (HEIGHT as i32) <= iy {
-                context
-                    .draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-                        &self.assets.img_bg,
-                        0.,
-                        2. * TILE_SIZE,
-                        TILE_SIZE,
-                        TILE_SIZE,
-                        x,
-                        y,
-                        TILE_SIZE,
-                        TILE_SIZE,
-                    )?;
-                rendered_tiles += 1;
-                return Ok(());
-            }
             let tile = &self.game.tile_at([ix, iy]);
             let (sx, sy) = match tile.state {
                 TileState::Empty => (0., TILE_SIZE),
