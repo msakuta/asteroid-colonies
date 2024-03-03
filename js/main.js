@@ -22,6 +22,7 @@ import assemblerComponent from '../images/assemblerComponent.png';
 import furnace from '../images/furnace.png';
 import construction from '../images/construction.png';
 import deconstruction from '../images/deconstruction.png';
+import cleanup from '../images/cleanup.png';
 
 const canvas = document.getElementById('canvas');
 const serverSync = SERVER_SYNC;
@@ -60,6 +61,7 @@ let debugDrawChunks = false;
         ["circuit", circuit],
         ["construction", construction],
         ["deconstruction", deconstruction],
+        ["cleanup", cleanup],
     ].map(async ([name, src]) => {
         return [name, src, await loadImage(src)];
     });
@@ -181,7 +183,7 @@ let debugDrawChunks = false;
             return;
         }
 
-        for (let name of ["excavate", "move", "power", "conveyor", "splitter", "merger", "moveItem", "build", "cancel", "deconstruct", "recipe"]) {
+        for (let name of ["excavate", "move", "power", "conveyor", "splitter", "merger", "moveItem", "build", "cancel", "deconstruct", "recipe", "cleanup"]) {
             const elem = document.getElementById(name);
             if (elem?.checked) {
                 const buildMenuElem = document.getElementById("buildMenu");
@@ -271,6 +273,11 @@ let debugDrawChunks = false;
                     const pos = game.transform_coords(x, y);
                     requestWs("Deconstruct", {pos: [pos[0], pos[1]]});
                     game.deconstruct(x, y);
+                }
+                else if (name === "cleanup") {
+                    const pos = game.transform_coords(x, y);
+                    requestWs("Cleanup", {pos: [pos[0], pos[1]]});
+                    game.cleanup_item(x, y);
                 }
                 else {
                     buildMenuElem.style.display = "none";

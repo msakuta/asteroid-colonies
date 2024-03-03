@@ -131,11 +131,6 @@ impl Construction {
 
     pub fn ingredients_satisfied(&self) -> bool {
         self.recipe.ingredients.iter().all(|(ty, recipe_amount)| {
-            crate::console_log!(
-                "ingredients_satisfied {:?} => {:?}",
-                ty,
-                self.ingredients.get(ty)
-            );
             *recipe_amount <= self.ingredients.get(ty).copied().unwrap_or(0)
         })
     }

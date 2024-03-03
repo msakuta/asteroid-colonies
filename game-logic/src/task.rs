@@ -54,6 +54,7 @@ impl Display for Task {
 pub enum GlobalTask {
     /// Excavate using human labor. Very slow and inefficient.
     Excavate(f64, [i32; 2]),
+    Cleanup(Pos),
 }
 
 impl AsteroidColoniesGame {
@@ -267,6 +268,7 @@ impl AsteroidColoniesGame {
 
         self.global_tasks.retain_mut(|task| match task {
             GlobalTask::Excavate(ref mut t, _) => !(*t <= 0.),
+            GlobalTask::Cleanup(pos) => self.transports.iter().any(|t| t.path.last() == Some(pos)),
         });
 
         self.used_power = (power_cap - power) as usize;

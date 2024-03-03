@@ -7,6 +7,7 @@ use ::serde::{Deserialize, Serialize};
 
 use crate::{
     construction::Construction,
+    crew::expected_crew_pickup_any,
     hash_map,
     push_pull::{pull_inputs, push_outputs},
     task::{GlobalTask, Task, RAW_ORE_SMELT_TIME},
@@ -221,10 +222,21 @@ impl Building {
                     return Ok(());
                 }
                 for gtask in gtasks {
-                    let GlobalTask::Excavate(t, goal_pos) = gtask;
-                    if *t <= 0. {
-                        continue;
-                    }
+                    let goal_pos = match gtask {
+                        GlobalTask::Excavate(t, goal_pos) => {
+                            if *t <= 0. {
+                                continue;
+                            }
+                            goal_pos
+                        }
+                        GlobalTask::Cleanup(pos) => {
+                            let pickups = expected_crew_pickup_any(crews, *pos);
+                            if pickups == 0 {
+                                continue;
+                            }
+                            pos
+                        }
+                    };
                     if crews.iter().any(|crew| crew.target() == Some(*goal_pos)) {
                         continue;
                     }
@@ -295,7 +307,6 @@ impl Building {
                                 None
                             }
                         });
-                    crate::console_log!("crew: {:?}", crew);
                     if let Some(crew) = crew {
                         crews.push(crew);
                         this.crews -= 1;

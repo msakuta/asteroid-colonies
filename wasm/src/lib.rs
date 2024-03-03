@@ -183,6 +183,12 @@ impl AsteroidColonies {
         self.game.set_recipe(ix, iy, name).map_err(JsValue::from)
     }
 
+    pub fn cleanup_item(&mut self, x: f64, y: f64) -> Result<(), JsValue> {
+        let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
+        let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
+        self.game.cleanup_item([ix, iy]).map_err(JsValue::from)
+    }
+
     pub fn pan(&mut self, x: f64, y: f64) {
         self.viewport.offset[0] += x;
         self.viewport.offset[1] += y;

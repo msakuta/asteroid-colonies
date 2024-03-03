@@ -367,6 +367,11 @@ impl AsteroidColoniesGame {
         Ok(())
     }
 
+    pub fn cleanup_item(&mut self, pos: Pos) -> Result<(), String> {
+        self.global_tasks.push(GlobalTask::Cleanup(pos));
+        Ok(())
+    }
+
     pub fn tick(&mut self) -> Result<(), String> {
         self.process_global_tasks();
         self.process_transports();

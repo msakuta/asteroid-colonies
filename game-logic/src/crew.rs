@@ -6,7 +6,7 @@ use crate::{
     console_log,
     construction::Construction,
     task::{GlobalTask, EXCAVATE_ORE_AMOUNT, LABOR_EXCAVATE_TIME},
-    transport::find_path,
+    transport::{find_path, Transport},
     AsteroidColoniesGame, ItemType, Pos, TileState, Tiles,
 };
 
@@ -16,8 +16,17 @@ enum CrewTask {
     Return,
     Excavate(Pos),
     Build(Pos),
-    Pickup { src: Pos, dest: Pos, item: ItemType },
-    Deliver { dst: Pos, item: ItemType },
+    /// A task to pickup an item and move to the destination.
+    /// Optionally has an item filter.
+    Pickup {
+        src: Pos,
+        dest: Pos,
+        item: Option<ItemType>,
+    },
+    Deliver {
+        dst: Pos,
+        item: ItemType,
+    },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -34,6 +43,14 @@ impl Crew {
     pub fn new_task(pos: Pos, gtask: &GlobalTask, tiles: &Tiles) -> Option<Self> {
         let (target, task) = match gtask {
             GlobalTask::Excavate(_, pos) => (*pos, CrewTask::Excavate(*pos)),
+            GlobalTask::Cleanup(spos) => (
+                *spos,
+                CrewTask::Pickup {
+                    src: *spos,
+                    dest: pos,
+                    item: None,
+                },
+            ),
         };
         let path = find_path(pos, target, |pos| {
             matches!(tiles[pos].state, TileState::Empty) || pos == target
@@ -84,7 +101,11 @@ impl Crew {
             pos,
             path: Some(path),
             from: pos,
-            task: CrewTask::Pickup { src, dest, item },
+            task: CrewTask::Pickup {
+                src,
+                dest,
+                item: Some(item),
+            },
             inventory: HashMap::new(),
             to_delete: false,
         })
@@ -115,7 +136,9 @@ impl Crew {
     fn process_excavate_task(&mut self, global_tasks: &mut [GlobalTask], ct_pos: Pos) {
         const ORE_PERIOD: f64 = LABOR_EXCAVATE_TIME as f64 / EXCAVATE_ORE_AMOUNT as f64;
         for gtask in global_tasks.iter_mut() {
-            let GlobalTask::Excavate(t, gt_pos) = gtask;
+            let GlobalTask::Excavate(t, gt_pos) = gtask else {
+                continue;
+            };
             if ct_pos == *gt_pos && 0. < *t {
                 *t -= 1.;
                 // crate::console_log!(
@@ -163,14 +186,18 @@ impl Crew {
 
     fn process_pickup_task(
         &mut self,
-        item: ItemType,
+        item: Option<ItemType>,
         src: Pos,
         dest: Pos,
         tiles: &Tiles,
         buildings: &mut [Building],
         constructions: &mut [Construction],
+        transports: &mut Vec<Transport>,
     ) {
         let mut process_inventory = |inventory: &mut HashMap<ItemType, usize>| {
+            let Some(item) = item.or_else(|| inventory.keys().copied().next()) else {
+                return None;
+            };
             let entry = inventory.get_mut(&item).filter(|entry| 0 < **entry)?;
             *entry -= 1;
             if *entry == 0 {
@@ -193,6 +220,22 @@ impl Crew {
                             .find(|o| o.pos == src && (!o.canceling() || o.progress <= 0.))?
                             .ingredients,
                     )
+                })
+                .or_else(|| {
+                    let (idx, transport) = transports
+                        .iter()
+                        .enumerate()
+                        .find(|(_, t)| t.path.last() == Some(&src))?;
+                    println!("Found transports: {idx}, {transport:?}");
+                    let item = transport.item;
+                    *self.inventory.entry(item).or_default() += 1;
+                    let path = find_path(self.pos, dest, |pos| {
+                        matches!(tiles[pos].state, TileState::Empty) || pos == dest
+                    })?;
+                    self.path = Some(path);
+                    self.task = CrewTask::Deliver { dst: dest, item };
+                    transports.remove(idx);
+                    Some(())
                 });
         if res.is_none() {
             self.task = CrewTask::None;
@@ -259,6 +302,7 @@ impl AsteroidColoniesGame {
                         &self.tiles,
                         &mut self.buildings,
                         &mut self.constructions,
+                        &mut self.transports,
                     );
                 }
                 CrewTask::Deliver { dst, item } => {
@@ -282,6 +326,44 @@ impl AsteroidColoniesGame {
     }
 }
 
+pub(crate) fn _expected_crew_pickups(crews: &[Crew], src: Pos) -> HashMap<ItemType, usize> {
+    crews
+        .iter()
+        .filter_map(|t| match t.task {
+            CrewTask::Pickup {
+                src: pkup_src,
+                item,
+                ..
+            } => {
+                if src == pkup_src {
+                    item
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        })
+        .fold(HashMap::new(), |mut acc, cur| {
+            *acc.entry(cur).or_default() += 1;
+            acc
+        })
+}
+
+/// Count Pickup tasks without specific item type.
+pub(crate) fn expected_crew_pickup_any(crews: &[Crew], src: Pos) -> usize {
+    crews
+        .iter()
+        .filter(|t| match t.task {
+            CrewTask::Pickup {
+                src: pkup_src,
+                item: None,
+                ..
+            } => src == pkup_src,
+            _ => false,
+        })
+        .count()
+}
+
 pub(crate) fn expected_crew_deliveries(crews: &[Crew], dest: Pos) -> HashMap<ItemType, usize> {
     crews
         .iter()
@@ -299,7 +381,7 @@ pub(crate) fn expected_crew_deliveries(crews: &[Crew], dest: Pos) -> HashMap<Ite
                 ..
             } => {
                 if dest == pkup_dest {
-                    Some(item)
+                    item
                 } else {
                     None
                 }

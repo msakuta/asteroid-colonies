@@ -324,14 +324,18 @@ impl AsteroidColonies {
         }
 
         for task in self.game.iter_global_task() {
-            let task_target = match task {
-                GlobalTask::Excavate(t, pos) => Some((*t, pos, LABOR_EXCAVATE_TIME)),
-            };
-
-            if let Some((t, pos, max_time)) = task_target {
-                let x = pos[0] as f64 * TILE_SIZE + offset[0];
-                let y = pos[1] as f64 * TILE_SIZE + offset[1];
-                render_global_task_bar(context, [x, y], t, max_time);
+            match task {
+                GlobalTask::Excavate(t, pos) => {
+                    let x = pos[0] as f64 * TILE_SIZE + offset[0];
+                    let y = pos[1] as f64 * TILE_SIZE + offset[1];
+                    render_global_task_bar(context, [x, y], *t, LABOR_EXCAVATE_TIME);
+                }
+                GlobalTask::Cleanup(pos) => {
+                    let x = pos[0] as f64 * TILE_SIZE + offset[0];
+                    let y = pos[1] as f64 * TILE_SIZE + offset[1];
+                    context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+                        &self.assets.img_cleanup, 0., 0., 32., 32., x, y, 32., 32.)?;
+                }
             }
         }
 

@@ -189,6 +189,9 @@ enum WsMessage {
         // performance reasons.
         chunks_digest: String,
     },
+    Cleanup {
+        pos: Pos,
+    },
 }
 
 impl StreamHandler<WsResult> for SessionWs {
@@ -259,6 +262,9 @@ impl SessionWs {
             }
             WsMessage::ChunksDigest { chunks_digest } => {
                 self.chunks_digest = serde_json::from_str(&chunks_digest)?;
+            }
+            WsMessage::Cleanup { pos } => {
+                game.cleanup_item(pos).map_err(|e| anyhow::anyhow!("{e}"))?;
             }
         }
 
