@@ -94,20 +94,15 @@ impl AsteroidColonies {
     }
 
     pub fn set_cursor(&mut self, x: f64, y: f64) {
-        let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
-        let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
-        self.cursor = Some([ix, iy]);
+        self.cursor = Some(self.transform_pos(x, y));
     }
 
     pub fn transform_coords(&self, x: f64, y: f64) -> Vec<i32> {
-        let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
-        let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
-        vec![ix, iy]
+        self.transform_pos(x, y).to_vec()
     }
 
     pub fn command(&mut self, com: &str, x: f64, y: f64) -> Result<JsValue, JsValue> {
-        let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
-        let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
+        let [ix, iy] = self.transform_pos(x, y);
         if ix < 0 || WIDTH as i32 <= ix || iy < 0 || HEIGHT as i32 <= iy {
             return Err(JsValue::from("Point outside tile"));
         }
@@ -178,9 +173,15 @@ impl AsteroidColonies {
     }
 
     pub fn set_recipe(&mut self, x: f64, y: f64, name: &str) -> Result<(), JsValue> {
-        let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
-        let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
-        self.game.set_recipe(ix, iy, name).map_err(JsValue::from)
+        let [ix, iy] = self.transform_pos(x, y);
+        self.game
+            .set_recipe(ix, iy, Some(name))
+            .map_err(JsValue::from)
+    }
+
+    pub fn clear_recipe(&mut self, x: f64, y: f64) -> Result<(), JsValue> {
+        let [ix, iy] = self.transform_pos(x, y);
+        self.game.set_recipe(ix, iy, None).map_err(JsValue::from)
     }
 
     pub fn cleanup_item(&mut self, x: f64, y: f64) -> Result<(), JsValue> {
@@ -229,5 +230,13 @@ impl AsteroidColonies {
         self.game
             .serialize_chunks_digest()
             .map_err(|e| JsValue::from(e.to_string()))
+    }
+}
+
+impl AsteroidColonies {
+    fn transform_pos(&self, x: f64, y: f64) -> Pos {
+        let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
+        let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
+        [ix, iy]
     }
 }

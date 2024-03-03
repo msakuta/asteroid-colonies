@@ -155,7 +155,7 @@ impl AsteroidColoniesGame {
         &mut self,
         ix: i32,
         iy: i32,
-        recipe: &'static Recipe,
+        recipe: Option<&Recipe>,
     ) -> Result<bool, String> {
         let intersects = |b: &Building| {
             let size = b.type_.size();
@@ -171,7 +171,7 @@ impl AsteroidColoniesGame {
         if !matches!(assembler.type_, BuildingType::Assembler) {
             return Err(String::from("The building is not an assembler"));
         }
-        assembler.recipe = Some(recipe.clone());
+        assembler.recipe = recipe.cloned();
         Ok(true)
     }
 

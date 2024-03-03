@@ -246,6 +246,15 @@ let debugDrawChunks = false;
                         headerElem.style.fontWeight = "bold";
                         recipesElem.appendChild(addCloseButton(() => recipesElem.style.display = "none"));
                         recipesElem.appendChild(headerElem);
+                        const noRecipeElem = document.createElement("div");
+                        noRecipeElem.innerHTML = `<div class="recipe">No Recipe</div>`;
+                        noRecipeElem.addEventListener("pointerup", _ => {
+                            const [ix, iy] = game.transform_coords(x, y);
+                            requestWs("SetRecipe", {pos: [ix, iy]});
+                            game.clear_recipe(x, y);
+                            recipesElem.style.display = "none";
+                        });
+                        recipesElem.appendChild(noRecipeElem);
                         for (let recipe of recipes) {
                             const recipeElem = document.createElement("div");
                             const recipeName = recipe.outputs.keys().next().value;

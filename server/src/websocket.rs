@@ -182,7 +182,7 @@ enum WsMessage {
     },
     SetRecipe {
         pos: Pos,
-        name: String,
+        name: Option<String>,
     },
     ChunksDigest {
         // The payload represents HashMap<Position, u64>, but we do not deserialize into JSON for
@@ -257,7 +257,7 @@ impl SessionWs {
                     .map_err(|e| anyhow::anyhow!("{e}"))?;
             }
             WsMessage::SetRecipe { pos, name } => {
-                game.set_recipe(pos[0], pos[1], &name)
+                game.set_recipe(pos[0], pos[1], name.as_ref().map(|s| s as &_))
                     .map_err(|e| anyhow::anyhow!("{e}"))?;
             }
             WsMessage::ChunksDigest { chunks_digest } => {

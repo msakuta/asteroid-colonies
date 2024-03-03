@@ -337,10 +337,7 @@ impl AsteroidColoniesGame {
         Ok(recipes().iter().collect::<Vec<_>>())
     }
 
-    pub fn set_recipe(&mut self, ix: i32, iy: i32, name: &str) -> Result<(), String> {
-        if ix < 0 || WIDTH as i32 <= ix || iy < 0 || HEIGHT as i32 <= iy {
-            return Err(String::from("Point outside tile"));
-        }
+    pub fn set_recipe(&mut self, ix: i32, iy: i32, name: Option<&str>) -> Result<(), String> {
         let intersects = |b: &Building| {
             let size = b.type_.size();
             b.pos[0] <= ix
@@ -355,12 +352,16 @@ impl AsteroidColoniesGame {
         if !matches!(assembler.type_, BuildingType::Assembler) {
             return Err(String::from("The building is not an assembler"));
         }
+        let Some(name) = name else {
+            self.set_building_recipe(ix, iy, None)?;
+            return Ok(());
+        };
         for recipe in recipes() {
             let Some((key, _)) = recipe.outputs.iter().next() else {
                 continue;
             };
             if format!("{:?}", key) == name {
-                self.set_building_recipe(ix, iy, recipe)?;
+                self.set_building_recipe(ix, iy, Some(recipe))?;
                 break;
             }
         }
