@@ -10,7 +10,7 @@ use asteroid_colonies_logic::{
     task::{
         Direction, GlobalTask, Task, EXCAVATE_TIME, LABOR_EXCAVATE_TIME, MOVE_ITEM_TIME, MOVE_TIME,
     },
-    Cell, CellState, ItemType, HEIGHT, WIDTH,
+    ItemType, Tile, TileState, HEIGHT, WIDTH,
 };
 
 pub(crate) const TILE_SIZE: f64 = 32.;
@@ -120,7 +120,7 @@ impl AsteroidColonies {
             Ok(())
         };
 
-        let mut rendered_cells = 0;
+        let mut rendered_tiles = 0;
         let mut render_cell = |ix: i32, iy: i32| -> Result<(), JsValue> {
             let y = iy as f64 * TILE_SIZE + offset[1];
             let x = ix as f64 * TILE_SIZE + offset[0];
@@ -137,14 +137,14 @@ impl AsteroidColonies {
                         TILE_SIZE,
                         TILE_SIZE,
                     )?;
-                rendered_cells += 1;
+                rendered_tiles += 1;
                 return Ok(());
             }
             let cell = &self.game.cell_at([ix, iy]);
             let (sx, sy) = match cell.state {
-                CellState::Empty => (0., TILE_SIZE),
-                CellState::Solid => (0., 0.),
-                CellState::Space => (0., 2. * TILE_SIZE),
+                TileState::Empty => (0., TILE_SIZE),
+                TileState::Solid => (0., 0.),
+                TileState::Space => (0., 2. * TILE_SIZE),
             };
             context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
                 &self.assets.img_bg,
@@ -190,7 +190,7 @@ impl AsteroidColonies {
                         TILE_SIZE / 2.,
                         TILE_SIZE / 2.,
                     )?;
-                rendered_cells += 1;
+                rendered_tiles += 1;
                 Ok(())
             };
 
@@ -211,7 +211,7 @@ impl AsteroidColonies {
                 render_power_grid(context, x, y)?;
             }
             render_conveyor(context, x, y, cell.conveyor)?;
-            rendered_cells += 1;
+            rendered_tiles += 1;
             Ok(())
         };
 
@@ -224,7 +224,7 @@ impl AsteroidColonies {
                 render_cell(ix, iy)?;
             }
         }
-        // console_log!("rendered_cells: {}", rendered_cells);
+        // console_log!("rendered_tiles: {}", rendered_tiles);
 
         let time = self.game.get_global_time();
 
@@ -494,12 +494,12 @@ impl<'a> RenderBar<'a> {
 }
 
 #[allow(clippy::many_single_char_names)]
-pub(crate) fn calculate_back_image(ret: &mut [Cell]) {
+pub(crate) fn calculate_back_image(ret: &mut [Tile]) {
     for uy in 0..HEIGHT {
         let y = uy as i32;
         for ux in 0..WIDTH {
             let x = ux as i32;
-            if !matches!(ret[(ux + uy * WIDTH) as usize].state, CellState::Solid) {
+            if !matches!(ret[(ux + uy * WIDTH) as usize].state, TileState::Solid) {
                 let cell = &mut ret[(ux + uy * WIDTH) as usize];
                 cell.image_lt = 0;
                 cell.image_lb = 0;
@@ -513,8 +513,8 @@ pub(crate) fn calculate_back_image(ret: &mut [Cell]) {
                 } else {
                     let state = ret[x as usize + y as usize * WIDTH].state;
                     (
-                        !matches!(state, CellState::Solid) as u8,
-                        matches!(state, CellState::Space) as u8,
+                        !matches!(state, TileState::Solid) as u8,
+                        matches!(state, TileState::Space) as u8,
                     )
                 }
             };

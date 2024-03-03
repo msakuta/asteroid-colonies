@@ -2,7 +2,7 @@ use std::{cmp::Ordering, hash::Hash};
 
 use crate::{
     console_log, construction::Construction, push_pull::TileSampler, task::Direction,
-    AsteroidColoniesGame, Cell,
+    AsteroidColoniesGame, Tile,
 };
 use serde::{Deserialize, Serialize};
 
@@ -137,7 +137,7 @@ impl AsteroidColoniesGame {
         let mut prev_from = Option::None;
 
         let pos = [ix0, iy0];
-        let cell = &self.cells[pos];
+        let cell = &self.tiles[pos];
         if let Some(from) = self
             .conveyor_staged
             .get(&pos)
@@ -160,7 +160,7 @@ impl AsteroidColoniesGame {
             convs.extend((ix0..=ix1).map(|ix| [ix, iy1]));
         }
 
-        let filter_conv = |cell: &Cell, staged, conv| match (cell.conveyor, conv) {
+        let filter_conv = |cell: &Tile, staged, conv| match (cell.conveyor, conv) {
             (One(Left, Right), (Up, Down) | (Down, Up)) => Two((Left, Right), conv),
             (One(Right, Left), (Up, Down) | (Down, Up)) => Two((Right, Left), conv),
             (One(Up, Down), (Left, Right) | (Right, Left)) => Two((Up, Down), conv),
@@ -176,7 +176,7 @@ impl AsteroidColoniesGame {
 
         // console_log!("conv pos ix0: {ix0}, ix1: {ix1}, xrev: {x_rev}, iy0: {iy0}, iy1: {iy1}, yrev: {y_rev}, {:?}", convs);
         for (pos0, pos1) in convs.iter().zip(convs.iter().skip(1)) {
-            let cell = &self.cells[*pos0];
+            let cell = &self.tiles[*pos0];
             let staged = self.conveyor_staged.get(pos0).copied().unwrap_or(None);
             let Some(to) = Direction::from_vec([pos1[0] - pos0[0], pos1[1] - pos0[1]]) else {
                 continue;
@@ -190,7 +190,7 @@ impl AsteroidColoniesGame {
         }
 
         if let Some((pos, prev_from)) = convs.last().zip(prev_from) {
-            let cell = &self.cells[*pos];
+            let cell = &self.tiles[*pos];
             let staged = self.conveyor_staged.get(pos).copied().unwrap_or(None);
             let to = self
                 .conveyor_staged
@@ -223,7 +223,7 @@ impl AsteroidColoniesGame {
 
         let pos0 = [ix0, iy0];
         let cell = self
-            .cells
+            .tiles
             .at([ix0, iy0])
             .map(|c| c.conveyor)
             .unwrap_or(None);
@@ -238,7 +238,7 @@ impl AsteroidColoniesGame {
 
         let pos0 = [ix0, iy0];
         let cell = self
-            .cells
+            .tiles
             .at([ix0, iy0])
             .map(|c| c.conveyor)
             .unwrap_or(None);

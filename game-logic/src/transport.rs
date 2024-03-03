@@ -72,12 +72,12 @@ impl AsteroidColoniesGame {
             if t.path.len() <= 1 {
                 let delivered = check_construction(t) || check_building(t);
                 if !delivered {
-                    let cells = &self.cells;
+                    let tiles = &self.tiles;
                     let return_path = find_multipath(
                         std::iter::once(t.dest),
                         |pos| pos == t.src,
                         |from_direction, pos| {
-                            let cell = &cells[pos];
+                            let cell = &tiles[pos];
                             if let Some(from_direction) = from_direction {
                                 matches!(cell.conveyor, Conveyor::One(_, dir) if dir == from_direction)
                                     && cell.conveyor.is_some()

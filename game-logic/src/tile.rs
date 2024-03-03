@@ -12,21 +12,21 @@ use crate::{conveyor::Conveyor, Pos};
 pub const CHUNK_SIZE: usize = 16;
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub enum CellState {
+pub enum TileState {
     Solid,
     Empty,
     Space,
 }
 
-impl Hash for CellState {
+impl Hash for TileState {
     fn hash<H: Hasher>(&self, state: &mut H) {
         ((*self) as u8).hash(state)
     }
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, Eq)]
-pub struct Cell {
-    pub state: CellState,
+pub struct Tile {
+    pub state: TileState,
     pub power_grid: bool,
     pub conveyor: Conveyor,
     /// The index into the background image for quick rendering
@@ -40,7 +40,7 @@ pub struct Cell {
     pub image_rt: u8,
 }
 
-impl PartialEq for Cell {
+impl PartialEq for Tile {
     fn eq(&self, other: &Self) -> bool {
         self.state == other.state
             && self.power_grid == other.power_grid
@@ -48,7 +48,7 @@ impl PartialEq for Cell {
     }
 }
 
-impl Hash for Cell {
+impl Hash for Tile {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.state.hash(state);
         self.power_grid.hash(state);
@@ -56,10 +56,10 @@ impl Hash for Cell {
     }
 }
 
-impl Cell {
+impl Tile {
     pub const fn new() -> Self {
         Self {
-            state: CellState::Space,
+            state: TileState::Space,
             power_grid: false,
             conveyor: Conveyor::None,
             image_lt: 0,
@@ -72,7 +72,7 @@ impl Cell {
     #[allow(dead_code)]
     pub(crate) const fn new_with_conveyor(conveyor: Conveyor) -> Self {
         Self {
-            state: CellState::Empty,
+            state: TileState::Empty,
             power_grid: false,
             conveyor,
             image_lt: 0,
@@ -84,7 +84,7 @@ impl Cell {
 
     pub(crate) const fn building() -> Self {
         Self {
-            state: CellState::Empty,
+            state: TileState::Empty,
             power_grid: true,
             conveyor: Conveyor::None,
             image_lt: 8,
@@ -97,8 +97,8 @@ impl Cell {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub enum Chunk {
-    Tiles(Vec<Cell>, u64),
-    Uniform(Cell, u64),
+    Tiles(Vec<Tile>, u64),
+    Uniform(Tile, u64),
 }
 
 impl std::hash::Hash for Chunk {
@@ -117,10 +117,10 @@ fn new_hasher() -> FnvHasher {
 impl Chunk {
     pub fn new() -> Self {
         let mut hasher = new_hasher();
-        let cell = Cell::new();
+        let cell = Tile::new();
         cell.hash(&mut hasher);
         let hash = hasher.finish();
-        Self::Uniform(Cell::new(), hash)
+        Self::Uniform(Tile::new(), hash)
     }
 
     /// Attempt to compress uniform chunks and save space.
@@ -138,7 +138,7 @@ impl Chunk {
                     *hash = hasher.finish();
                     return true;
                 }
-                if first == Cell::new() {
+                if first == Tile::new() {
                     return false;
                 }
                 let mut hasher = new_hasher();
@@ -147,7 +147,7 @@ impl Chunk {
                 *self = Chunk::Uniform(first, hash);
                 true
             }
-            Chunk::Uniform(tile, _) => *tile != Cell::new(),
+            Chunk::Uniform(tile, _) => *tile != Tile::new(),
         }
     }
 
@@ -260,7 +260,7 @@ impl Tiles {
         &self.chunks
     }
 
-    pub fn try_get_mut(&mut self, index: [i32; 2]) -> Option<&mut Cell> {
+    pub fn try_get_mut(&mut self, index: [i32; 2]) -> Option<&mut Tile> {
         let chunk_pos = Position {
             x: index[0].div_euclid(CHUNK_SIZE as i32),
             y: index[1].div_euclid(CHUNK_SIZE as i32),
@@ -285,9 +285,9 @@ impl Tiles {
 }
 
 impl Index<[i32; 2]> for Tiles {
-    type Output = Cell;
+    type Output = Tile;
     fn index(&self, index: [i32; 2]) -> &Self::Output {
-        static SPACE: Cell = Cell::new();
+        static SPACE: Tile = Tile::new();
         let chunk_pos = Position {
             x: index[0].div_euclid(CHUNK_SIZE as i32),
             y: index[1].div_euclid(CHUNK_SIZE as i32),
@@ -325,7 +325,7 @@ impl IndexMut<[i32; 2]> for Tiles {
                 &mut tiles[tile_pos[0] as usize + tile_pos[1] as usize * CHUNK_SIZE]
             }
             Chunk::Uniform(tile, _) => {
-                let mut tiles = vec![Cell::new(); CHUNK_SIZE * CHUNK_SIZE];
+                let mut tiles = vec![Tile::new(); CHUNK_SIZE * CHUNK_SIZE];
                 tiles[tile_pos[0] as usize + tile_pos[1] as usize * CHUNK_SIZE] = *tile;
                 let mut hasher = new_hasher();
                 for tile in &tiles {
@@ -348,7 +348,7 @@ pub struct TilesIter<'a> {
     // tiles: &'a Tiles,
     iter_chunks: Option<Box<dyn Iterator<Item = (&'a Position, &'a Chunk)> + 'a>>,
     chunk_pos: Option<Position>,
-    iter: Option<Box<dyn Iterator<Item = (usize, &'a Cell)> + 'a>>,
+    iter: Option<Box<dyn Iterator<Item = (usize, &'a Tile)> + 'a>>,
 }
 
 impl<'a> TilesIter<'a> {
@@ -370,7 +370,7 @@ impl<'a> TilesIter<'a> {
 }
 
 impl<'a> Iterator for TilesIter<'a> {
-    type Item = (Pos, &'a Cell);
+    type Item = (Pos, &'a Tile);
     fn next(&mut self) -> Option<Self::Item> {
         let Some(iter) = self.iter.as_mut() else {
             return None;
@@ -394,7 +394,7 @@ impl<'a> Iterator for TilesIter<'a> {
                 else {
                     return None;
                 };
-                let mut iter: Box<dyn Iterator<Item = (usize, &'a Cell)>> = match chunk {
+                let mut iter: Box<dyn Iterator<Item = (usize, &'a Tile)>> = match chunk {
                     Chunk::Tiles(tiles, _) => Box::new(tiles.iter().enumerate()) as _,
                     Chunk::Uniform(tile, _) => Box::new(std::iter::once(tile).enumerate()) as _,
                 };

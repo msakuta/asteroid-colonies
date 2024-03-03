@@ -7,7 +7,7 @@ use crate::{
     construction::Construction,
     game::CalculateBackImage,
     transport::find_path,
-    AsteroidColoniesGame, CellState, ItemType, Pos, Tiles,
+    AsteroidColoniesGame, ItemType, Pos, TileState, Tiles,
 };
 
 pub const EXCAVATE_TIME: f64 = 10.;
@@ -105,7 +105,7 @@ pub enum GlobalTask {
 
 impl AsteroidColoniesGame {
     pub fn excavate(&mut self, ix: i32, iy: i32) -> Result<bool, String> {
-        if !matches!(self.cells[[ix, iy]].state, CellState::Solid) {
+        if !matches!(self.tiles[[ix, iy]].state, TileState::Solid) {
             return Err("Already excavated".to_string());
         }
         for building in &mut self.buildings {
@@ -126,7 +126,7 @@ impl AsteroidColoniesGame {
             .find(|b| {
                 matches!(b.type_, BuildingType::CrewCabin)
                     && find_path(b.pos, [ix, iy], |pos| {
-                        matches!(self.cells[pos].state, CellState::Empty) || pos == [ix, iy]
+                        matches!(self.tiles[pos].state, TileState::Empty) || pos == [ix, iy]
                     })
                     .is_some()
             })
@@ -142,11 +142,11 @@ impl AsteroidColoniesGame {
     }
 
     pub fn build_power_grid(&mut self, ix: i32, iy: i32) -> Result<bool, String> {
-        let cell = &self.cells[[ix, iy]];
-        if matches!(cell.state, CellState::Solid) {
+        let cell = &self.tiles[[ix, iy]];
+        if matches!(cell.state, TileState::Solid) {
             return Err(String::from("Needs excavation before building power grid"));
         }
-        if matches!(cell.state, CellState::Space) {
+        if matches!(cell.state, TileState::Space) {
             return Err(String::from("You cannot build power grid in space!"));
         }
         if cell.power_grid {
@@ -158,8 +158,8 @@ impl AsteroidColoniesGame {
     }
 
     pub fn move_item(&mut self, ix: i32, iy: i32) -> Result<bool, String> {
-        let cell = &self.cells[[ix, iy]];
-        if matches!(cell.state, CellState::Solid) {
+        let cell = &self.tiles[[ix, iy]];
+        if matches!(cell.state, TileState::Solid) {
             return Err(String::from("Needs excavation before building conveyor"));
         }
         if !cell.conveyor.is_some() {
@@ -188,8 +188,8 @@ impl AsteroidColoniesGame {
     pub(super) fn _is_clear(&self, ix: i32, iy: i32, size: [usize; 2]) -> bool {
         for jy in iy..iy + size[1] as i32 {
             for jx in ix..ix + size[0] as i32 {
-                let j_cell = &self.cells[[jx, jy]];
-                if matches!(j_cell.state, CellState::Solid) {
+                let j_cell = &self.tiles[[jx, jy]];
+                if matches!(j_cell.state, TileState::Solid) {
                     return false;
                 }
             }
@@ -222,7 +222,7 @@ impl AsteroidColoniesGame {
     }
 
     pub(super) fn process_task(
-        cells: &mut Tiles,
+        tiles: &mut Tiles,
         building: &mut Building,
         power_ratio: f64,
         _calculate_back_image: Option<&mut CalculateBackImage>,
@@ -237,9 +237,9 @@ impl AsteroidColoniesGame {
                         .or_default() += EXCAVATE_ORE_AMOUNT;
                     let dir_vec = dir.to_vec();
                     let pos = [building.pos[0] + dir_vec[0], building.pos[1] + dir_vec[1]];
-                    cells[pos].state = CellState::Empty;
+                    tiles[pos].state = TileState::Empty;
                     // if let Some(f) = calculate_back_image {
-                    //     f(cells);
+                    //     f(tiles);
                     // }
                 } else {
                     *t = (*t - power_ratio).max(0.);
@@ -303,9 +303,9 @@ impl AsteroidColoniesGame {
         for task in &self.global_tasks {
             match task {
                 GlobalTask::Excavate(t, pos) if *t <= 0. => {
-                    self.cells[*pos].state = CellState::Empty;
+                    self.tiles[*pos].state = TileState::Empty;
                     // if let Some(ref f) = self.calculate_back_image {
-                    //     f(&mut self.cells);
+                    //     f(&mut self.tiles);
                     // }
                 }
                 _ => {}

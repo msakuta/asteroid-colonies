@@ -10,13 +10,13 @@ use crate::{
     hash_map, recipes,
     task::{Direction, GlobalTask, Task, MOVE_TIME},
     transport::{find_path, Transport},
-    Cell, CellState, ItemType, Pos, Position, Tiles, Xor128, HEIGHT, WIDTH,
+    ItemType, Pos, Position, Tile, TileState, Tiles, Xor128, HEIGHT, WIDTH,
 };
 
-pub type CalculateBackImage = Box<dyn Fn(&mut [Cell]) + Send + Sync>;
+pub type CalculateBackImage = Box<dyn Fn(&mut [Tile]) + Send + Sync>;
 
 pub struct AsteroidColoniesGame {
-    pub(crate) cells: Tiles,
+    pub(crate) tiles: Tiles,
     pub(crate) buildings: Vec<Building>,
     pub(crate) crews: Vec<Crew>,
     pub(crate) global_tasks: Vec<GlobalTask>,
@@ -35,14 +35,14 @@ pub struct AsteroidColoniesGame {
 
 impl AsteroidColoniesGame {
     pub fn new(calculate_back_image: Option<CalculateBackImage>) -> Result<Self, String> {
-        let mut cells = Tiles::new();
+        let mut tiles = Tiles::new();
         let r2_thresh = (WIDTH as f64 * 3. / 8.).powi(2);
         for y in 0..HEIGHT {
             for x in 0..WIDTH {
                 let r2 = ((x as f64 - WIDTH as f64 / 2.) as f64).powi(2)
                     + ((y as f64 - HEIGHT as f64 / 2.) as f64).powi(2);
                 if r2 < r2_thresh {
-                    cells[[x as i32, y as i32]].state = CellState::Solid;
+                    tiles[[x as i32, y as i32]].state = TileState::Solid;
                 }
             }
         }
@@ -72,7 +72,7 @@ impl AsteroidColoniesGame {
                 let y = pos[1] as usize + iy;
                 for ix in 0..size[0] {
                     let x = pos[0] as usize + ix;
-                    cells[[x as i32, y as i32]] = Cell::building();
+                    tiles[[x as i32, y as i32]] = Tile::building();
                 }
             }
         }
@@ -102,27 +102,27 @@ impl AsteroidColoniesGame {
             .zip(convs.iter().skip(2).chain(convs.iter().take(2)))
         {
             let ofs = start_ofs(*pos1);
-            cells[ofs].state = CellState::Empty;
+            tiles[ofs].state = TileState::Empty;
             let conv = Conveyor::One(
                 Direction::from_vec([pos0[0] - pos1[0], pos0[1] - pos1[1]]).unwrap(),
                 Direction::from_vec([pos2[0] - pos1[0], pos2[1] - pos1[1]]).unwrap(),
             );
             console_log!("conv {:?}: {:?}", pos1, conv);
-            cells[ofs].conveyor = conv;
-            cells[ofs].power_grid = true;
+            tiles[ofs].conveyor = conv;
+            tiles[ofs].power_grid = true;
         }
         for iy in 4..10 {
             for ix in 2..7 {
                 let iofs = start_ofs([ix, iy]);
-                cells[iofs].state = CellState::Empty;
+                tiles[iofs].state = TileState::Empty;
             }
         }
-        cells.uniformify();
+        tiles.uniformify();
         // if let Some(ref f) = calculate_back_image {
-        //     f(&mut cells);
+        //     f(&mut tiles);
         // }
         Ok(Self {
-            cells,
+            tiles,
             buildings,
             crews: vec![],
             global_tasks: vec![],
@@ -141,12 +141,12 @@ impl AsteroidColoniesGame {
         self.global_time
     }
 
-    pub fn iter_cell(&self) -> impl Iterator<Item = &Cell> {
-        self.cells.iter().map(|(_, c)| c)
+    pub fn iter_cell(&self) -> impl Iterator<Item = &Tile> {
+        self.tiles.iter().map(|(_, c)| c)
     }
 
-    pub fn cell_at(&self, pos: [i32; 2]) -> &Cell {
-        &self.cells[pos]
+    pub fn cell_at(&self, pos: [i32; 2]) -> &Tile {
+        &self.tiles[pos]
     }
 
     pub fn iter_building(&self) -> impl Iterator<Item = &Building> {
@@ -192,7 +192,7 @@ impl AsteroidColoniesGame {
                 "The building is busy; wait for the building to finish the current task",
             ));
         }
-        let cells = &self.cells;
+        let tiles = &self.tiles;
         let buildings = &self.buildings;
 
         let intersects = |pos: [i32; 2]| {
@@ -206,8 +206,8 @@ impl AsteroidColoniesGame {
         };
 
         let mut path = find_path([ix, iy], [dx, dy], |pos| {
-            let cell = &cells[pos];
-            !intersects(pos) && matches!(cell.state, CellState::Empty) && cell.power_grid
+            let cell = &tiles[pos];
+            !intersects(pos) && matches!(cell.state, TileState::Empty) && cell.power_grid
         })
         .ok_or_else(|| String::from("Failed to find the path"))?;
 
@@ -228,17 +228,17 @@ impl AsteroidColoniesGame {
         let size = type_.size();
         for jy in iy..iy + size[1] as i32 {
             for jx in ix..ix + size[0] as i32 {
-                let cell = &self.cells[[jx, jy]];
-                if matches!(cell.state, CellState::Solid) {
+                let cell = &self.tiles[[jx, jy]];
+                if matches!(cell.state, TileState::Solid) {
                     return Err(String::from("Needs excavation before building"));
                 }
-                if matches!(cell.state, CellState::Space) {
+                if matches!(cell.state, TileState::Space) {
                     return Err(String::from("You cannot build in space!"));
                 }
             }
         }
 
-        let cell = &self.cells[[ix, iy]];
+        let cell = &self.tiles[[ix, iy]];
         if !cell.power_grid {
             return Err(String::from("Power grid is required to build"));
         }
@@ -370,7 +370,7 @@ impl AsteroidColoniesGame {
     }
 
     pub fn uniformify_tiles(&mut self) {
-        self.cells.uniformify();
+        self.tiles.uniformify();
     }
 
     pub fn serialize(&self, pretty: bool) -> serde_json::Result<String> {
@@ -400,8 +400,8 @@ impl AsteroidColoniesGame {
     }
 
     fn from_serialized(&mut self, ser_data: SerializeGame) {
-        for (pos, chunk) in ser_data.cells.chunks {
-            self.cells.chunks.insert(pos, chunk);
+        for (pos, chunk) in ser_data.tiles.chunks {
+            self.tiles.chunks.insert(pos, chunk);
         }
         self.buildings = ser_data.buildings;
         self.crews = ser_data.crews;
@@ -411,13 +411,13 @@ impl AsteroidColoniesGame {
         self.constructions = ser_data.constructions;
         self.rng = ser_data.rng;
         // if let Some(ref f) = self.calculate_back_image {
-        //     f(&mut self.cells);
+        //     f(&mut self.tiles);
         // }
     }
 
     pub fn serialize_chunks_digest(&self) -> bincode::Result<Vec<u8>> {
         let digests = self
-            .cells
+            .tiles
             .chunks()
             .iter()
             .map(|(pos, chunk)| (pos, chunk.get_hash()))
@@ -429,9 +429,9 @@ impl AsteroidColoniesGame {
         &self,
         chunks_digest: &HashMap<Position, u64>,
     ) -> Result<Vec<u8>, String> {
-        let cells = self.cells.filter_with_diffs(chunks_digest)?;
+        let tiles = self.tiles.filter_with_diffs(chunks_digest)?;
         let ser_game = SerializeGame {
-            cells,
+            tiles,
             buildings: self.buildings.clone(),
             crews: self.crews.clone(),
             global_tasks: self.global_tasks.clone(),
@@ -446,7 +446,7 @@ impl AsteroidColoniesGame {
 
 #[derive(Serialize, Deserialize)]
 pub struct SerializeGame {
-    cells: Tiles,
+    tiles: Tiles,
     buildings: Vec<Building>,
     crews: Vec<Crew>,
     global_tasks: Vec<GlobalTask>,
@@ -459,7 +459,7 @@ pub struct SerializeGame {
 impl From<&AsteroidColoniesGame> for SerializeGame {
     fn from(value: &AsteroidColoniesGame) -> Self {
         Self {
-            cells: value.cells.clone(),
+            tiles: value.tiles.clone(),
             buildings: value.buildings.clone(),
             crews: value.crews.clone(),
             global_tasks: value.global_tasks.clone(),

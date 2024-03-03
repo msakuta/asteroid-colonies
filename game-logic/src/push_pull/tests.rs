@@ -4,17 +4,17 @@ use crate::{building::BuildingType, Inventory};
 struct MockTiles;
 
 impl TileSampler for MockTiles {
-    fn at(&self, pos: [i32; 2]) -> Option<&Cell> {
+    fn at(&self, pos: [i32; 2]) -> Option<&Tile> {
         use {Conveyor::*, Direction::*};
-        static SOLID: Cell = Cell::new();
-        static RD: Cell = Cell::new_with_conveyor(One(Right, Down));
-        static UD: Cell = Cell::new_with_conveyor(One(Up, Down));
-        static UR: Cell = Cell::new_with_conveyor(One(Up, Right));
-        static LR: Cell = Cell::new_with_conveyor(One(Left, Right));
-        static LU: Cell = Cell::new_with_conveyor(One(Left, Up));
-        static DU: Cell = Cell::new_with_conveyor(One(Down, Up));
-        static DL: Cell = Cell::new_with_conveyor(One(Down, Left));
-        static RL: Cell = Cell::new_with_conveyor(One(Right, Left));
+        static SOLID: Tile = Tile::new();
+        static RD: Tile = Tile::new_with_conveyor(One(Right, Down));
+        static UD: Tile = Tile::new_with_conveyor(One(Up, Down));
+        static UR: Tile = Tile::new_with_conveyor(One(Up, Right));
+        static LR: Tile = Tile::new_with_conveyor(One(Left, Right));
+        static LU: Tile = Tile::new_with_conveyor(One(Left, Up));
+        static DU: Tile = Tile::new_with_conveyor(One(Down, Up));
+        static DL: Tile = Tile::new_with_conveyor(One(Down, Left));
+        static RL: Tile = Tile::new_with_conveyor(One(Right, Left));
         let ret = match pos {
             [0, 0] => Some(&RD),
             [0, 1] => Some(&UD),
@@ -117,18 +117,18 @@ fn test_push_outputs() {
 struct MockTiles2;
 
 impl TileSampler for MockTiles2 {
-    fn at(&self, pos: [i32; 2]) -> Option<&Cell> {
+    fn at(&self, pos: [i32; 2]) -> Option<&Tile> {
         use {Conveyor::*, Direction::*};
-        static SOLID: Cell = Cell::new();
-        static RD: Cell = Cell::new_with_conveyor(One(Right, Down));
-        static UD: Cell = Cell::new_with_conveyor(One(Up, Down));
-        static UR: Cell = Cell::new_with_conveyor(One(Up, Right));
-        static LR: Cell = Cell::new_with_conveyor(One(Left, Right));
-        static LU: Cell = Cell::new_with_conveyor(One(Left, Up));
-        static DU: Cell = Cell::new_with_conveyor(One(Down, Up));
-        static DL: Cell = Cell::new_with_conveyor(One(Down, Left));
-        static RL: Cell = Cell::new_with_conveyor(One(Right, Left));
-        static DULR: Cell = Cell::new_with_conveyor(Two((Down, Up), (Left, Right)));
+        static SOLID: Tile = Tile::new();
+        static RD: Tile = Tile::new_with_conveyor(One(Right, Down));
+        static UD: Tile = Tile::new_with_conveyor(One(Up, Down));
+        static UR: Tile = Tile::new_with_conveyor(One(Up, Right));
+        static LR: Tile = Tile::new_with_conveyor(One(Left, Right));
+        static LU: Tile = Tile::new_with_conveyor(One(Left, Up));
+        static DU: Tile = Tile::new_with_conveyor(One(Down, Up));
+        static DL: Tile = Tile::new_with_conveyor(One(Down, Left));
+        static RL: Tile = Tile::new_with_conveyor(One(Right, Left));
+        static DULR: Tile = Tile::new_with_conveyor(Two((Down, Up), (Left, Right)));
         let ret = match pos {
             [0, 0] => Some(&RD),
             [0, 1] => Some(&UD),
@@ -154,14 +154,14 @@ impl TileSampler for MockTiles2 {
 
 fn print_board(tiles: &impl TileSampler) {
     use Direction::*;
-    let vert_bar = |t: &Cell, c| {
+    let vert_bar = |t: &Tile, c| {
         if t.conveyor.has_from(c) || t.conveyor.has_to(c) {
             "|"
         } else {
             " "
         }
     };
-    let horz_bar = |t: &Cell, c| {
+    let horz_bar = |t: &Tile, c| {
         if t.conveyor.has_from(c) || t.conveyor.has_to(c) {
             "-"
         } else {

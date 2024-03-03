@@ -7,7 +7,7 @@ use crate::{
     construction::Construction,
     task::{GlobalTask, EXCAVATE_ORE_AMOUNT, LABOR_EXCAVATE_TIME},
     transport::find_path,
-    AsteroidColoniesGame, CellState, ItemType, Pos, Tiles,
+    AsteroidColoniesGame, ItemType, Pos, TileState, Tiles,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -31,12 +31,12 @@ pub struct Crew {
 }
 
 impl Crew {
-    pub fn new_task(pos: Pos, gtask: &GlobalTask, cells: &Tiles) -> Option<Self> {
+    pub fn new_task(pos: Pos, gtask: &GlobalTask, tiles: &Tiles) -> Option<Self> {
         let (target, task) = match gtask {
             GlobalTask::Excavate(_, pos) => (*pos, CrewTask::Excavate(*pos)),
         };
         let path = find_path(pos, target, |pos| {
-            matches!(cells[pos].state, CellState::Empty) || pos == target
+            matches!(tiles[pos].state, TileState::Empty) || pos == target
         })?;
         Some(Self {
             pos,
@@ -48,9 +48,9 @@ impl Crew {
         })
     }
 
-    pub fn new_build(pos: Pos, dest: Pos, cells: &Tiles) -> Option<Self> {
+    pub fn new_build(pos: Pos, dest: Pos, tiles: &Tiles) -> Option<Self> {
         let path = find_path(pos, dest, |pos| {
-            matches!(cells[pos].state, CellState::Empty) || pos == dest
+            matches!(tiles[pos].state, TileState::Empty) || pos == dest
         })?;
         Some(Self {
             pos,
@@ -67,14 +67,14 @@ impl Crew {
         src: Pos,
         dest: Pos,
         item: ItemType,
-        cells: &Tiles,
+        tiles: &Tiles,
     ) -> Option<Self> {
         let path = find_path(pos, src, |pos| {
-            matches!(cells[pos].state, CellState::Empty) || pos == src
+            matches!(tiles[pos].state, TileState::Empty) || pos == src
         })?;
         // Just to make sure if you can reach the destination from pickup
         if find_path(src, dest, |pos| {
-            matches!(cells[pos].state, CellState::Empty) || pos == dest
+            matches!(tiles[pos].state, TileState::Empty) || pos == dest
         })
         .is_none()
         {
@@ -90,9 +90,9 @@ impl Crew {
         })
     }
 
-    pub fn new_deliver(pos: Pos, dest: Pos, item: ItemType, cells: &Tiles) -> Option<Self> {
+    pub fn new_deliver(pos: Pos, dest: Pos, item: ItemType, tiles: &Tiles) -> Option<Self> {
         let path = find_path(pos, dest, |pos| {
-            matches!(cells[pos].state, CellState::Empty) || pos == dest
+            matches!(tiles[pos].state, TileState::Empty) || pos == dest
         })?;
         Some(Self {
             pos,
@@ -166,7 +166,7 @@ impl Crew {
         item: ItemType,
         src: Pos,
         dest: Pos,
-        cells: &Tiles,
+        tiles: &Tiles,
         buildings: &mut [Building],
         constructions: &mut [Construction],
     ) {
@@ -178,7 +178,7 @@ impl Crew {
             }
             *self.inventory.entry(item).or_default() += 1;
             let path = find_path(self.pos, dest, |pos| {
-                matches!(cells[pos].state, CellState::Empty) || pos == dest
+                matches!(tiles[pos].state, TileState::Empty) || pos == dest
             })?;
             self.path = Some(path);
             self.task = CrewTask::Deliver { dst: dest, item };
@@ -256,7 +256,7 @@ impl AsteroidColoniesGame {
                         item,
                         src,
                         dest,
-                        &self.cells,
+                        &self.tiles,
                         &mut self.buildings,
                         &mut self.constructions,
                     );
@@ -269,7 +269,7 @@ impl AsteroidColoniesGame {
                     if crew.from == crew.pos {
                         try_return(crew, &mut self.buildings);
                     } else if let Some(path) = find_path(crew.pos, crew.from, |pos| {
-                        matches!(self.cells[pos].state, CellState::Empty) || pos == crew.from
+                        matches!(self.tiles[pos].state, TileState::Empty) || pos == crew.from
                     }) {
                         crew.task = CrewTask::Return;
                         crew.path = Some(path);

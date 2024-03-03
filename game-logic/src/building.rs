@@ -12,7 +12,7 @@ use crate::{
     task::{GlobalTask, Task, RAW_ORE_SMELT_TIME},
     tile::Tiles,
     transport::find_multipath,
-    AsteroidColoniesGame, CellState, Crew, ItemType, Transport, Xor128,
+    AsteroidColoniesGame, Crew, ItemType, TileState, Transport, Xor128,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -155,7 +155,7 @@ impl Building {
     pub fn tick(
         bldgs: &mut [Building],
         idx: usize,
-        cells: &Tiles,
+        tiles: &Tiles,
         transports: &mut Vec<Transport>,
         constructions: &mut [Construction],
         crews: &mut Vec<Crew>,
@@ -169,7 +169,7 @@ impl Building {
         // Try pushing out products
         if let Some(ref recipe) = this.recipe {
             let outputs: HashSet<_> = recipe.outputs.keys().copied().collect();
-            push_outputs(cells, transports, this, first, last, &|item| {
+            push_outputs(tiles, transports, this, first, last, &|item| {
                 outputs.contains(&item)
             });
         }
@@ -177,7 +177,7 @@ impl Building {
             if let Some(recipe) = &this.recipe {
                 pull_inputs(
                     &recipe.inputs,
-                    cells,
+                    tiles,
                     transports,
                     this.pos,
                     this.type_.size(),
@@ -212,7 +212,7 @@ impl Building {
         }
         match this.type_ {
             BuildingType::Excavator => {
-                push_outputs(cells, transports, this, first, last, &|t| {
+                push_outputs(tiles, transports, this, first, last, &|t| {
                     matches!(t, ItemType::RawOre)
                 });
             }
@@ -228,7 +228,7 @@ impl Building {
                     if crews.iter().any(|crew| crew.target() == Some(*goal_pos)) {
                         continue;
                     }
-                    if let Some(crew) = Crew::new_task(this.pos, gtask, cells) {
+                    if let Some(crew) = Crew::new_task(this.pos, gtask, tiles) {
                         crews.push(crew);
                         this.crews -= 1;
                         return Ok(());
@@ -236,7 +236,7 @@ impl Building {
                 }
                 for construction in constructions {
                     let pos = construction.pos;
-                    if !matches!(cells[pos].state, CellState::Empty) {
+                    if !matches!(tiles[pos].state, TileState::Empty) {
                         // Don't bother trying to find a path in an unreachable area.
                         continue;
                     }
@@ -244,7 +244,7 @@ impl Building {
                         .required_ingredients(transports, crews)
                         .find_map(|(ty, _)| {
                             if 0 < this.inventory.get(&ty).copied().unwrap_or(0) {
-                                Crew::new_deliver(this.pos, construction.pos, ty, cells)
+                                Crew::new_deliver(this.pos, construction.pos, ty, tiles)
                             } else {
                                 let path_to_source = find_multipath(
                                     [this.pos].into_iter(),
@@ -254,12 +254,12 @@ impl Building {
                                                 && 0 < o.inventory.get(&ty).copied().unwrap_or(0)
                                         })
                                     },
-                                    |_, pos| matches!(cells[pos].state, CellState::Empty),
+                                    |_, pos| matches!(tiles[pos].state, TileState::Empty),
                                 );
                                 path_to_source
                                     .and_then(|src| src.first().copied())
                                     .and_then(|src| {
-                                        Crew::new_pickup(this.pos, src, construction.pos, ty, cells)
+                                        Crew::new_pickup(this.pos, src, construction.pos, ty, tiles)
                                     })
                             }
                         })
@@ -272,13 +272,13 @@ impl Building {
                                             o.pos == pos && o.inventory_size() < o.type_.capacity()
                                         })
                                     },
-                                    |_, pos| matches!(cells[pos].state, CellState::Empty),
+                                    |_, pos| matches!(tiles[pos].state, TileState::Empty),
                                 );
 
                                 path_to_dest
                                     .and_then(|dst| dst.first().copied())
                                     .and_then(|dst| {
-                                        Crew::new_pickup(this.pos, construction.pos, dst, ty, cells)
+                                        Crew::new_pickup(this.pos, construction.pos, dst, ty, tiles)
                                     })
                             })
                         })
@@ -290,7 +290,7 @@ impl Building {
                                 return None;
                             }
                             if construction.ingredients_satisfied() {
-                                Crew::new_build(this.pos, construction.pos, cells)
+                                Crew::new_build(this.pos, construction.pos, tiles)
                             } else {
                                 None
                             }
@@ -304,7 +304,7 @@ impl Building {
                 }
             }
             BuildingType::Furnace => {
-                push_outputs(cells, transports, this, first, last, &|t| {
+                push_outputs(tiles, transports, this, first, last, &|t| {
                     !matches!(t, ItemType::RawOre)
                 });
                 if !matches!(this.task, Task::None) {
@@ -318,7 +318,7 @@ impl Building {
                 };
                 pull_inputs(
                     &recipe.inputs,
-                    cells,
+                    tiles,
                     transports,
                     this.pos,
                     this.type_.size(),
@@ -370,7 +370,7 @@ impl AsteroidColoniesGame {
             let res = Building::tick(
                 &mut self.buildings,
                 i,
-                &self.cells,
+                &self.tiles,
                 &mut self.transports,
                 &mut self.constructions,
                 &mut self.crews,
@@ -383,7 +383,7 @@ impl AsteroidColoniesGame {
         }
         for building in &mut self.buildings {
             if let Some((item, dest)) = Self::process_task(
-                &mut self.cells,
+                &mut self.tiles,
                 building,
                 power_ratio,
                 self.calculate_back_image.as_mut(),
