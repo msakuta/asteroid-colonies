@@ -9,31 +9,37 @@ use crate::{
     conveyor::Conveyor,
     task::Direction,
     transport::{expected_deliveries, find_multipath_should_expand, CPos, LevelTarget, Transport},
-    Cell, ItemType, Pos, WIDTH,
+    ItemType, Pos, Tile, Tiles, WIDTH,
 };
 
 /// An abstraction of tile map where you can pick a tile from a position.
 /// Used to mock in unit tests.
 pub(crate) trait TileSampler {
-    fn at(&self, pos: [i32; 2]) -> Option<&Cell>;
+    fn at(&self, pos: [i32; 2]) -> Option<&Tile>;
 }
 
-impl TileSampler for &[Cell] {
-    fn at(&self, pos: [i32; 2]) -> Option<&Cell> {
+impl TileSampler for &[Tile] {
+    fn at(&self, pos: [i32; 2]) -> Option<&Tile> {
         Some(&self[pos[0] as usize + pos[1] as usize * WIDTH])
     }
 }
 
-impl TileSampler for Vec<Cell> {
-    fn at(&self, pos: [i32; 2]) -> Option<&Cell> {
+impl TileSampler for Vec<Tile> {
+    fn at(&self, pos: [i32; 2]) -> Option<&Tile> {
         Some(&self[pos[0] as usize + pos[1] as usize * WIDTH])
+    }
+}
+
+impl TileSampler for Tiles {
+    fn at(&self, pos: [i32; 2]) -> Option<&Tile> {
+        Some(&self[pos])
     }
 }
 
 /// Pull inputs over transportation network
 pub(crate) fn pull_inputs(
     inputs: &HashMap<ItemType, usize>,
-    cells: &impl TileSampler,
+    tiles: &impl TileSampler,
     transports: &mut Vec<Transport>,
     this_pos: Pos,
     this_size: [usize; 2],
@@ -71,9 +77,9 @@ pub(crate) fn pull_inputs(
                 if intersects_goal(pos) {
                     return true;
                 }
-                push_pull_passable(cells, from_direction, &start_neighbors, pos)
+                push_pull_passable(tiles, from_direction, &start_neighbors, pos)
             },
-            |to, pos, from| push_pull_should_expand(cells, to, pos, from),
+            |to, pos, from| push_pull_should_expand(tiles, to, pos, from),
         );
         let Some(path) = path else {
             continue;
@@ -109,7 +115,7 @@ fn find_from_other_inventory_mut<'a>(
     })
 }
 
-/// Return an iterator over cells covering a rectangle specified by left top corner position and a size.
+/// Return an iterator over tiles covering a rectangle specified by left top corner position and a size.
 pub(crate) fn rect_iter(pos: Pos, size: [usize; 2]) -> impl Iterator<Item = Pos> {
     (0..size[0])
         .map(move |ix| (0..size[1]).map(move |iy| [pos[0] + ix as i32, pos[1] + iy as i32]))
@@ -138,7 +144,7 @@ impl HasInventory for Building {
 }
 
 pub(crate) fn push_outputs(
-    cells: &impl TileSampler,
+    tiles: &impl TileSampler,
     transports: &mut Vec<Transport>,
     this: &mut impl HasInventory,
     first: &mut [Building],
@@ -181,9 +187,9 @@ pub(crate) fn push_outputs(
                 if intersects(pos) {
                     return true;
                 }
-                push_pull_passable(cells, from_direction, &start_neighbors, pos)
+                push_pull_passable(tiles, from_direction, &start_neighbors, pos)
             },
-            |to, pos, from| push_pull_should_expand(cells, to, pos, from),
+            |to, pos, from| push_pull_should_expand(tiles, to, pos, from),
         )?;
         Some((b, path))
     });
@@ -213,64 +219,64 @@ pub(crate) fn push_outputs(
 }
 
 fn push_pull_passable(
-    cells: &impl TileSampler,
+    tiles: &impl TileSampler,
     from_direction: Option<Direction>,
     start_neighbors: &HashSet<Pos>,
     pos: Pos,
 ) -> bool {
-    let Some(cell) = cells.at(pos) else {
+    let Some(tile) = tiles.at(pos) else {
         return false;
     };
-    if cell.conveyor.is_some() && start_neighbors.contains(&pos) {
+    if tile.conveyor.is_some() && start_neighbors.contains(&pos) {
         // crate::console_log!("next to start");
         return true;
     }
-    if !prev_tile_connects_to(cells, from_direction, pos) {
+    if !prev_tile_connects_to(tiles, from_direction, pos) {
         return false;
     }
     from_direction
-        .map(|from| cell.conveyor.has_from(from.reverse()))
-        .unwrap_or_else(|| cell.conveyor.is_some())
+        .map(|from| tile.conveyor.has_from(from.reverse()))
+        .unwrap_or_else(|| tile.conveyor.is_some())
 }
 
-fn prev_tile_connects_to(cells: &impl TileSampler, from_dir: Option<Direction>, pos: Pos) -> bool {
+fn prev_tile_connects_to(tiles: &impl TileSampler, from_dir: Option<Direction>, pos: Pos) -> bool {
     let Some(dir) = from_dir else {
         return true;
     };
     let dir_vec = dir.to_vec();
     let prev_pos = [pos[0] - dir_vec[0], pos[1] - dir_vec[1]];
-    let Some(prev_cell) = cells.at(prev_pos) else {
+    let Some(prev_tile) = tiles.at(prev_pos) else {
         return true;
     };
-    // If the previous cell didn't have a conveyor, it's not a failure, because we want to be
+    // If the previous tile didn't have a conveyor, it's not a failure, because we want to be
     // able to depart from a building.
-    prev_cell.conveyor.has_to(dir)
+    prev_tile.conveyor.has_to(dir)
 }
 
 fn push_pull_should_expand(
-    cells: &impl TileSampler,
+    tiles: &impl TileSampler,
     to: Direction,
     cpos: CPos,
     from: Option<Direction>,
 ) -> LevelTarget {
     use Direction::*;
-    let Some(cell) = cells.at(cpos.pos) else {
+    let Some(tile) = tiles.at(cpos.pos) else {
         return LevelTarget::One;
     };
-    let conv = &cell.conveyor;
+    let conv = &tile.conveyor;
     let dir_vec = to.to_vec();
     let next_pos = [cpos.pos[0] + dir_vec[0], cpos.pos[1] + dir_vec[1]];
-    let Some(next_cell) = cells.at(next_pos) else {
+    let Some(next_tile) = tiles.at(next_pos) else {
         return LevelTarget::One;
     };
-    let next_conv = &next_cell.conveyor;
+    let next_conv = &next_tile.conveyor;
     if next_conv.has_two()
         && (conv.has_to(Up) || conv.has_to(Down))
         && (next_conv.has(Up) || next_conv.has(Down))
     {
         return LevelTarget::Two;
     }
-    match cell.conveyor {
+    match tile.conveyor {
         Conveyor::One(_, _) => LevelTarget::One,
         Conveyor::Two(_, _) => {
             if from.is_some_and(|from| to == from) {

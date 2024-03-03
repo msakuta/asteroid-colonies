@@ -6,7 +6,7 @@ use crate::{
     push_pull::{pull_inputs, push_outputs, HasInventory},
     task::{Direction, BUILD_CONVEYOR_TIME, BUILD_POWER_GRID_TIME},
     transport::{expected_deliveries, Transport},
-    Conveyor, Inventory, ItemType, Pos, WIDTH,
+    Conveyor, Inventory, ItemType, Pos,
 };
 
 use super::{hash_map, AsteroidColoniesGame};
@@ -247,7 +247,7 @@ impl AsteroidColoniesGame {
                     to_delete.push(i);
                 } else if construction.progress <= 0. {
                     push_outputs(
-                        &&self.cells[..],
+                        &self.tiles,
                         &mut self.transports,
                         construction,
                         &mut self.buildings,
@@ -259,7 +259,7 @@ impl AsteroidColoniesGame {
             } else {
                 pull_inputs(
                     &construction.recipe.ingredients,
-                    &&self.cells[..],
+                    &self.tiles,
                     &mut self.transports,
                     construction.pos,
                     construction.size(),
@@ -278,10 +278,14 @@ impl AsteroidColoniesGame {
                         self.buildings.push(Building::new(pos, ty));
                     }
                     ConstructionType::PowerGrid => {
-                        self.cells[pos[0] as usize + pos[1] as usize * WIDTH].power_grid = true;
+                        if let Some(tile) = self.tiles.try_get_mut(pos) {
+                            tile.power_grid = true;
+                        }
                     }
                     ConstructionType::Conveyor(conv) => {
-                        self.cells[pos[0] as usize + pos[1] as usize * WIDTH].conveyor = conv;
+                        if let Some(tile) = self.tiles.try_get_mut(pos) {
+                            tile.conveyor = conv;
+                        }
                     }
                 }
                 to_delete.push(i);

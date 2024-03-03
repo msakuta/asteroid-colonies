@@ -30,6 +30,7 @@ pub struct Connect {
 pub enum Message {
     Text(String),
     Bin(Vec<u8>),
+    StateWithDiff,
 }
 
 // const CHAT_HISTORY_MAX: usize = 100;
@@ -96,6 +97,14 @@ impl ChatServer {
             }
         }
     }
+
+    fn send_message_with_diff(&self, skip_id: Option<SessionId>) {
+        for (i, addr) in &self.sessions {
+            if Some(*i) != skip_id {
+                let _ = addr.do_send(Message::StateWithDiff);
+            }
+        }
+    }
 }
 
 /// Make actor from `ChatServer`
@@ -149,6 +158,7 @@ impl Handler<NotifyState> for ChatServer {
                 self.send_message(&serde_json::to_string(&payload).unwrap(), session_id);
             }
             NotifyStateEnum::SetStateBin(msg) => self.send_message_bin(&msg.0, session_id),
+            NotifyStateEnum::SetStateWithDiff => self.send_message_with_diff(session_id),
         }
     }
 }

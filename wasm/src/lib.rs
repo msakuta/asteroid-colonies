@@ -63,6 +63,7 @@ pub struct AsteroidColonies {
     cursor: Option<Pos>,
     assets: Assets,
     viewport: Viewport,
+    debug_draw_chunks: bool,
 }
 
 #[wasm_bindgen]
@@ -84,6 +85,7 @@ impl AsteroidColonies {
                 ],
                 size: [vp_width, vp_height],
             },
+            debug_draw_chunks: false,
         })
     }
 
@@ -107,7 +109,7 @@ impl AsteroidColonies {
         let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
         let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
         if ix < 0 || WIDTH as i32 <= ix || iy < 0 || HEIGHT as i32 <= iy {
-            return Err(JsValue::from("Point outside cell"));
+            return Err(JsValue::from("Point outside tile"));
         }
         let res = match com {
             "excavate" => self.game.excavate(ix, iy),
@@ -190,6 +192,10 @@ impl AsteroidColonies {
         self.game.tick().map_err(JsValue::from)
     }
 
+    pub fn set_debug_draw_chunks(&mut self, v: bool) {
+        self.debug_draw_chunks = v;
+    }
+
     pub fn get_build_menu(&self) -> Result<Vec<JsValue>, JsValue> {
         get_build_menu()
             .iter()
@@ -207,5 +213,15 @@ impl AsteroidColonies {
         self.game
             .deserialize_bin(data)
             .map_err(|e| JsValue::from(format!("{e}")))
+    }
+
+    pub fn uniformify_tiles(&mut self) {
+        self.game.uniformify_tiles();
+    }
+
+    pub fn serialize_chunks_digest(&self) -> Result<Vec<u8>, JsValue> {
+        self.game
+            .serialize_chunks_digest()
+            .map_err(|e| JsValue::from(e.to_string()))
     }
 }

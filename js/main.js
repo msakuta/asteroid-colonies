@@ -30,6 +30,7 @@ const syncPeriod = SYNC_PERIOD;
 const port = 3883;
 let websocket = null;
 let sessionId = null;
+let debugDrawChunks = false;
 
 (async () => {
     const wasm = await import("../wasm/Cargo.toml");
@@ -291,6 +292,15 @@ let sessionId = null;
         }
     })
 
+    document.body.addEventListener("keydown", evt => {
+        switch (evt.code) {
+            case "KeyD":
+                debugDrawChunks = !debugDrawChunks;
+                game.set_debug_draw_chunks(debugDrawChunks);
+                break;
+        }
+    });
+
     function enterConveyorEdit() {
         const buildMenuElem = document.getElementById("buildMenu");
         const recipesElem = document.getElementById("recipes");
@@ -348,6 +358,7 @@ let sessionId = null;
                 if (event.data instanceof ArrayBuffer) {
                     const byteArray = new Uint8Array(event.data);
                     game.deserialize_bin(byteArray);
+                    postChunksDigest();
                 }
                 else {
                 // console.log(`Event through WebSocket: ${event.data}`);
@@ -355,6 +366,7 @@ let sessionId = null;
                     if(data.type === "clientUpdate"){
                         if(game){
                             game.deserialize(data.payload);
+                            postChunksDigest();
                         }
                         // const payload = data.payload;
                         // const body = CelestialBody.celestialBodies.get(payload.bodyState.name);
@@ -364,6 +376,7 @@ let sessionId = null;
                     }
                 }
             });
+            websocket.addEventListener("open", postChunksDigest);
         }
     }
 
@@ -375,6 +388,13 @@ let sessionId = null;
             type,
             payload
         }));
+    }
+
+    function postChunksDigest() {
+        game.uniformify_tiles();
+        const chunksDigest = game.serialize_chunks_digest();
+        // websocket.send(JSON.stringify({type: "ChunksDigest", payload: {chunks_digest: chunksDigest}}));
+        websocket.send(chunksDigest);
     }
 })()
 

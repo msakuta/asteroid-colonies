@@ -7,7 +7,7 @@ use crate::{
     construction::Construction,
     game::CalculateBackImage,
     transport::find_path,
-    AsteroidColoniesGame, Cell, CellState, ItemType, Pos, WIDTH,
+    AsteroidColoniesGame, ItemType, Pos, TileState, Tiles,
 };
 
 pub const EXCAVATE_TIME: f64 = 10.;
@@ -57,6 +57,12 @@ pub enum Direction {
     Down,
 }
 
+impl std::hash::Hash for Direction {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        ((*self) as u8).hash(state)
+    }
+}
+
 impl Direction {
     pub(crate) const fn all() -> [Direction; 4] {
         [Self::Left, Self::Up, Self::Right, Self::Down]
@@ -99,10 +105,7 @@ pub enum GlobalTask {
 
 impl AsteroidColoniesGame {
     pub fn excavate(&mut self, ix: i32, iy: i32) -> Result<bool, String> {
-        if !matches!(
-            self.cells[ix as usize + iy as usize * WIDTH].state,
-            CellState::Solid
-        ) {
+        if !matches!(self.tiles[[ix, iy]].state, TileState::Solid) {
             return Err("Already excavated".to_string());
         }
         for building in &mut self.buildings {
@@ -123,10 +126,7 @@ impl AsteroidColoniesGame {
             .find(|b| {
                 matches!(b.type_, BuildingType::CrewCabin)
                     && find_path(b.pos, [ix, iy], |pos| {
-                        matches!(
-                            self.cells[pos[0] as usize + pos[1] as usize * WIDTH].state,
-                            CellState::Empty
-                        ) || pos == [ix, iy]
+                        matches!(self.tiles[pos].state, TileState::Empty) || pos == [ix, iy]
                     })
                     .is_some()
             })
@@ -142,15 +142,15 @@ impl AsteroidColoniesGame {
     }
 
     pub fn build_power_grid(&mut self, ix: i32, iy: i32) -> Result<bool, String> {
-        let cell = &self.cells[ix as usize + iy as usize * WIDTH];
-        if matches!(cell.state, CellState::Solid) {
+        let tile = &self.tiles[[ix, iy]];
+        if matches!(tile.state, TileState::Solid) {
             return Err(String::from("Needs excavation before building power grid"));
         }
-        if matches!(cell.state, CellState::Space) {
+        if matches!(tile.state, TileState::Space) {
             return Err(String::from("You cannot build power grid in space!"));
         }
-        if cell.power_grid {
-            return Err(String::from("Power grid is already installed in this cell"));
+        if tile.power_grid {
+            return Err(String::from("Power grid is already installed in this tile"));
         }
         self.constructions
             .push(Construction::new_power_grid([ix, iy]));
@@ -158,11 +158,11 @@ impl AsteroidColoniesGame {
     }
 
     pub fn move_item(&mut self, ix: i32, iy: i32) -> Result<bool, String> {
-        let cell = &self.cells[ix as usize + iy as usize * WIDTH];
-        if matches!(cell.state, CellState::Solid) {
+        let tile = &self.tiles[[ix, iy]];
+        if matches!(tile.state, TileState::Solid) {
             return Err(String::from("Needs excavation before building conveyor"));
         }
-        if !cell.conveyor.is_some() {
+        if !tile.conveyor.is_some() {
             return Err(String::from("Conveyor is needed to move items"));
         }
         let Some(_dest) = self
@@ -188,8 +188,8 @@ impl AsteroidColoniesGame {
     pub(super) fn _is_clear(&self, ix: i32, iy: i32, size: [usize; 2]) -> bool {
         for jy in iy..iy + size[1] as i32 {
             for jx in ix..ix + size[0] as i32 {
-                let j_cell = &self.cells[jx as usize + jy as usize * WIDTH];
-                if matches!(j_cell.state, CellState::Solid) {
+                let j_tile = &self.tiles[[jx, jy]];
+                if matches!(j_tile.state, TileState::Solid) {
                     return false;
                 }
             }
@@ -222,7 +222,7 @@ impl AsteroidColoniesGame {
     }
 
     pub(super) fn process_task(
-        cells: &mut [Cell],
+        tiles: &mut Tiles,
         building: &mut Building,
         power_ratio: f64,
         calculate_back_image: Option<&mut CalculateBackImage>,
@@ -236,10 +236,10 @@ impl AsteroidColoniesGame {
                         .entry(crate::ItemType::RawOre)
                         .or_default() += EXCAVATE_ORE_AMOUNT;
                     let dir_vec = dir.to_vec();
-                    let [x, y] = [building.pos[0] + dir_vec[0], building.pos[1] + dir_vec[1]];
-                    cells[x as usize + y as usize * WIDTH].state = CellState::Empty;
+                    let pos = [building.pos[0] + dir_vec[0], building.pos[1] + dir_vec[1]];
+                    tiles[pos].state = TileState::Empty;
                     if let Some(f) = calculate_back_image {
-                        f(cells);
+                        f(tiles);
                     }
                 } else {
                     *t = (*t - power_ratio).max(0.);
@@ -303,9 +303,9 @@ impl AsteroidColoniesGame {
         for task in &self.global_tasks {
             match task {
                 GlobalTask::Excavate(t, pos) if *t <= 0. => {
-                    self.cells[pos[0] as usize + pos[1] as usize * WIDTH].state = CellState::Empty;
+                    self.tiles[*pos].state = TileState::Empty;
                     if let Some(ref f) = self.calculate_back_image {
-                        f(&mut self.cells);
+                        f(&mut self.tiles);
                     }
                 }
                 _ => {}

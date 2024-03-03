@@ -1,8 +1,8 @@
-use std::cmp::Ordering;
+use std::{cmp::Ordering, hash::Hash};
 
 use crate::{
     console_log, construction::Construction, push_pull::TileSampler, task::Direction,
-    AsteroidColoniesGame, Cell, WIDTH,
+    AsteroidColoniesGame, Tile,
 };
 use serde::{Deserialize, Serialize};
 
@@ -16,6 +16,37 @@ pub enum Conveyor {
     Splitter(Direction),
     /// Assume a splitter merges from the other 3 directions
     Merger(Direction),
+}
+
+impl Hash for Conveyor {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        // It's annoying to define hash logic for all cases, but we need to do it
+        // manually to ensure it's compatible among CPU architectures, namely
+        // Wasm32 and x64.
+        match self {
+            Self::None => 0u8.hash(state),
+            Self::One(a, b) => {
+                1u8.hash(state);
+                a.hash(state);
+                b.hash(state);
+            }
+            Self::Two((a, b), (c, d)) => {
+                2u8.hash(state);
+                a.hash(state);
+                b.hash(state);
+                c.hash(state);
+                d.hash(state);
+            }
+            Self::Splitter(a) => {
+                3u8.hash(state);
+                a.hash(state);
+            }
+            Self::Merger(a) => {
+                4u8.hash(state);
+                a.hash(state);
+            }
+        }
+    }
 }
 
 impl Conveyor {
@@ -106,12 +137,12 @@ impl AsteroidColoniesGame {
         let mut prev_from = Option::None;
 
         let pos = [ix0, iy0];
-        let cell = &self.cells[pos[0] as usize + pos[1] as usize * WIDTH];
+        let tile = &self.tiles[pos];
         if let Some(from) = self
             .conveyor_staged
             .get(&pos)
             .and_then(|c| c.from())
-            .or_else(|| cell.conveyor.from())
+            .or_else(|| tile.conveyor.from())
         {
             console_log!("conv from: {:?}", from);
             prev_from = Some(from);
@@ -129,7 +160,7 @@ impl AsteroidColoniesGame {
             convs.extend((ix0..=ix1).map(|ix| [ix, iy1]));
         }
 
-        let filter_conv = |cell: &Cell, staged, conv| match (cell.conveyor, conv) {
+        let filter_conv = |tile: &Tile, staged, conv| match (tile.conveyor, conv) {
             (One(Left, Right), (Up, Down) | (Down, Up)) => Two((Left, Right), conv),
             (One(Right, Left), (Up, Down) | (Down, Up)) => Two((Right, Left), conv),
             (One(Up, Down), (Left, Right) | (Right, Left)) => Two((Up, Down), conv),
@@ -145,29 +176,29 @@ impl AsteroidColoniesGame {
 
         // console_log!("conv pos ix0: {ix0}, ix1: {ix1}, xrev: {x_rev}, iy0: {iy0}, iy1: {iy1}, yrev: {y_rev}, {:?}", convs);
         for (pos0, pos1) in convs.iter().zip(convs.iter().skip(1)) {
-            let cell = &self.cells[pos0[0] as usize + pos0[1] as usize * WIDTH];
+            let tile = &self.tiles[*pos0];
             let staged = self.conveyor_staged.get(pos0).copied().unwrap_or(None);
             let Some(to) = Direction::from_vec([pos1[0] - pos0[0], pos1[1] - pos0[1]]) else {
                 continue;
             };
             let from = prev_from.unwrap_or_else(|| to.reverse());
             prev_from = Some(to.reverse());
-            let conv = filter_conv(cell, staged, (from, to));
+            let conv = filter_conv(tile, staged, (from, to));
             console_log!("pos {:?} conv {:?}", pos0, conv);
             // console_log!("conv {:?}: {:?}", pos1, conv);
             self.conveyor_preview.insert(*pos0, conv);
         }
 
         if let Some((pos, prev_from)) = convs.last().zip(prev_from) {
-            let cell = &self.cells[pos[0] as usize + pos[1] as usize * WIDTH];
+            let tile = &self.tiles[*pos];
             let staged = self.conveyor_staged.get(pos).copied().unwrap_or(None);
             let to = self
                 .conveyor_staged
                 .get(pos)
                 .and_then(|c| c.to())
-                .or_else(|| cell.conveyor.to())
+                .or_else(|| tile.conveyor.to())
                 .unwrap_or_else(|| prev_from.reverse());
-            let conv = filter_conv(cell, staged, (prev_from, to));
+            let conv = filter_conv(tile, staged, (prev_from, to));
             self.conveyor_preview.insert(*pos, conv);
         }
 
@@ -180,7 +211,7 @@ impl AsteroidColoniesGame {
     pub fn build_splitter(&mut self, ix0: i32, iy0: i32) {
         use {Conveyor::*, Direction::*};
 
-        let filter_conv = |cell: Conveyor, staged| match cell {
+        let filter_conv = |tile: Conveyor, staged| match tile {
             One(from, _) => Splitter(from),
             Two((from1, _), (_, _)) => Splitter(from1),
             _ => match staged {
@@ -191,29 +222,29 @@ impl AsteroidColoniesGame {
         };
 
         let pos0 = [ix0, iy0];
-        let cell = self
-            .cells
+        let tile = self
+            .tiles
             .at([ix0, iy0])
             .map(|c| c.conveyor)
             .unwrap_or(None);
         let staged = self.conveyor_staged.get(&pos0).copied().unwrap_or(None);
 
         self.conveyor_staged
-            .insert([ix0, iy0], filter_conv(cell, staged));
+            .insert([ix0, iy0], filter_conv(tile, staged));
     }
 
     pub fn build_merger(&mut self, ix0: i32, iy0: i32) {
         use {Conveyor::*, Direction::*};
 
         let pos0 = [ix0, iy0];
-        let cell = self
-            .cells
+        let tile = self
+            .tiles
             .at([ix0, iy0])
             .map(|c| c.conveyor)
             .unwrap_or(None);
         let staged = self.conveyor_staged.get(&pos0).copied().unwrap_or(None);
 
-        let filtered = match cell {
+        let filtered = match tile {
             One(_, to) => Merger(to),
             Two((_, to1), _) => Merger(to1),
             _ => match staged {

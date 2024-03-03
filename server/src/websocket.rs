@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{
     server::ChatServer,
     server::{Connect, Message},
@@ -11,7 +13,7 @@ use ::serde::{Deserialize, Serialize};
 use actix_web_actors::ws;
 use asteroid_colonies_logic::{
     construction::{Construction, ConstructionType},
-    Pos,
+    Pos, Position,
 };
 
 /// Open a WebSocket instance and give it to the client.
@@ -29,6 +31,7 @@ pub(crate) async fn websocket_index(
         data: data.clone(),
         session_id,
         addr: data.srv.clone(),
+        chunks_digest: HashMap::new(),
     };
 
     // let srv = data.srv.clone();
@@ -47,6 +50,7 @@ struct SessionWs {
     pub data: web::Data<ServerData>,
     pub session_id: SessionId,
     pub addr: Addr<ChatServer>,
+    pub chunks_digest: HashMap<Position, u64>,
 }
 
 impl Actor for SessionWs {
@@ -92,6 +96,13 @@ impl Handler<Message> for SessionWs {
         match msg {
             Message::Text(txt) => ctx.text(txt),
             Message::Bin(bin) => ctx.binary(bin),
+            Message::StateWithDiff => {
+                let game = self.data.game.read().unwrap();
+                match game.serialize_with_diffs(&self.chunks_digest) {
+                    Ok(bytes) => ctx.binary(bytes),
+                    Err(e) => ctx.text(format!("Error: {e}")),
+                }
+            }
         }
     }
 }
@@ -118,6 +129,7 @@ impl std::fmt::Debug for SetStateBinWs {
 pub(crate) enum NotifyStateEnum {
     SetState(SetStateWs),
     SetStateBin(SetStateBinWs),
+    SetStateWithDiff,
 }
 
 #[derive(Deserialize, Serialize, Debug, Message)]
@@ -172,6 +184,11 @@ enum WsMessage {
         pos: Pos,
         name: String,
     },
+    ChunksDigest {
+        // The payload represents HashMap<Position, u64>, but we do not deserialize into JSON for
+        // performance reasons.
+        chunks_digest: String,
+    },
 }
 
 impl StreamHandler<WsResult> for SessionWs {
@@ -179,7 +196,7 @@ impl StreamHandler<WsResult> for SessionWs {
         match msg {
             Ok(ws::Message::Ping(msg)) => ctx.pong(&msg),
             Ok(ws::Message::Text(text)) => {
-                println!("received ws text: {text}");
+                println!("client received ws text: {text}");
                 let payload: WsMessage = if let Ok(payload) = serde_json::from_str(&text) {
                     payload
                 } else {
@@ -193,7 +210,11 @@ impl StreamHandler<WsResult> for SessionWs {
                     ));
                 }
             }
-            Ok(ws::Message::Binary(bin)) => ctx.binary(bin),
+            Ok(ws::Message::Binary(bin)) => {
+                if let Ok(chunks_digest) = bincode::deserialize(&bin) {
+                    self.chunks_digest = chunks_digest;
+                }
+            }
             _ => (),
         }
     }
@@ -235,6 +256,9 @@ impl SessionWs {
             WsMessage::SetRecipe { pos, name } => {
                 game.set_recipe(pos[0], pos[1], &name)
                     .map_err(|e| anyhow::anyhow!("{e}"))?;
+            }
+            WsMessage::ChunksDigest { chunks_digest } => {
+                self.chunks_digest = serde_json::from_str(&chunks_digest)?;
             }
         }
 

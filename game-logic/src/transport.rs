@@ -4,7 +4,7 @@ use std::{
     hash::Hash,
 };
 
-use crate::{task::Direction, AsteroidColoniesGame, Conveyor, ItemType, Pos, WIDTH};
+use crate::{task::Direction, AsteroidColoniesGame, Conveyor, ItemType, Pos};
 
 /// Transporting item
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -72,17 +72,17 @@ impl AsteroidColoniesGame {
             if t.path.len() <= 1 {
                 let delivered = check_construction(t) || check_building(t);
                 if !delivered {
-                    let cells = &self.cells;
+                    let tiles = &self.tiles;
                     let return_path = find_multipath(
                         std::iter::once(t.dest),
                         |pos| pos == t.src,
                         |from_direction, pos| {
-                            let cell = &cells[pos[0] as usize + pos[1] as usize * WIDTH];
+                            let tile = &tiles[pos];
                             if let Some(from_direction) = from_direction {
-                                matches!(cell.conveyor, Conveyor::One(_, dir) if dir == from_direction)
-                                    && cell.conveyor.is_some()
+                                matches!(tile.conveyor, Conveyor::One(_, dir) if dir == from_direction)
+                                    && tile.conveyor.is_some()
                             } else {
-                                cell.conveyor.is_some()
+                                tile.conveyor.is_some()
                             }
                         },
                     );

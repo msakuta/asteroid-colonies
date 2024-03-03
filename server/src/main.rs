@@ -23,7 +23,7 @@ use std::{
     sync::{Mutex, RwLock},
     time::Instant,
 };
-use websocket::{websocket_index, NotifyState, NotifyStateEnum, SetStateBinWs};
+use websocket::{websocket_index, NotifyState, NotifyStateEnum};
 
 type Game = AsteroidColoniesGame;
 
@@ -200,7 +200,7 @@ async fn main() -> std::io::Result<()> {
         } else {
             eprintln!(
                 "Deserialized data {} object in {}ms",
-                game.iter_cell().count(),
+                game.count_tiles(),
                 start.elapsed().as_micros() as f64 * 1e-3
             );
         }
@@ -238,6 +238,7 @@ async fn main() -> std::io::Result<()> {
 
             let mut last_saved = data_copy.last_saved.lock().unwrap();
             if autosave_period_s < last_saved.elapsed().as_secs_f64() {
+                game.uniformify_tiles();
                 if let Ok(serialized) = serialize_state(&game, autosave_pretty) {
                     let autosave_file = data_copy.autosave_file.clone();
                     actix_web::rt::spawn(async move {
@@ -249,18 +250,23 @@ async fn main() -> std::io::Result<()> {
 
             let mut last_pushed = data_copy.last_pushed.lock().unwrap();
             if push_period_s < last_pushed.elapsed().as_secs_f64() {
+                game.uniformify_tiles();
                 // if let Ok(serialized) = serialize_state(&game, false) {
                 //     data_copy.srv.do_send(NotifyState {
                 //         session_id: None,
                 //         set_state: NotifyStateEnum::SetState(SetStateWs(serialized)),
                 //     });
                 // }
-                if let Ok(serialized) = game.serialize_bin() {
-                    data_copy.srv.do_send(NotifyState {
-                        session_id: None,
-                        set_state: NotifyStateEnum::SetStateBin(SetStateBinWs(serialized)),
-                    });
-                }
+                // if let Ok(serialized) = game.serialize_bin() {
+                //     data_copy.srv.do_send(NotifyState {
+                //         session_id: None,
+                //         set_state: NotifyStateEnum::SetStateBin(SetStateBinWs(serialized)),
+                //     });
+                // }
+                data_copy.srv.do_send(NotifyState {
+                    session_id: None,
+                    set_state: NotifyStateEnum::SetStateWithDiff,
+                });
                 *last_pushed = Instant::now();
             }
 
@@ -303,8 +309,9 @@ async fn main() -> std::io::Result<()> {
     .run()
     .await;
 
-    if let Ok(serialized) = serialize_state(&data_copy2.game.read().unwrap(), autosave_pretty) {
-        save_file(&data_copy2.autosave_file, &serialized);
+    match serialize_state(&data_copy2.game.read().unwrap(), autosave_pretty) {
+        Ok(serialized) => save_file(&data_copy2.autosave_file, &serialized),
+        Err(e) => println!("Error saving file: {e}"),
     }
     Ok(())
 }

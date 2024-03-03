@@ -1,3 +1,8 @@
+use std::{
+    collections::HashSet,
+    hash::{Hash, Hasher},
+};
+
 use super::AsteroidColonies;
 
 use wasm_bindgen::prelude::*;
@@ -7,10 +12,11 @@ use asteroid_colonies_logic::{
     building::BuildingType,
     construction::ConstructionType,
     conveyor::Conveyor,
+    new_hasher,
     task::{
         Direction, GlobalTask, Task, EXCAVATE_TIME, LABOR_EXCAVATE_TIME, MOVE_ITEM_TIME, MOVE_TIME,
     },
-    Cell, CellState, ItemType, HEIGHT, WIDTH,
+    Chunk, ImageIdx, ItemType, Position, TileState, Tiles, CHUNK_SIZE,
 };
 
 pub(crate) const TILE_SIZE: f64 = 32.;
@@ -120,31 +126,15 @@ impl AsteroidColonies {
             Ok(())
         };
 
-        let mut rendered_cells = 0;
-        let mut render_cell = |ix: i32, iy: i32| -> Result<(), JsValue> {
+        let mut rendered_tiles = 0;
+        let mut render_tile = |ix: i32, iy: i32| -> Result<(), JsValue> {
             let y = iy as f64 * TILE_SIZE + offset[1];
             let x = ix as f64 * TILE_SIZE + offset[0];
-            if ix < 0 || (WIDTH as i32) <= ix || iy < 0 || (HEIGHT as i32) <= iy {
-                context
-                    .draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-                        &self.assets.img_bg,
-                        0.,
-                        2. * TILE_SIZE,
-                        TILE_SIZE,
-                        TILE_SIZE,
-                        x,
-                        y,
-                        TILE_SIZE,
-                        TILE_SIZE,
-                    )?;
-                rendered_cells += 1;
-                return Ok(());
-            }
-            let cell = &self.game.cell_at([ix, iy]);
-            let (sx, sy) = match cell.state {
-                CellState::Empty => (0., TILE_SIZE),
-                CellState::Solid => (0., 0.),
-                CellState::Space => (0., 2. * TILE_SIZE),
+            let tile = &self.game.tile_at([ix, iy]);
+            let (sx, sy) = match tile.state {
+                TileState::Empty => (0., TILE_SIZE),
+                TileState::Solid => (0., 0.),
+                TileState::Space => (0., 2. * TILE_SIZE),
             };
             context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
                 &self.assets.img_bg,
@@ -190,28 +180,28 @@ impl AsteroidColonies {
                         TILE_SIZE / 2.,
                         TILE_SIZE / 2.,
                     )?;
-                rendered_cells += 1;
+                rendered_tiles += 1;
                 Ok(())
             };
 
-            if cell.image_lt & NEIGHBOR_BITS != 0 {
-                render_quarter_tile(cell.image_lt, 0., 0.)?;
+            if tile.image_idx.lt & NEIGHBOR_BITS != 0 {
+                render_quarter_tile(tile.image_idx.lt, 0., 0.)?;
             }
-            if cell.image_lb & NEIGHBOR_BITS != 0 {
-                render_quarter_tile(cell.image_lb, 0., TILE_SIZE / 2.)?;
+            if tile.image_idx.lb & NEIGHBOR_BITS != 0 {
+                render_quarter_tile(tile.image_idx.lb, 0., TILE_SIZE / 2.)?;
             }
-            if cell.image_rb & NEIGHBOR_BITS != 0 {
-                render_quarter_tile(cell.image_rb, TILE_SIZE / 2., TILE_SIZE / 2.)?;
+            if tile.image_idx.rb & NEIGHBOR_BITS != 0 {
+                render_quarter_tile(tile.image_idx.rb, TILE_SIZE / 2., TILE_SIZE / 2.)?;
             }
-            if cell.image_rt & NEIGHBOR_BITS != 0 {
-                render_quarter_tile(cell.image_rt, TILE_SIZE / 2., 0.)?;
+            if tile.image_idx.rt & NEIGHBOR_BITS != 0 {
+                render_quarter_tile(tile.image_idx.rt, TILE_SIZE / 2., 0.)?;
             }
 
-            if cell.power_grid {
+            if tile.power_grid {
                 render_power_grid(context, x, y)?;
             }
-            render_conveyor(context, x, y, cell.conveyor)?;
-            rendered_cells += 1;
+            render_conveyor(context, x, y, tile.conveyor)?;
+            rendered_tiles += 1;
             Ok(())
         };
 
@@ -221,10 +211,10 @@ impl AsteroidColonies {
         let xmax = (-offset[0] + vp.size[0] + TILE_SIZE).div_euclid(TILE_SIZE) as i32;
         for iy in ymin..ymax {
             for ix in xmin..xmax {
-                render_cell(ix, iy)?;
+                render_tile(ix, iy)?;
             }
         }
-        // console_log!("rendered_cells: {}", rendered_cells);
+        // console_log!("rendered_tiles: {}", rendered_tiles);
 
         let time = self.game.get_global_time();
 
@@ -428,6 +418,19 @@ impl AsteroidColonies {
             }
         }
 
+        if self.debug_draw_chunks {
+            const CHUNK_TILE_SIZE: f64 = CHUNK_SIZE as f64 * TILE_SIZE;
+            for (pos, chunk) in self.game.tiles().chunks() {
+                let x = pos.x as f64 * CHUNK_TILE_SIZE + offset[0] + 2.;
+                let y = pos.y as f64 * CHUNK_TILE_SIZE + offset[1] + 2.;
+                context.set_stroke_style(&JsValue::from(match chunk {
+                    Chunk::Tiles(_, _) => "#f00",
+                    Chunk::Uniform(_, _) => "#0f0",
+                }));
+                context.stroke_rect(x, y, CHUNK_TILE_SIZE - 4., CHUNK_TILE_SIZE - 4.);
+            }
+        }
+
         if let Some(cursor) = self.cursor {
             let img = &self.assets.img_cursor;
             let x = cursor[0] as f64 * TILE_SIZE + offset[0];
@@ -493,30 +496,92 @@ impl<'a> RenderBar<'a> {
     }
 }
 
+pub(crate) fn calculate_back_image(tiles: &mut Tiles) {
+    let keys: HashSet<Position> = tiles
+        .chunks()
+        .iter()
+        .filter_map(|(pos, chunk)| {
+            if matches!(chunk, Chunk::Tiles(_, _)) || has_edge(tiles, pos) {
+                Some(*pos)
+            } else {
+                None
+            }
+        })
+        .collect();
+    for pos in keys {
+        let image_idxs = calculate_back_image_chunk(tiles, &pos);
+        let Some(chunk) = tiles.chunks_mut().get_mut(&pos) else {
+            continue;
+        };
+        match chunk {
+            Chunk::Tiles(tiles, _) => {
+                for (tile, idx) in tiles.iter_mut().zip(image_idxs.iter()) {
+                    tile.image_idx = *idx;
+                }
+            }
+            Chunk::Uniform(tile, _) => {
+                let mut tiles = vec![*tile; CHUNK_SIZE * CHUNK_SIZE];
+                for (tile, idx) in tiles.iter_mut().zip(image_idxs.iter()) {
+                    tile.image_idx = *idx;
+                }
+                let mut hasher = new_hasher();
+                for tile in &tiles {
+                    tile.hash(&mut hasher);
+                }
+                *chunk = Chunk::Tiles(tiles, hasher.finish());
+            }
+        }
+    }
+}
+
+const CHUNK_SIZE_I: i32 = CHUNK_SIZE as i32;
+
+/// Determine if the chunk designated by `pos` has an edge that is adjacent to a non-solid edge.
+/// It is necessary to non-uniformify this chunk if this function returns true.
+fn has_edge(tiles: &Tiles, pos: &Position) -> bool {
+    for x in -1..=CHUNK_SIZE_I {
+        let top = [x + pos.x * CHUNK_SIZE_I, pos.y * CHUNK_SIZE_I];
+        let beyond_top = [x + pos.x * CHUNK_SIZE_I, pos.y * CHUNK_SIZE_I - 1];
+        if tiles[top].state != tiles[beyond_top].state {
+            return true;
+        }
+        let bottom = [x + pos.x * CHUNK_SIZE_I, (pos.y + 1) * CHUNK_SIZE_I - 1];
+        let beyond_bottom = [x + pos.x * CHUNK_SIZE_I, (pos.y + 1) * CHUNK_SIZE_I];
+        if tiles[bottom].state != tiles[beyond_bottom].state {
+            return true;
+        }
+    }
+    for y in -1..=CHUNK_SIZE_I {
+        let left = [pos.x * CHUNK_SIZE_I, y + pos.y * CHUNK_SIZE_I];
+        let beyond_left = [pos.x * CHUNK_SIZE_I - 1, y + pos.y * CHUNK_SIZE_I];
+        if tiles[left].state != tiles[beyond_left].state {
+            return true;
+        }
+        let right = [(pos.x + 1) * CHUNK_SIZE_I - 1, y + pos.y * CHUNK_SIZE_I];
+        let beyond_bottom = [(pos.x + 1) * CHUNK_SIZE_I, y + pos.y * CHUNK_SIZE_I];
+        if tiles[right].state != tiles[beyond_bottom].state {
+            return true;
+        }
+    }
+    false
+}
+
 #[allow(clippy::many_single_char_names)]
-pub(crate) fn calculate_back_image(ret: &mut [Cell]) {
-    for uy in 0..HEIGHT {
-        let y = uy as i32;
-        for ux in 0..WIDTH {
-            let x = ux as i32;
-            if !matches!(ret[(ux + uy * WIDTH) as usize].state, CellState::Solid) {
-                let cell = &mut ret[(ux + uy * WIDTH) as usize];
-                cell.image_lt = 0;
-                cell.image_lb = 0;
-                cell.image_rb = 0;
-                cell.image_rt = 0;
+fn calculate_back_image_chunk(tiles: &Tiles, pos: &Position) -> Vec<ImageIdx> {
+    let mut ret = vec![ImageIdx::new(); CHUNK_SIZE * CHUNK_SIZE];
+    for uy in 0..CHUNK_SIZE {
+        let y = uy as i32 + pos.y * CHUNK_SIZE as i32;
+        for ux in 0..CHUNK_SIZE {
+            let x = ux as i32 + pos.x * CHUNK_SIZE as i32;
+            if !matches!(tiles[[x, y]].state, TileState::Solid) {
                 continue;
             }
             let get_at = |x: i32, y: i32| {
-                if x < 0 || WIDTH as i32 <= x || y < 0 || HEIGHT as i32 <= y {
-                    (0u8, 0u8)
-                } else {
-                    let state = ret[x as usize + y as usize * WIDTH].state;
-                    (
-                        !matches!(state, CellState::Solid) as u8,
-                        matches!(state, CellState::Space) as u8,
-                    )
-                }
+                let state = tiles[[x, y]].state;
+                (
+                    !matches!(state, TileState::Solid) as u8,
+                    matches!(state, TileState::Space) as u8,
+                )
             };
             let l = get_at(x - 1, y);
             let t = get_at(x, y - 1);
@@ -534,29 +599,29 @@ pub(crate) fn calculate_back_image(ret: &mut [Cell]) {
             // Encode information of neighboring tiles around a quater piece of a tile into a byte.
             // Lower 5 bits (0-31) contains the offset of the image coordinates,
             // and the 6th bit indicates if it's Space (or Empty if unset)
-            let cell = &mut ret[(ux + uy * WIDTH) as usize];
-            cell.image_lt = match (l.0, lt.0, t.0) {
+            let tile = &mut ret[ux + uy * CHUNK_SIZE];
+            tile.lt = match (l.0, lt.0, t.0) {
                 (1, _, 1) => 2,
                 (0, _, 1) => 3 + 4 * 4,
                 (1, _, 0) => 2 + 4 * 4,
                 (0, 1, 0) => 3 + 3 * 4,
                 _ => 0,
             } | vote(l.1, lt.1, t.1);
-            cell.image_lb = match (b.0, lb.0, l.0) {
+            tile.lb = match (b.0, lb.0, l.0) {
                 (1, _, 1) => 2 + 4,
                 (0, _, 1) => 2 + 4 * 4,
                 (1, _, 0) => 2 + 5 * 4,
                 (0, 1, 0) => 3 + 2 * 4,
                 _ => 0,
             } | vote(b.1, lb.1, l.1);
-            cell.image_rb = match (b.0, rb.0, r.0) {
+            tile.rb = match (b.0, rb.0, r.0) {
                 (1, _, 1) => 3 + 4,
                 (0, _, 1) => 3 + 5 * 4,
                 (1, _, 0) => 2 + 5 * 4,
                 (0, 1, 0) => 2 + 2 * 4,
                 _ => 0,
             } | vote(b.1, rb.1, r.1);
-            cell.image_rt = match (r.0, rt.0, t.0) {
+            tile.rt = match (r.0, rt.0, t.0) {
                 (1, _, 1) => 3,
                 (0, _, 1) => 3 + 4 * 4,
                 (1, _, 0) => 3 + 5 * 4,
@@ -565,4 +630,5 @@ pub(crate) fn calculate_back_image(ret: &mut [Cell]) {
             } | vote(r.1, rt.1, t.1);
         }
     }
+    ret
 }
