@@ -9,6 +9,7 @@ use crate::{
     crew::Crew,
     hash_map, recipes,
     task::{Direction, GlobalTask, Task, MOVE_TIME},
+    tile::CHUNK_SIZE,
     transport::{find_path, Transport},
     ItemType, Pos, Position, Tile, TileState, Tiles, Xor128, HEIGHT, WIDTH,
 };
@@ -141,8 +142,12 @@ impl AsteroidColoniesGame {
         self.global_time
     }
 
-    pub fn iter_cell(&self) -> impl Iterator<Item = &Tile> {
-        self.tiles.iter().map(|(_, c)| c)
+    // pub fn iter_cell(&self) -> impl Iterator<Item = &Tile> {
+    //     self.tiles.iter().map(|(_, c)| c)
+    // }
+
+    pub fn count_tiles(&self) -> usize {
+        self.tiles.chunks.len() * CHUNK_SIZE * CHUNK_SIZE
     }
 
     pub fn cell_at(&self, pos: [i32; 2]) -> &Tile {

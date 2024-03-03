@@ -200,7 +200,7 @@ async fn main() -> std::io::Result<()> {
         } else {
             eprintln!(
                 "Deserialized data {} object in {}ms",
-                game.iter_cell().count(),
+                game.count_tiles(),
                 start.elapsed().as_micros() as f64 * 1e-3
             );
         }

@@ -159,11 +159,6 @@ impl Chunk {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ChunkDigest {
-    hash: u64,
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Position {
     pub x: i32,
@@ -252,9 +247,9 @@ impl Tiles {
         Ok(Self { chunks })
     }
 
-    pub fn iter(&self) -> TilesIter {
-        TilesIter::new(self)
-    }
+    // pub fn iter(&self) -> TilesIter {
+    //     TilesIter::new(self)
+    // }
 
     pub fn chunks(&self) -> &HashMap<Position, Chunk> {
         &self.chunks
@@ -344,6 +339,7 @@ impl IndexMut<[i32; 2]> for Tiles {
     }
 }
 
+#[allow(dead_code)]
 pub struct TilesIter<'a> {
     // tiles: &'a Tiles,
     iter_chunks: Option<Box<dyn Iterator<Item = (&'a Position, &'a Chunk)> + 'a>>,
@@ -351,6 +347,7 @@ pub struct TilesIter<'a> {
     iter: Option<Box<dyn Iterator<Item = (usize, &'a Tile)> + 'a>>,
 }
 
+#[allow(dead_code)]
 impl<'a> TilesIter<'a> {
     pub fn new(tiles: &'a Tiles) -> Self {
         let mut iter_chunks = tiles.chunks.iter();
