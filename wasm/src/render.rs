@@ -1,4 +1,7 @@
-use std::collections::HashSet;
+use std::{
+    collections::HashSet,
+    hash::{Hash, Hasher},
+};
 
 use super::AsteroidColonies;
 
@@ -9,10 +12,11 @@ use asteroid_colonies_logic::{
     building::BuildingType,
     construction::ConstructionType,
     conveyor::Conveyor,
+    new_hasher,
     task::{
         Direction, GlobalTask, Task, EXCAVATE_TIME, LABOR_EXCAVATE_TIME, MOVE_ITEM_TIME, MOVE_TIME,
     },
-    Chunk, ImageIdx, ItemType, Position, Tile, TileState, Tiles, CHUNK_SIZE, HEIGHT, WIDTH,
+    Chunk, ImageIdx, ItemType, Position, TileState, Tiles, CHUNK_SIZE, HEIGHT, WIDTH,
 };
 
 pub(crate) const TILE_SIZE: f64 = 32.;
@@ -500,7 +504,7 @@ pub(crate) fn calculate_back_image(tiles: &mut Tiles) {
         .chunks()
         .iter()
         .filter_map(|(pos, chunk)| {
-            if matches!(chunk, Chunk::Tiles(_, _)) {
+            if matches!(chunk, Chunk::Tiles(_, _)) || has_edge(tiles, pos) {
                 Some(*pos)
             } else {
                 None
@@ -509,12 +513,58 @@ pub(crate) fn calculate_back_image(tiles: &mut Tiles) {
         .collect();
     for pos in keys {
         let image_idxs = calculate_back_image_chunk(tiles, &pos);
-        if let Some(Chunk::Tiles(tiles, _)) = tiles.chunks_mut().get_mut(&pos) {
-            for (tile, idx) in tiles.iter_mut().zip(image_idxs.iter()) {
-                tile.image_idx = *idx;
+        let Some(chunk) = tiles.chunks_mut().get_mut(&pos) else {
+            continue;
+        };
+        match chunk {
+            Chunk::Tiles(tiles, _) => {
+                for (tile, idx) in tiles.iter_mut().zip(image_idxs.iter()) {
+                    tile.image_idx = *idx;
+                }
+            }
+            Chunk::Uniform(tile, _) => {
+                let mut tiles = vec![*tile; CHUNK_SIZE * CHUNK_SIZE];
+                for (tile, idx) in tiles.iter_mut().zip(image_idxs.iter()) {
+                    tile.image_idx = *idx;
+                }
+                let mut hasher = new_hasher();
+                for tile in &tiles {
+                    tile.hash(&mut hasher);
+                }
+                *chunk = Chunk::Tiles(tiles, hasher.finish());
             }
         }
     }
+}
+
+const CHUNK_SIZE_I: i32 = CHUNK_SIZE as i32;
+
+fn has_edge(tiles: &Tiles, pos: &Position) -> bool {
+    for x in -1..=CHUNK_SIZE_I {
+        let top = [x + pos.x * CHUNK_SIZE_I, pos.y * CHUNK_SIZE_I];
+        let beyond_top = [x + pos.x * CHUNK_SIZE_I, pos.y * CHUNK_SIZE_I - 1];
+        if tiles[top] != tiles[beyond_top] {
+            return true;
+        }
+        let bottom = [x + pos.x * CHUNK_SIZE_I, (pos.y + 1) * CHUNK_SIZE_I - 1];
+        let beyond_bottom = [x + pos.x * CHUNK_SIZE_I, (pos.y + 1) * CHUNK_SIZE_I];
+        if tiles[bottom] != tiles[beyond_bottom] {
+            return true;
+        }
+    }
+    for y in -1..=CHUNK_SIZE_I {
+        let left = [pos.x * CHUNK_SIZE_I, y + pos.y * CHUNK_SIZE_I];
+        let beyond_left = [pos.x * CHUNK_SIZE_I - 1, y + pos.y * CHUNK_SIZE_I];
+        if tiles[left] != tiles[beyond_left] {
+            return true;
+        }
+        let right = [(pos.x + 1) * CHUNK_SIZE_I - 1, y + pos.y * CHUNK_SIZE_I];
+        let beyond_bottom = [(pos.x + 1) * CHUNK_SIZE_I, y + pos.y * CHUNK_SIZE_I];
+        if tiles[right] != tiles[beyond_bottom] {
+            return true;
+        }
+    }
+    false
 }
 
 #[allow(clippy::many_single_char_names)]

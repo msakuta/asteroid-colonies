@@ -24,7 +24,7 @@ impl Hash for TileState {
     }
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Tile {
     pub state: TileState,
     pub power_grid: bool,
@@ -32,16 +32,6 @@ pub struct Tile {
     #[serde(skip)]
     pub image_idx: ImageIdx,
 }
-
-impl PartialEq for Tile {
-    fn eq(&self, other: &Self) -> bool {
-        self.state == other.state
-            && self.power_grid == other.power_grid
-            && self.conveyor == other.conveyor
-    }
-}
-
-impl Eq for Tile {}
 
 impl Hash for Tile {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -81,15 +71,12 @@ impl Tile {
     }
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, Default)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, Default, PartialEq, Eq)]
 /// The index into the background image for quick rendering
 pub struct ImageIdx {
     pub lt: u8,
-    #[serde(skip)]
     pub lb: u8,
-    #[serde(skip)]
     pub rb: u8,
-    #[serde(skip)]
     pub rt: u8,
 }
 
@@ -123,7 +110,7 @@ impl std::hash::Hash for Chunk {
     }
 }
 
-fn new_hasher() -> FnvHasher {
+pub fn new_hasher() -> FnvHasher {
     FnvHasher::default()
 }
 
@@ -337,7 +324,7 @@ impl IndexMut<[i32; 2]> for Tiles {
                 &mut tiles[tile_pos[0] as usize + tile_pos[1] as usize * CHUNK_SIZE]
             }
             Chunk::Uniform(tile, _) => {
-                let mut tiles = vec![Tile::new(); CHUNK_SIZE * CHUNK_SIZE];
+                let mut tiles = vec![*tile; CHUNK_SIZE * CHUNK_SIZE];
                 tiles[tile_pos[0] as usize + tile_pos[1] as usize * CHUNK_SIZE] = *tile;
                 let mut hasher = new_hasher();
                 for tile in &tiles {

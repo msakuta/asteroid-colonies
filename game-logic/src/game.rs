@@ -49,7 +49,7 @@ impl AsteroidColoniesGame {
         }
         let start_ofs = |pos: [i32; 2]| {
             [
-                pos[0] + 3 + WIDTH as i32 / 8,
+                pos[0] + 24, //+ WIDTH as i32 / 8,
                 pos[1] - 5 + HEIGHT as i32 / 2,
             ]
         };
