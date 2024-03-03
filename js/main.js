@@ -23,6 +23,7 @@ import furnace from '../images/furnace.png';
 import construction from '../images/construction.png';
 import deconstruction from '../images/deconstruction.png';
 import cleanup from '../images/cleanup.png';
+import heart from '../images/heart.png';
 
 const canvas = document.getElementById('canvas');
 const serverSync = SERVER_SYNC;
@@ -32,6 +33,12 @@ const port = 3883;
 let websocket = null;
 let sessionId = null;
 let debugDrawChunks = false;
+
+const heartbeatDiv = document.getElementById("heartbeat");
+const heartbeatElem = document.createElement("img");
+let heartbeatOpacity = 0;
+heartbeatElem.setAttribute("src", heart);
+heartbeatDiv.appendChild(heartbeatElem);
 
 (async () => {
     const wasm = await import("../wasm/Cargo.toml");
@@ -364,6 +371,8 @@ let debugDrawChunks = false;
             const info = game.get_info(mousePos[0], mousePos[1]);
             document.getElementById('info').innerHTML = formatInfo(info);
         }
+        heartbeatOpacity = Math.max(0, heartbeatOpacity - 0.2);
+        updateHeartbeatOpacity();
     }, 100);
 
     function reconnectWebSocket(){
@@ -375,6 +384,8 @@ let debugDrawChunks = false;
                     const byteArray = new Uint8Array(event.data);
                     game.deserialize_bin(byteArray);
                     postChunksDigest();
+                    heartbeatOpacity = 1;
+                    updateHeartbeatOpacity();
                 }
                 else {
                 // console.log(`Event through WebSocket: ${event.data}`);
@@ -383,6 +394,8 @@ let debugDrawChunks = false;
                         if(game){
                             game.deserialize(data.payload);
                             postChunksDigest();
+                            heartbeatOpacity = 1;
+                            updateHeartbeatOpacity();
                         }
                         // const payload = data.payload;
                         // const body = CelestialBody.celestialBodies.get(payload.bodyState.name);
@@ -394,6 +407,11 @@ let debugDrawChunks = false;
             });
             websocket.addEventListener("open", postChunksDigest);
         }
+    }
+
+    function updateHeartbeatOpacity() {
+        heartbeatDiv.style.opacity = heartbeatOpacity;
+        heartbeatDiv.style.display = 0 < heartbeatOpacity ? "block" : "none";
     }
 
     function requestWs(type, payload) {
