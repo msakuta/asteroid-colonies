@@ -262,11 +262,13 @@ impl SessionWs {
             }
             WsMessage::ChunksDigest { chunks_digest } => {
                 self.chunks_digest = serde_json::from_str(&chunks_digest)?;
+                return Ok(());
             }
             WsMessage::Cleanup { pos } => {
                 game.cleanup_item(pos).map_err(|e| anyhow::anyhow!("{e}"))?;
             }
         }
+        self.data.set_signal_push(true);
 
         // self.addr.do_send(NotifyBodyState {
         //     session_id: Some(self.session_id),

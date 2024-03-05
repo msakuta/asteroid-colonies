@@ -20,8 +20,11 @@ use std::{
     fs,
     io::BufReader,
     path::{Path, PathBuf},
-    sync::{Mutex, RwLock},
-    time::Instant,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Mutex, RwLock,
+    },
+    time::{Duration, Instant},
 };
 use websocket::{websocket_index, NotifyState, NotifyStateEnum};
 
@@ -77,6 +80,7 @@ struct ServerData {
     last_saved: Mutex<Instant>,
     last_pushed: Mutex<Instant>,
     autosave_file: PathBuf,
+    signal_push: AtomicBool,
     srv: Addr<ChatServer>,
     sessions: RwLock<HashSet<SessionId>>,
 }
@@ -87,6 +91,10 @@ impl ServerData {
         let mut sessions = self.sessions.write().unwrap();
         sessions.insert(session);
         session
+    }
+
+    pub fn set_signal_push(&self, v: bool) {
+        self.signal_push.store(v, Ordering::Relaxed);
     }
 }
 
@@ -213,6 +221,7 @@ async fn main() -> std::io::Result<()> {
         last_saved: Mutex::new(Instant::now()),
         last_pushed: Mutex::new(Instant::now()),
         autosave_file: args.autosave_file,
+        signal_push: AtomicBool::new(false),
         srv: ChatServer::new().start(),
         sessions: RwLock::new(HashSet::new()),
     });
@@ -249,7 +258,9 @@ async fn main() -> std::io::Result<()> {
             }
 
             let mut last_pushed = data_copy.last_pushed.lock().unwrap();
-            if push_period_s < last_pushed.elapsed().as_secs_f64() {
+            if data_copy.signal_push.load(Ordering::Relaxed)
+                || push_period_s < last_pushed.elapsed().as_secs_f64()
+            {
                 game.uniformify_tiles();
                 // if let Ok(serialized) = serialize_state(&game, false) {
                 //     data_copy.srv.do_send(NotifyState {
@@ -267,6 +278,7 @@ async fn main() -> std::io::Result<()> {
                     session_id: None,
                     set_state: NotifyStateEnum::SetStateWithDiff,
                 });
+                data_copy.set_signal_push(false);
                 *last_pushed = Instant::now();
             }
 
