@@ -221,7 +221,7 @@ impl AsteroidColonies {
             let (sx, sy) = match building.type_ {
                 BuildingType::Assembler => {
                     if !matches!(building.task, Task::None) {
-                        ((time % 4) as f64 * TILE_SIZE * 2., 0.)
+                        ((time % 2 + 1) as f64 * TILE_SIZE * 2., 0.)
                     } else {
                         (0., 0.)
                     }
