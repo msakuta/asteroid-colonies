@@ -16,7 +16,7 @@ import power from '../images/power.png';
 import excavator from '../images/excavator.png';
 import storage from '../images/storage.png';
 import mediumStorage from '../images/mediumStorage.png';
-import crew_cabin from '../images/crew_cabin.png';
+import crewCabin from '../images/crewCabin.png';
 import assembler from '../images/assembler.png';
 import assemblerComponent from '../images/assemblerComponent.png';
 import furnace from '../images/furnace.png';
@@ -58,7 +58,7 @@ heartbeatDiv.appendChild(heartbeatElem);
         ["excavator", excavator],
         ["storage", storage],
         ["medium_storage", mediumStorage],
-        ["crew_cabin", crew_cabin],
+        ["crew_cabin", crewCabin],
         ["assembler", assembler],
         ["furnace", furnace],
         ["raw_ore", rawOre],
@@ -481,7 +481,7 @@ function buildingToIcon(building) {
         case "Excavator": return excavator;
         case "Storage": return storage;
         case "MediumStorage": return mediumStorage;
-        case "CrewCabin": return crew_cabin;
+        case "CrewCabin": return crewCabin;
         case "Assembler": return assemblerComponent;
         case "Furnace": return furnace;
     }

@@ -24,7 +24,7 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Mutex, RwLock,
     },
-    time::{Duration, Instant},
+    time::Instant,
 };
 use websocket::{websocket_index, NotifyState, NotifyStateEnum};
 
