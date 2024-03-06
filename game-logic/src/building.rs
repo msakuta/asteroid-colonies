@@ -13,7 +13,7 @@ use crate::{
     task::{GlobalTask, Task, RAW_ORE_SMELT_TIME},
     tile::Tiles,
     transport::find_multipath,
-    AsteroidColoniesGame, Crew, ItemType, TileState, Transport, Xor128,
+    AsteroidColoniesGame, Crew, Direction, ItemType, TileState, Transport, Xor128,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -110,6 +110,8 @@ pub struct Building {
     // TODO: We want to avoid copies of recipes, but deserializing a recipe with static is
     // extremely hard with serde.
     pub recipe: Option<Recipe>,
+    /// Some buildings have direction.
+    pub direction: Option<Direction>,
 }
 
 impl Building {
@@ -121,6 +123,7 @@ impl Building {
             inventory: HashMap::new(),
             crews: type_.max_crews(),
             recipe: None,
+            direction: None,
         }
     }
 
@@ -136,6 +139,7 @@ impl Building {
             inventory,
             crews: type_.max_crews(),
             recipe: None,
+            direction: None,
         }
     }
 

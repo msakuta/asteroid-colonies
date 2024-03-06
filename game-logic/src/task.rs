@@ -70,6 +70,7 @@ impl AsteroidColoniesGame {
                 continue;
             }
             if let Some(dir) = choose_direction(&building.pos, ix, iy) {
+                building.direction = Some(dir);
                 building.task = Task::Excavate(EXCAVATE_TIME, dir);
                 return Ok(true);
             }
@@ -202,7 +203,12 @@ impl AsteroidColoniesGame {
             Task::Move(ref mut t, ref mut path) => {
                 if *t <= 0. {
                     if let Some(next) = path.pop() {
+                        let direction = Direction::from_vec([
+                            next[0] - building.pos[0],
+                            next[1] - building.pos[1],
+                        ]);
                         building.pos = next;
+                        building.direction = direction;
                         *t = MOVE_TIME;
                     } else {
                         building.task = Task::None;

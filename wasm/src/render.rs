@@ -219,6 +219,13 @@ impl AsteroidColonies {
         for building in self.game.iter_building() {
             let img = self.assets.building_to_img(building.type_);
             let (sx, sy) = match building.type_ {
+                BuildingType::Excavator => {
+                    if let Task::Excavate(_, _) = building.task {
+                        ((time % 2 + 1) as f64 * TILE_SIZE, 0.)
+                    } else {
+                        (0., 0.)
+                    }
+                }
                 BuildingType::Assembler => {
                     if !matches!(building.task, Task::None) {
                         ((time % 2 + 1) as f64 * TILE_SIZE * 2., 0.)
@@ -240,9 +247,29 @@ impl AsteroidColonies {
             let size = building.type_.size();
             let width = size[0] as f64 * TILE_SIZE;
             let height = size[1] as f64 * TILE_SIZE;
-            context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-                img, sx, sy, width, height, x, y, width, height,
-            )?;
+            use std::f64::consts::PI;
+            let draw_rotated = |angle| -> Result<(), JsValue> {
+                context.save();
+                context.translate(x + TILE_SIZE * 0.5, y + TILE_SIZE * 0.5)?;
+                context.rotate(angle)?;
+                context.translate(-TILE_SIZE * 0.5, -TILE_SIZE * 0.5)?;
+                context
+                    .draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+                        img, sx, sy, width, height, 0., 0., width, height,
+                    )?;
+                context.restore();
+                Ok(())
+            };
+            match building.direction {
+                Some(Direction::Left) => draw_rotated(0.5 * PI)?,
+                Some(Direction::Up) => draw_rotated(PI)?,
+                Some(Direction::Right) => draw_rotated(-0.5 * PI)?,
+                _ => {
+                    context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+                        img, sx, sy, width, height, x, y, width, height,
+                    )?;
+                }
+            }
 
             let task_target = match building.task {
                 Task::Excavate(t, _) => Some((t, EXCAVATE_TIME)),
