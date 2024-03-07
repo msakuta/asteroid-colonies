@@ -9,7 +9,7 @@ pub(crate) struct Assets {
     pub img_crew: HtmlImageElement,
     pub img_power_grid: HtmlImageElement,
     pub img_conveyor: HtmlImageElement,
-    pub img_power: HtmlImageElement,
+    pub img_atomic_battery: HtmlImageElement,
     pub img_battery: HtmlImageElement,
     pub img_excavator: HtmlImageElement,
     pub img_storage: HtmlImageElement,
@@ -37,7 +37,7 @@ impl Assets {
                 let array = js_sys::Array::from(value);
                 array.iter().next() == Some(JsValue::from_str(name))
             }) else {
-                return Err(JsValue::from_str("Couldn't find texture"));
+                return Err(JsValue::from_str(&format!("Couldn't find texture: {name}")));
             };
             js_sys::Array::from(&value)
                 .to_vec()
@@ -58,7 +58,7 @@ impl Assets {
             img_crew: load_texture("crew")?,
             img_power_grid: load_texture("power_grid")?,
             img_conveyor: load_texture("conveyor")?,
-            img_power: load_texture("power")?,
+            img_atomic_battery: load_texture("atomic_battery")?,
             img_battery: load_texture("battery")?,
             img_excavator: load_texture("excavator")?,
             img_storage: load_texture("storage")?,
@@ -81,7 +81,7 @@ impl Assets {
 
     pub fn building_to_img(&self, ty: BuildingType) -> &HtmlImageElement {
         match ty {
-            BuildingType::Power => &self.img_battery,
+            BuildingType::Power => &self.img_atomic_battery,
             BuildingType::Excavator => &self.img_excavator,
             BuildingType::Storage => &self.img_storage,
             BuildingType::MediumStorage => &self.img_medium_storage,

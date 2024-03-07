@@ -12,7 +12,7 @@ import circuit from '../images/circuit.png';
 import power_grid from '../images/power_grid.png';
 import conveyor from '../images/conveyor.png';
 import conveyorItem from '../images/conveyor-item.png';
-import power from '../images/power.png';
+import atomicBattery from '../images/atomicBattery.png';
 import battery from '../images/battery.png';
 import excavator from '../images/excavator.png';
 import storage from '../images/storage.png';
@@ -55,7 +55,7 @@ heartbeatDiv.appendChild(heartbeatElem);
         ["crew", crew],
         ["power_grid", power_grid],
         ["conveyor", conveyor],
-        ["power", power],
+        ["atomic_battery", atomicBattery],
         ["battery", battery],
         ["excavator", excavator],
         ["storage", storage],

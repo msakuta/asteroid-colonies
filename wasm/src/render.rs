@@ -219,6 +219,7 @@ impl AsteroidColonies {
         for building in self.game.iter_building() {
             let img = self.assets.building_to_img(building.type_);
             let (sx, sy) = match building.type_ {
+                BuildingType::Power => ((time / 5 % 2) as f64 * TILE_SIZE, 0.),
                 BuildingType::Excavator => {
                     if let Task::Excavate(_, _) = building.task {
                         ((time % 2 + 1) as f64 * TILE_SIZE, 0.)
