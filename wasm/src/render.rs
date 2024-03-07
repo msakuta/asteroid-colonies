@@ -477,6 +477,15 @@ impl AsteroidColonies {
             )?;
         }
 
+        if let Some(cursor) = self.move_cursor {
+            let img = &self.assets.img_move_cursor;
+            let x = cursor[0] as f64 * TILE_SIZE + offset[0];
+            let y = cursor[1] as f64 * TILE_SIZE + offset[1];
+            context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+                img, 0., 0., TILE_SIZE, TILE_SIZE, x, y, TILE_SIZE, TILE_SIZE,
+            )?;
+        }
+
         Ok(())
     }
 }

@@ -8,7 +8,8 @@ use wasm_bindgen::prelude::*;
 use web_sys::js_sys;
 
 use asteroid_colonies_logic::{
-    building::BuildingType, get_build_menu, AsteroidColoniesGame, Pos, HEIGHT, TILE_SIZE, WIDTH,
+    building::{Building, BuildingType},
+    get_build_menu, AsteroidColoniesGame, Pos, HEIGHT, TILE_SIZE, WIDTH,
 };
 
 use crate::{assets::Assets, render::calculate_back_image};
@@ -61,6 +62,7 @@ struct Viewport {
 pub struct AsteroidColonies {
     game: AsteroidColoniesGame,
     cursor: Option<Pos>,
+    move_cursor: Option<Pos>,
     assets: Assets,
     viewport: Viewport,
     debug_draw_chunks: bool,
@@ -77,6 +79,7 @@ impl AsteroidColonies {
         Ok(Self {
             game: AsteroidColoniesGame::new(Some(Box::new(calculate_back_image)))?,
             cursor: None,
+            move_cursor: None,
             assets: Assets::new(image_assets)?,
             viewport: Viewport {
                 offset: [
@@ -115,20 +118,39 @@ impl AsteroidColonies {
         res.map(|r| JsValue::from(r)).map_err(|e| JsValue::from(e))
     }
 
-    pub fn move_building(
-        &mut self,
-        src_x: f64,
-        src_y: f64,
-        dst_x: f64,
-        dst_y: f64,
-    ) -> Result<(), JsValue> {
-        let ix = (src_x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
-        let iy = (src_y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
-        let dx = (dst_x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
-        let dy = (dst_y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
-        self.game
-            .move_building(ix, iy, dx, dy)
-            .map_err(|e| JsValue::from(e))
+    pub fn start_move_building(&mut self, x: f64, y: f64) -> bool {
+        let pos = self.transform_pos(x, y);
+        let intersects = |b: &&Building| {
+            let size = b.type_.size();
+            b.pos[0] <= pos[0]
+                && pos[0] < size[0] as i32 + b.pos[0]
+                && b.pos[1] <= pos[1]
+                && pos[1] < size[1] as i32 + b.pos[1]
+        };
+        if self
+            .game
+            .iter_building()
+            .find(intersects)
+            .is_some_and(|b| b.type_.is_mobile())
+        {
+            self.move_cursor = Some(pos);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn move_building(&mut self, dst_x: f64, dst_y: f64) -> Result<JsValue, JsValue> {
+        let dpos = self.transform_pos(dst_x, dst_y);
+        if let Some(src) = self.move_cursor {
+            self.move_cursor = None;
+            self.game
+                .move_building(src[0], src[1], dpos[0], dpos[1])
+                .map_err(JsValue::from)?;
+            Ok(serde_wasm_bindgen::to_value(&src)?)
+        } else {
+            Err(JsValue::from("Select a building to move first"))
+        }
     }
 
     pub fn build(&mut self, x: f64, y: f64, type_: JsValue) -> Result<(), JsValue> {

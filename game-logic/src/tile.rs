@@ -159,6 +159,7 @@ impl Chunk {
     }
 }
 
+/// A type specifically defined to be hashable (can be a key to a HashMap)
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Position {
     pub x: i32,

@@ -1,6 +1,7 @@
 import closeButton from '../images/close.png';
 import bg from '../images/back32.png';
 import cursor from '../images/cursor.png';
+import moveCursor from '../images/moveCursor.png';
 import crew from '../images/crew.png';
 import rawOre from '../images/rawOre.png';
 import ironIngot from '../images/ironIngot.png';
@@ -52,6 +53,7 @@ heartbeatDiv.appendChild(heartbeatElem);
     const loadImages = [
         ["bg32", bg],
         ["cursor", cursor],
+        ["move_cursor", moveCursor],
         ["crew", crew],
         ["power_grid", power_grid],
         ["conveyor", conveyor],
@@ -106,7 +108,7 @@ heartbeatDiv.appendChild(heartbeatElem);
     const ctx = canvas.getContext('2d');
     game.render(ctx);
     let mousePos = null;
-    let moving = null;
+    let moving = false;
     let buildingConveyor = null;
     let dragStart = null;
     let dragLast = null;
@@ -120,11 +122,9 @@ heartbeatDiv.appendChild(heartbeatElem);
 
     function pointerMove(evt) {
         const [x, y] = mousePos = toLogicalCoords(evt.clientX, evt.clientY);
-        if (!moving) {
-            game.set_cursor(x, y);
-            const info = game.get_info(x, y);
-            document.getElementById('info').innerHTML = formatInfo(info);
-        }
+        game.set_cursor(x, y);
+        const info = game.get_info(x, y);
+        document.getElementById('info').innerHTML = formatInfo(info);
         if (buildingConveyor) {
             const elem = document.getElementById("conveyor");
             if (elem?.checked) {
@@ -168,16 +168,15 @@ heartbeatDiv.appendChild(heartbeatElem);
         }
         if (moving) {
             try {
-                const from = game.transform_coords(moving[0], moving[1]);
                 const to = game.transform_coords(x, y);
+                const from = game.move_building(x, y);
                 requestWs("Move", {from: [from[0], from[1]], to: [to[0], to[1]]});
-                game.move_building(moving[0], moving[1], x, y);
             }
             catch (e) {
                 console.error(`move_building: ${e}`);
             }
             messageOverlayElem.style.display = "none";
-            moving = null;
+            moving = false;
             return;
         }
 
@@ -200,10 +199,12 @@ heartbeatDiv.appendChild(heartbeatElem);
                 const buildMenuElem = document.getElementById("buildMenu");
                 const recipesElem = document.getElementById("recipes");
                 if (name === "move") {
-                    recipesElem.style.display = "none";
-                    messageOverlayElem.innerHTML = "Choose move destination";
-                    messageOverlayElem.style.display = "block";
-                    moving = [x, y];
+                    if (game.start_move_building(x, y)) {
+                        recipesElem.style.display = "none";
+                        messageOverlayElem.innerHTML = "Choose move destination";
+                        messageOverlayElem.style.display = "block";
+                        moving = true;
+                    }
                 }
                 else if (name === "conveyor") {
                     enterConveyorEdit();
