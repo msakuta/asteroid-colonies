@@ -10,6 +10,7 @@ pub(crate) struct Assets {
     pub img_power_grid: HtmlImageElement,
     pub img_conveyor: HtmlImageElement,
     pub img_power: HtmlImageElement,
+    pub img_battery: HtmlImageElement,
     pub img_excavator: HtmlImageElement,
     pub img_storage: HtmlImageElement,
     pub img_medium_storage: HtmlImageElement,
@@ -58,6 +59,7 @@ impl Assets {
             img_power_grid: load_texture("power_grid")?,
             img_conveyor: load_texture("conveyor")?,
             img_power: load_texture("power")?,
+            img_battery: load_texture("battery")?,
             img_excavator: load_texture("excavator")?,
             img_storage: load_texture("storage")?,
             img_medium_storage: load_texture("medium_storage")?,
@@ -79,7 +81,7 @@ impl Assets {
 
     pub fn building_to_img(&self, ty: BuildingType) -> &HtmlImageElement {
         match ty {
-            BuildingType::Power => &self.img_power,
+            BuildingType::Power => &self.img_battery,
             BuildingType::Excavator => &self.img_excavator,
             BuildingType::Storage => &self.img_storage,
             BuildingType::MediumStorage => &self.img_medium_storage,
