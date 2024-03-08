@@ -240,7 +240,7 @@ impl Building {
                         }
                         GlobalTask::Cleanup(pos) => {
                             let pickups = expected_crew_pickup_any(crews, *pos);
-                            if pickups == 0 {
+                            if pickups != 0 {
                                 continue;
                             }
                             pos
