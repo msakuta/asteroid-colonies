@@ -306,17 +306,23 @@ impl AsteroidColoniesGame {
     }
 
     pub fn deconstruct(&mut self, ix: i32, iy: i32) -> Result<(), String> {
-        let (i, b) = self
+        let b = self
             .buildings
-            .items()
-            .enumerate()
-            .find(|(_, c)| c.pos == [ix, iy])
+            .iter_mut()
+            .find(|c| {
+                c.payload
+                    .as_ref()
+                    .map(|c| c.pos == [ix, iy])
+                    .unwrap_or(false)
+            })
             .ok_or_else(|| String::from("Building not found at given position"))?;
-        let decon = Construction::new_deconstruct(b.type_, [ix, iy], &b.inventory)
-            .ok_or_else(|| String::from("No build recipe was found to deconstruct"))?;
+        if let Some(ref b) = b.payload {
+            let decon = Construction::new_deconstruct(b.type_, [ix, iy], &b.inventory)
+                .ok_or_else(|| String::from("No build recipe was found to deconstruct"))?;
+            self.constructions.push(decon);
+        }
 
-        self.constructions.push(decon);
-        self.buildings.remove(i);
+        b.payload = None;
 
         Ok(())
     }

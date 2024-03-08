@@ -273,8 +273,15 @@ impl AsteroidColoniesGame {
                 let pos = construction.pos;
                 match construction.type_ {
                     ConstructionType::Building(ty) => {
-                        self.buildings
-                            .push(EntityEntry::new(Building::new(pos, ty)));
+                        let b = self.buildings
+                            .iter_mut()
+                            .find(|c| c.payload.is_none());
+                        if let Some(b) = b {
+                            b.gen += 1;
+                            b.payload = Some(Building::new(pos, ty));
+                        } else {
+                            self.buildings.push(EntityEntry::new(Building::new(pos, ty)));
+                        }
                     }
                     ConstructionType::PowerGrid => {
                         if let Some(tile) = self.tiles.try_get_mut(pos) {

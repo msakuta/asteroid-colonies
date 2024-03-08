@@ -84,7 +84,10 @@ impl HasInventory for MockInventory {
 
 #[test]
 fn test_push_outputs() {
-    let mut storage = [EntityEntry::new(Building::new([1, -1], BuildingType::Storage))];
+    let mut storage = [EntityEntry::new(Building::new(
+        [1, -1],
+        BuildingType::Storage,
+    ))];
 
     let mut transports = vec![];
 
@@ -248,7 +251,10 @@ fn test_pull_inputs2() {
 
 #[test]
 fn test_push_outputs2() {
-    let mut storage = [EntityEntry::new(Building::new([1, -1], BuildingType::Storage))];
+    let mut storage = [EntityEntry::new(Building::new(
+        [1, -1],
+        BuildingType::Storage,
+    ))];
 
     let mut transports = vec![];
 
