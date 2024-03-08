@@ -35,11 +35,11 @@ fn test_pull_inputs() {
     let mut inputs = HashMap::new();
     inputs.insert(ItemType::RawOre, 1);
 
-    let mut storage = [Building::new_inventory(
+    let mut storage = [EntityEntry::new(Building::new_inventory(
         [1, -1],
         BuildingType::Storage,
         inputs.clone(),
-    )];
+    ))];
 
     let mut transports = vec![];
 
@@ -84,7 +84,7 @@ impl HasInventory for MockInventory {
 
 #[test]
 fn test_push_outputs() {
-    let mut storage = [Building::new([1, -1], BuildingType::Storage)];
+    let mut storage = [EntityEntry::new(Building::new([1, -1], BuildingType::Storage))];
 
     let mut transports = vec![];
 
@@ -206,11 +206,11 @@ fn test_pull_inputs2() {
     let mut inputs = HashMap::new();
     inputs.insert(ItemType::RawOre, 1);
 
-    let mut storage = [Building::new_inventory(
+    let mut storage = [EntityEntry::new(Building::new_inventory(
         [1, -1],
         BuildingType::Storage,
         inputs.clone(),
-    )];
+    ))];
 
     let mut transports = vec![];
 
@@ -248,7 +248,7 @@ fn test_pull_inputs2() {
 
 #[test]
 fn test_push_outputs2() {
-    let mut storage = [Building::new([1, -1], BuildingType::Storage)];
+    let mut storage = [EntityEntry::new(Building::new([1, -1], BuildingType::Storage))];
 
     let mut transports = vec![];
 

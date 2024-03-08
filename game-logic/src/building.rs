@@ -8,6 +8,7 @@ use ::serde::{Deserialize, Serialize};
 use crate::{
     construction::Construction,
     crew::expected_crew_pickup_any,
+    entity::{EntityEntry, EntityIterExt, EntityIterMutExt},
     hash_map,
     items::ItemType,
     push_pull::{pull_inputs, push_outputs},
@@ -159,7 +160,7 @@ impl Building {
     }
 
     pub fn tick(
-        bldgs: &mut [Building],
+        bldgs: &mut [EntityEntry<Building>],
         idx: usize,
         tiles: &Tiles,
         transports: &mut Vec<Transport>,
@@ -170,6 +171,9 @@ impl Building {
     ) -> Result<(), String> {
         let (first, rest) = bldgs.split_at_mut(idx);
         let Some((this, last)) = rest.split_first_mut() else {
+            return Ok(());
+        };
+        let Some(ref mut this) = this.payload else {
             return Ok(());
         };
         // Try pushing out products
@@ -267,8 +271,17 @@ impl Building {
                                     [this.pos].into_iter(),
                                     |pos| {
                                         first.iter().chain(last.iter()).any(|o| {
-                                            o.pos == pos
-                                                && 0 < o.inventory.get(&ty).copied().unwrap_or(0)
+                                            o.payload
+                                                .as_ref()
+                                                .map(|o| {
+                                                    o.pos == pos
+                                                        && 0 < o
+                                                            .inventory
+                                                            .get(&ty)
+                                                            .copied()
+                                                            .unwrap_or(0)
+                                                })
+                                                .unwrap_or(false)
                                         })
                                     },
                                     |_, pos| matches!(tiles[pos].state, TileState::Empty),
@@ -286,7 +299,13 @@ impl Building {
                                     [construction.pos].into_iter(),
                                     |pos| {
                                         first.iter().chain(last.iter()).any(|o| {
-                                            o.pos == pos && o.inventory_size() < o.type_.capacity()
+                                            o.payload
+                                                .as_ref()
+                                                .map(|o| {
+                                                    o.pos == pos
+                                                        && o.inventory_size() < o.type_.capacity()
+                                                })
+                                                .unwrap_or(false)
                                         })
                                     },
                                     |_, pos| matches!(tiles[pos].state, TileState::Empty),
@@ -370,12 +389,12 @@ impl AsteroidColoniesGame {
     pub(super) fn process_buildings(&mut self) {
         let power_demand = self
             .buildings
-            .iter()
+            .items()
             .map(|b| b.power().min(0).abs() as usize)
             .sum::<usize>();
         let power_supply = self
             .buildings
-            .iter()
+            .items()
             .map(|b| b.power().max(0).abs() as usize)
             .sum::<usize>();
         // let power_load = (power_demand as f64 / power_supply as f64).min(1.);
@@ -397,7 +416,7 @@ impl AsteroidColoniesGame {
                 crate::console_log!("Building::tick error: {}", e);
             };
         }
-        for building in &mut self.buildings {
+        for building in self.buildings.items_mut() {
             if let Some((item, dest)) = Self::process_task(
                 &mut self.tiles,
                 building,
@@ -409,7 +428,7 @@ impl AsteroidColoniesGame {
         }
 
         for (item, item_pos) in moving_items {
-            let found = self.buildings.iter_mut().find(|b| b.pos == item_pos);
+            let found = self.buildings.items_mut().find(|b| b.pos == item_pos);
             if let Some(found) = found {
                 *found.inventory.entry(item).or_default() += 1;
             }

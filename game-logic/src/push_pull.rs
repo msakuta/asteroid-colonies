@@ -8,6 +8,7 @@ use crate::{
     building::Building,
     conveyor::Conveyor,
     direction::Direction,
+    entity::EntityEntry,
     items::ItemType,
     transport::{expected_deliveries, find_multipath_should_expand, CPos, LevelTarget, Transport},
     Pos, Tile, Tiles, WIDTH,
@@ -45,8 +46,8 @@ pub(crate) fn pull_inputs(
     this_pos: Pos,
     this_size: [usize; 2],
     this_inventory: &mut HashMap<ItemType, usize>,
-    first: &mut [Building],
-    last: &mut [Building],
+    first: &mut [EntityEntry<Building>],
+    last: &mut [EntityEntry<Building>],
 ) {
     let intersects_goal = |[ix, iy]: [i32; 2]| {
         this_pos[0] <= ix
@@ -104,10 +105,13 @@ pub(crate) fn pull_inputs(
 
 fn find_from_other_inventory_mut<'a>(
     item: ItemType,
-    first: &'a mut [Building],
-    last: &'a mut [Building],
+    first: &'a mut [EntityEntry<Building>],
+    last: &'a mut [EntityEntry<Building>],
 ) -> Option<(&'a mut Building, usize)> {
     first.iter_mut().chain(last.iter_mut()).find_map(|o| {
+        let Some(ref mut o) = o.payload else {
+            return None;
+        };
         let count = *o.inventory.get(&item)?;
         if count == 0 {
             return None;
@@ -148,8 +152,8 @@ pub(crate) fn push_outputs(
     tiles: &impl TileSampler,
     transports: &mut Vec<Transport>,
     this: &mut impl HasInventory,
-    first: &mut [Building],
-    last: &mut [Building],
+    first: &mut [EntityEntry<Building>],
+    last: &mut [EntityEntry<Building>],
     is_output: &impl Fn(ItemType) -> bool,
 ) {
     let pos = this.pos();
@@ -163,6 +167,9 @@ pub(crate) fn push_outputs(
     //     start_neighbors
     // );
     let dest = first.iter_mut().chain(last.iter_mut()).find_map(|b| {
+        let Some(b) = b.payload.as_mut() else {
+            return None;
+        };
         if !b.type_.is_storage() {
             return None;
         }

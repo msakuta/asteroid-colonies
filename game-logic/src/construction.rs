@@ -4,6 +4,7 @@ use crate::{
     building::{Building, BuildingType},
     crew::{expected_crew_deliveries, Crew},
     direction::Direction,
+    entity::EntityEntry,
     items::{Inventory, ItemType},
     push_pull::{pull_inputs, push_outputs, HasInventory},
     task::{BUILD_CONVEYOR_TIME, BUILD_POWER_GRID_TIME},
@@ -272,7 +273,8 @@ impl AsteroidColoniesGame {
                 let pos = construction.pos;
                 match construction.type_ {
                     ConstructionType::Building(ty) => {
-                        self.buildings.push(Building::new(pos, ty));
+                        self.buildings
+                            .push(EntityEntry::new(Building::new(pos, ty)));
                     }
                     ConstructionType::PowerGrid => {
                         if let Some(tile) = self.tiles.try_get_mut(pos) {

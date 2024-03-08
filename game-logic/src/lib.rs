@@ -16,6 +16,7 @@ pub mod construction;
 pub mod conveyor;
 mod crew;
 mod direction;
+mod entity;
 mod game;
 mod items;
 mod push_pull;

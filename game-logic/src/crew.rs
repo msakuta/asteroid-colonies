@@ -5,6 +5,7 @@ use crate::{
     building::Building,
     console_log,
     construction::Construction,
+    entity::{EntityEntry, EntityIterMutExt},
     items::ItemType,
     task::{GlobalTask, EXCAVATE_ORE_AMOUNT, LABOR_EXCAVATE_TIME},
     transport::{find_path, Transport},
@@ -191,7 +192,7 @@ impl Crew {
         src: Pos,
         dest: Pos,
         tiles: &Tiles,
-        buildings: &mut [Building],
+        buildings: &mut [EntityEntry<Building>],
         constructions: &mut [Construction],
         transports: &mut Vec<Transport>,
     ) {
@@ -213,7 +214,7 @@ impl Crew {
             Some(())
         };
         let res =
-            (|| process_inventory(&mut buildings.iter_mut().find(|o| o.pos == src)?.inventory))()
+            (|| process_inventory(&mut buildings.items_mut().find(|o| o.pos == src)?.inventory))()
                 .or_else(|| {
                     process_inventory(
                         &mut constructions
@@ -265,8 +266,8 @@ impl Crew {
 
 impl AsteroidColoniesGame {
     pub(super) fn process_crews(&mut self) {
-        let try_return = |crew: &mut Crew, buildings: &mut [Building]| {
-            if let Some(building) = buildings.iter_mut().find(|b| b.pos == crew.from) {
+        let try_return = |crew: &mut Crew, buildings: &mut [EntityEntry<Building>]| {
+            if let Some(building) = buildings.items_mut().find(|b| b.pos == crew.from) {
                 building.crews += 1;
                 for (item, amount) in &crew.inventory {
                     *building.inventory.entry(*item).or_default() += *amount;

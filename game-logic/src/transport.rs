@@ -4,7 +4,10 @@ use std::{
     hash::Hash,
 };
 
-use crate::{direction::Direction, items::ItemType, AsteroidColoniesGame, Conveyor, Pos};
+use crate::{
+    direction::Direction, entity::EntityIterMutExt, items::ItemType, AsteroidColoniesGame,
+    Conveyor, Pos,
+};
 
 /// Transporting item
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -48,11 +51,11 @@ impl AsteroidColoniesGame {
         };
 
         let mut check_building = |t: &mut Transport| {
-            if let Some(building) = self
+            let building = self
                 .buildings
-                .iter_mut()
-                .find(|b| intersects(b.pos, b.type_.size(), t.dest))
-            {
+                .items_mut()
+                .find(|b| intersects(b.pos, b.type_.size(), t.dest));
+            if let Some(building) = building {
                 if building.inventory_size() + t.amount <= building.type_.capacity() {
                     *building.inventory.entry(t.item).or_default() += t.amount;
                     t.path.clear();
