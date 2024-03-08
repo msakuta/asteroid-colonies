@@ -101,18 +101,6 @@ pub struct Recipe {
     pub time: f64,
 }
 
-impl std::hash::Hash for Recipe {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        let mut inputs: Vec<_> = self.inputs.iter().collect();
-        inputs.sort_by_key(|(k, _)| *k);
-        inputs.hash(state);
-        let mut outputs: Vec<_> = self.outputs.iter().collect();
-        outputs.sort_by_key(|(k, _)| *k);
-        outputs.hash(state);
-        self.time.to_bits().hash(state);
-    }
-}
-
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Building {
     pub pos: [i32; 2],
@@ -126,20 +114,6 @@ pub struct Building {
     pub recipe: Option<Recipe>,
     /// Some buildings have direction.
     pub direction: Option<Direction>,
-}
-
-impl std::hash::Hash for Building {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.pos.hash(state);
-        self.type_.hash(state);
-        self.task.hash(state);
-        let mut inventory: Vec<_> = self.inventory.iter().collect();
-        inventory.sort_by_key(|(k, _)| *k);
-        inventory.hash(state);
-        self.crews.hash(state);
-        self.recipe.hash(state);
-        self.direction.hash(state);
-    }
 }
 
 impl Building {

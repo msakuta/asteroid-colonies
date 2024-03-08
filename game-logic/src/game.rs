@@ -483,11 +483,11 @@ impl AsteroidColoniesGame {
             .iter()
             .enumerate()
             .filter_map(|(i, b)| {
-                let Some(ref b) = b.payload else {
-                    return None;
-                };
+                let serialized = bincode::serialize(b.payload.as_ref()?).ok()?;
                 let mut hasher = new_hasher();
-                b.hash(&mut hasher);
+                for byte in serialized {
+                    byte.hash(&mut hasher);
+                }
                 Some((i, hasher.finish()))
             })
             .collect();
@@ -509,19 +509,36 @@ impl AsteroidColoniesGame {
         {
             println!("serialized bincode: {} {:?}", data.len(), b.type_);
         }
+        let mut buildings_digest_vec: Vec<_> = buildings_digest.iter().collect();
+        buildings_digest_vec.sort_by_key(|(k, _)| *k);
+        println!("buildings_digest: {:?}", buildings_digest_vec);
+        let mut real_buildings_digest: Vec<_> = self
+            .buildings
+            .iter()
+            .enumerate()
+            .filter_map(|(i, b)| {
+                let serialized = bincode::serialize(b.payload.as_ref()?).ok()?;
+                let mut hasher = new_hasher();
+                for byte in serialized {
+                    byte.hash(&mut hasher);
+                }
+                Some((i, hasher.finish()))
+            })
+            .collect();
+        real_buildings_digest.sort_by_key(|(k, _)| *k);
+        println!("real_buildings_digest: {:?}", real_buildings_digest);
         let buildings: HashMap<_, _> = self
             .buildings
             .iter()
             .enumerate()
             .filter_map(|(i, b)| {
-                let Some(ref b) = b.payload else {
-                    return None;
-                };
-                let Some(digest) = buildings_digest.get(&i) else {
-                    return None;
-                };
+                let b = b.payload.as_ref()?;
+                let serialized = bincode::serialize(b).ok()?;
+                let digest = buildings_digest.get(&i)?;
                 let mut hasher = new_hasher();
-                b.hash(&mut hasher);
+                for byte in serialized {
+                    byte.hash(&mut hasher);
+                }
                 if hasher.finish() != *digest {
                     Some((i, b.clone()))
                 } else {

@@ -9,7 +9,7 @@ use web_sys::js_sys;
 
 use asteroid_colonies_logic::{
     building::{Building, BuildingType},
-    get_build_menu, AsteroidColoniesGame, Pos, HEIGHT, TILE_SIZE, WIDTH,
+    get_build_menu, new_hasher, AsteroidColoniesGame, Pos, HEIGHT, TILE_SIZE, WIDTH,
 };
 
 use crate::{assets::Assets, render::calculate_back_image};
