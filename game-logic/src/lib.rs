@@ -1,14 +1,15 @@
-use std::collections::HashMap;
-
-use crate::{building::Recipe, conveyor::Conveyor, crew::Crew, transport::Transport};
 pub use crate::{
+    building::Recipe,
     construction::get_build_menu,
+    conveyor::Conveyor,
+    crew::Crew,
     direction::Direction,
     game::{AsteroidColoniesGame, SerializeGame},
+    items::ItemType,
     tile::{new_hasher, Chunk, ImageIdx, Position, Tile, TileState, Tiles, CHUNK_SIZE},
+    transport::Transport,
     xor128::Xor128,
 };
-use serde::{Deserialize, Serialize};
 
 pub mod building;
 pub mod construction;
@@ -16,6 +17,7 @@ pub mod conveyor;
 mod crew;
 mod direction;
 mod game;
+mod items;
 mod push_pull;
 pub mod task;
 mod tile;
@@ -63,60 +65,5 @@ pub(crate) fn log(s: &str) {
 pub const TILE_SIZE: f64 = 32.;
 pub const WIDTH: usize = 100;
 pub const HEIGHT: usize = 100;
-
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
-pub enum ItemType {
-    /// Freshly dug soil from asteroid body. Hardly useful unless refined
-    RawOre,
-    IronIngot,
-    CopperIngot,
-    Cilicate,
-    Gear,
-    Wire,
-    Circuit,
-    PowerGridComponent,
-    ConveyorComponent,
-    AssemblerComponent,
-}
-
-static RECIPES: std::sync::OnceLock<Vec<Recipe>> = std::sync::OnceLock::new();
-fn recipes() -> &'static [Recipe] {
-    RECIPES.get_or_init(|| {
-        vec![
-            Recipe {
-                inputs: hash_map!(ItemType::Wire => 1, ItemType::IronIngot => 1),
-                outputs: hash_map!(ItemType::PowerGridComponent => 1),
-                time: 100.,
-            },
-            Recipe {
-                inputs: hash_map!(ItemType::IronIngot => 1),
-                outputs: hash_map!(ItemType::ConveyorComponent => 1),
-                time: 120.,
-            },
-            Recipe {
-                inputs: hash_map!(ItemType::IronIngot => 1),
-                outputs: hash_map!(ItemType::Gear => 2),
-                time: 70.,
-            },
-            Recipe {
-                inputs: hash_map!(ItemType::CopperIngot => 1),
-                outputs: hash_map!(ItemType::Wire => 2),
-                time: 50.,
-            },
-            Recipe {
-                inputs: hash_map!(ItemType::Wire => 1, ItemType::IronIngot => 1),
-                outputs: hash_map!(ItemType::Circuit => 1),
-                time: 120.,
-            },
-            Recipe {
-                inputs: hash_map!(ItemType::Gear => 2, ItemType::Circuit => 2),
-                outputs: hash_map!(ItemType::AssemblerComponent => 1),
-                time: 200.,
-            },
-        ]
-    })
-}
-
-pub type Inventory = HashMap<ItemType, usize>;
 
 pub type Pos = [i32; 2];

@@ -8,8 +8,9 @@ use crate::{
     building::Building,
     conveyor::Conveyor,
     direction::Direction,
+    items::ItemType,
     transport::{expected_deliveries, find_multipath_should_expand, CPos, LevelTarget, Transport},
-    ItemType, Pos, Tile, Tiles, WIDTH,
+    Pos, Tile, Tiles, WIDTH,
 };
 
 /// An abstraction of tile map where you can pick a tile from a position.

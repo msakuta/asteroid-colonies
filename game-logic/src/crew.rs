@@ -5,9 +5,10 @@ use crate::{
     building::Building,
     console_log,
     construction::Construction,
+    items::ItemType,
     task::{GlobalTask, EXCAVATE_ORE_AMOUNT, LABOR_EXCAVATE_TIME},
     transport::{find_path, Transport},
-    AsteroidColoniesGame, ItemType, Pos, TileState, Tiles,
+    AsteroidColoniesGame, Pos, TileState, Tiles,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

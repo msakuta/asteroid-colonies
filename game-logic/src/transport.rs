@@ -4,7 +4,7 @@ use std::{
     hash::Hash,
 };
 
-use crate::{direction::Direction, AsteroidColoniesGame, Conveyor, ItemType, Pos};
+use crate::{direction::Direction, items::ItemType, AsteroidColoniesGame, Conveyor, Pos};
 
 /// Transporting item
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

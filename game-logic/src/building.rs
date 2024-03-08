@@ -9,11 +9,12 @@ use crate::{
     construction::Construction,
     crew::expected_crew_pickup_any,
     hash_map,
+    items::ItemType,
     push_pull::{pull_inputs, push_outputs},
     task::{GlobalTask, Task, RAW_ORE_SMELT_TIME},
     tile::Tiles,
     transport::find_multipath,
-    AsteroidColoniesGame, Crew, Direction, ItemType, TileState, Transport, Xor128,
+    AsteroidColoniesGame, Crew, Direction, TileState, Transport, Xor128,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]

@@ -8,11 +8,12 @@ use crate::{
     conveyor::Conveyor,
     crew::Crew,
     direction::Direction,
-    hash_map, recipes,
+    hash_map,
+    items::{recipes, ItemType},
     task::{GlobalTask, Task, MOVE_TIME},
     tile::CHUNK_SIZE,
     transport::{find_path, Transport},
-    ItemType, Pos, Position, Tile, TileState, Tiles, Xor128, HEIGHT, WIDTH,
+    Pos, Position, Tile, TileState, Tiles, Xor128, HEIGHT, WIDTH,
 };
 
 pub type CalculateBackImage = Box<dyn Fn(&mut Tiles) + Send + Sync>;

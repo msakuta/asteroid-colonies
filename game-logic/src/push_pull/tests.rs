@@ -1,5 +1,5 @@
 use super::*;
-use crate::{building::BuildingType, Inventory};
+use crate::{building::BuildingType, items::Inventory};
 
 struct MockTiles;
 

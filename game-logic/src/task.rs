@@ -7,8 +7,9 @@ use crate::{
     construction::Construction,
     direction::Direction,
     game::CalculateBackImage,
+    items::ItemType,
     transport::find_path,
-    AsteroidColoniesGame, ItemType, Pos, TileState, Tiles,
+    AsteroidColoniesGame, Pos, TileState, Tiles,
 };
 
 pub const EXCAVATE_TIME: f64 = 10.;
@@ -186,10 +187,7 @@ impl AsteroidColoniesGame {
             Task::Excavate(ref mut t, dir) => {
                 if *t <= 0. {
                     building.task = Task::None;
-                    *building
-                        .inventory
-                        .entry(crate::ItemType::RawOre)
-                        .or_default() += EXCAVATE_ORE_AMOUNT;
+                    *building.inventory.entry(ItemType::RawOre).or_default() += EXCAVATE_ORE_AMOUNT;
                     let dir_vec = dir.to_vec();
                     let pos = [building.pos[0] + dir_vec[0], building.pos[1] + dir_vec[1]];
                     tiles[pos].state = TileState::Empty;
