@@ -4,7 +4,7 @@ use ::serde::{Deserialize, Serialize};
 
 use crate::{hash_map, Recipe};
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Serialize, Deserialize)]
 pub enum ItemType {
     /// Freshly dug soil from asteroid body. Hardly useful unless refined
     RawOre,

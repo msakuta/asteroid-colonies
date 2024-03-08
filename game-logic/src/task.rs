@@ -40,6 +40,34 @@ pub enum Task {
     // Smelt(usize),
 }
 
+impl std::hash::Hash for Task {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        match self {
+            Self::None => {}
+            Self::Excavate(t, d) => {
+                t.to_bits().hash(state);
+                d.hash(state);
+            }
+            Self::Move(t, p) => {
+                t.to_bits().hash(state);
+                p.hash(state);
+            }
+            Self::MoveItem { t, item_type, dest } => {
+                t.to_bits().hash(state);
+                item_type.hash(state);
+                dest.hash(state);
+            }
+            Self::Assemble { t, max_t, outputs } => {
+                t.to_bits().hash(state);
+                max_t.to_bits().hash(state);
+                let mut outputs: Vec<_> = outputs.iter().collect();
+                outputs.sort_by_key(|(k, _)| *k);
+                outputs.hash(state);
+            }
+        }
+    }
+}
+
 impl Display for Task {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

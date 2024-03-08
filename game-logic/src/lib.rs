@@ -4,7 +4,7 @@ pub use crate::{
     conveyor::Conveyor,
     crew::Crew,
     direction::Direction,
-    game::{AsteroidColoniesGame, SerializeGame},
+    game::{AsteroidColoniesGame, DigestMessage, SerializeGame},
     items::ItemType,
     tile::{new_hasher, Chunk, ImageIdx, Position, Tile, TileState, Tiles, CHUNK_SIZE},
     transport::Transport,

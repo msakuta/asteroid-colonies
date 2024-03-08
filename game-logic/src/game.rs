@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, io::Read};
+use std::{collections::HashMap, hash::Hasher, io::Read};
 
 use crate::{
     building::{Building, BuildingType, Recipe},
@@ -11,6 +11,7 @@ use crate::{
     entity::{EntityEntry, EntityIterExt, EntityIterMutExt},
     hash_map,
     items::{recipes, ItemType},
+    new_hasher,
     task::{GlobalTask, Task, MOVE_TIME},
     tile::CHUNK_SIZE,
     transport::{find_path, Transport},
@@ -421,8 +422,8 @@ impl AsteroidColoniesGame {
     }
 
     pub fn deserialize_bin(&mut self, rdr: &[u8]) -> Result<(), String> {
-        let ser_data: SerializeGame = bincode::deserialize(rdr).map_err(|e| format!("{e}"))?;
-        self.from_serialized(ser_data);
+        let ser_data: SerializeDiffGame = bincode::deserialize(rdr).map_err(|e| format!("{e}"))?;
+        self.from_serialized_diff(ser_data);
         Ok(())
     }
 
@@ -442,20 +443,63 @@ impl AsteroidColoniesGame {
         }
     }
 
+    fn from_serialized_diff(&mut self, ser_data: SerializeDiffGame) {
+        for (pos, chunk) in ser_data.tiles.chunks {
+            self.tiles.chunks.insert(pos, chunk);
+        }
+        for (i, b) in ser_data.buildings {
+            if let Some(entry) = self.buildings.get_mut(i) {
+                entry.payload = Some(b);
+            } else {
+                self.buildings.resize(i + 1, EntityEntry::default());
+                self.buildings[i].payload = Some(b);
+            }
+        }
+        self.crews = ser_data.crews;
+        self.global_tasks = ser_data.global_tasks;
+        self.global_time = ser_data.global_time;
+        self.transports = ser_data.transports;
+        self.constructions = ser_data.constructions;
+        self.rng = ser_data.rng;
+        if let Some(ref f) = self.calculate_back_image {
+            f(&mut self.tiles);
+        }
+    }
+
     pub fn serialize_chunks_digest(&self) -> bincode::Result<Vec<u8>> {
         let digests = self
             .tiles
             .chunks()
             .iter()
-            .map(|(pos, chunk)| (pos, chunk.get_hash()))
+            .map(|(pos, chunk)| (*pos, chunk.get_hash()))
             .collect::<HashMap<_, _>>();
-        bincode::serialize(&digests)
+        bincode::serialize(&DigestMessage::Chunks(digests))
+    }
+
+    pub fn serialize_buildings_digest(&self) -> bincode::Result<Vec<u8>> {
+        use std::hash::Hash;
+        let digests = self
+            .buildings
+            .iter()
+            .enumerate()
+            .filter_map(|(i, b)| {
+                let Some(ref b) = b.payload else {
+                    return None;
+                };
+                let mut hasher = new_hasher();
+                b.hash(&mut hasher);
+                Some((i, hasher.finish()))
+            })
+            .collect();
+        bincode::serialize(&DigestMessage::Buildings(digests))
     }
 
     pub fn serialize_with_diffs(
         &self,
         chunks_digest: &HashMap<Position, u64>,
+        buildings_digest: &HashMap<usize, u64>,
     ) -> Result<Vec<u8>, String> {
+        use std::hash::Hash;
         let tiles = self.tiles.filter_with_diffs(chunks_digest)?;
         if let Some((b, data)) = self
             .buildings
@@ -465,9 +509,34 @@ impl AsteroidColoniesGame {
         {
             println!("serialized bincode: {} {:?}", data.len(), b.type_);
         }
-        let ser_game = SerializeGame {
+        let buildings: HashMap<_, _> = self
+            .buildings
+            .iter()
+            .enumerate()
+            .filter_map(|(i, b)| {
+                let Some(ref b) = b.payload else {
+                    return None;
+                };
+                let Some(digest) = buildings_digest.get(&i) else {
+                    return None;
+                };
+                let mut hasher = new_hasher();
+                b.hash(&mut hasher);
+                if hasher.finish() != *digest {
+                    Some((i, b.clone()))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        println!(
+            "serialized buildings: {} / {}",
+            buildings.len(),
+            self.buildings.len()
+        );
+        let ser_game = SerializeDiffGame {
             tiles,
-            buildings: self.buildings.clone(),
+            buildings,
             crews: self.crews.clone(),
             global_tasks: self.global_tasks.clone(),
             global_time: self.global_time,
@@ -504,4 +573,22 @@ impl From<&AsteroidColoniesGame> for SerializeGame {
             rng: value.rng.clone(),
         }
     }
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum DigestMessage {
+    Chunks(HashMap<Position, u64>),
+    Buildings(HashMap<usize, u64>),
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SerializeDiffGame {
+    tiles: Tiles,
+    buildings: HashMap<usize, Building>,
+    crews: Vec<Crew>,
+    global_tasks: Vec<GlobalTask>,
+    global_time: usize,
+    transports: Vec<Transport>,
+    constructions: Vec<Construction>,
+    rng: Xor128,
 }

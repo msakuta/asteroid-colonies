@@ -7,6 +7,15 @@ pub struct EntityEntry<T> {
     pub payload: Option<T>,
 }
 
+impl<T> Default for EntityEntry<T> {
+    fn default() -> Self {
+        Self {
+            gen: 0,
+            payload: None,
+        }
+    }
+}
+
 impl<T> EntityEntry<T> {
     pub(crate) fn new(payload: T) -> Self {
         Self {
