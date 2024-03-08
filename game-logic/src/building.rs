@@ -1,9 +1,13 @@
+mod crew_cabin;
+
 use std::{
     collections::{HashMap, HashSet},
     fmt::Display,
 };
 
 use ::serde::{Deserialize, Serialize};
+
+use self::crew_cabin::Envs;
 
 use crate::{
     construction::Construction,
@@ -268,7 +272,8 @@ impl Building {
                         crews,
                         tiles,
                     };
-                    let crew = try_find_deliver(this, construction, &envs)
+                    let crew = this
+                        .try_find_deliver(construction, &envs)
                         .or_else(|| {
                             construction.extra_ingredients().find_map(|(ty, _)| {
                                 let path_to_dest = find_multipath(
@@ -359,54 +364,6 @@ impl Building {
         }
         Ok(())
     }
-}
-
-struct Envs<'a> {
-    first: &'a [EntityEntry<Building>],
-    last: &'a [EntityEntry<Building>],
-    transports: &'a [Transport],
-    crews: &'a [Crew],
-    tiles: &'a Tiles,
-}
-
-fn try_find_deliver(this: &mut Building, construction: &Construction, envs: &Envs) -> Option<Crew> {
-    construction
-        .required_ingredients(envs.transports, envs.crews)
-        .find_map(|(ty, _)| {
-            this.inventory
-                .get_mut(&ty)
-                .and_then(|n| {
-                    if 0 < *n {
-                        println!("new_deliver, sending a crew {:?}", construction.pos);
-                        *n -= 1;
-                        Crew::new_deliver(this.pos, construction.pos, ty, &envs.tiles)
-                    } else {
-                        None
-                    }
-                })
-                .or_else(|| {
-                    let path_to_source = find_multipath(
-                        [this.pos].into_iter(),
-                        |pos| {
-                            envs.first.iter().chain(envs.last.iter()).any(|o| {
-                                o.payload
-                                    .as_ref()
-                                    .map(|o| {
-                                        o.pos == pos
-                                            && 0 < o.inventory.get(&ty).copied().unwrap_or(0)
-                                    })
-                                    .unwrap_or(false)
-                            })
-                        },
-                        |_, pos| matches!(envs.tiles[pos].state, TileState::Empty),
-                    );
-                    path_to_source
-                        .and_then(|src| src.first().copied())
-                        .and_then(|src| {
-                            Crew::new_pickup(this.pos, src, construction.pos, ty, envs.tiles)
-                        })
-                })
-        })
 }
 
 impl AsteroidColoniesGame {
