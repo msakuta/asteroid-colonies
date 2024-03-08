@@ -6,6 +6,7 @@ use crate::{
     console_log,
     construction::Construction,
     entity::{EntityEntry, EntityIterMutExt},
+    hash_map,
     items::ItemType,
     task::{GlobalTask, EXCAVATE_ORE_AMOUNT, LABOR_EXCAVATE_TIME},
     transport::{find_path, Transport},
@@ -122,7 +123,7 @@ impl Crew {
             path: Some(path),
             from: pos,
             task: CrewTask::Deliver { dst: dest, item },
-            inventory: HashMap::new(),
+            inventory: hash_map!(item => 1),
             to_delete: false,
         })
     }
