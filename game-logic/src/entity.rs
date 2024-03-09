@@ -24,15 +24,6 @@ pub trait EntityIterExt<T> {
         T: 'a;
 }
 
-impl<T> EntityIterExt<T> for &[EntityEntry<T>] {
-    fn items<'a>(&'a self) -> impl Iterator<Item = &'a T>
-    where
-        T: 'a,
-    {
-        self.iter().filter_map(|b| b.payload.as_ref())
-    }
-}
-
 /// An extension trait to allow a container to mutably iterate over valid items
 pub trait EntityIterMutExt<T>: EntityIterExt<T> {
     /// Mutably iterate items in each entry's payload

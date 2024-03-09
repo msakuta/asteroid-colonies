@@ -8,7 +8,7 @@ use crate::{
     building::Building,
     conveyor::Conveyor,
     direction::Direction,
-    entity::EntityEntry,
+    entity::{EntityEntry, EntityIterMutExt},
     items::ItemType,
     transport::{expected_deliveries, find_multipath_should_expand, CPos, LevelTarget, Transport},
     Pos, Tile, Tiles, WIDTH,
@@ -55,6 +55,7 @@ pub(crate) fn pull_inputs(
             && this_pos[1] <= iy
             && iy < this_size[1] as i32 + this_pos[1]
     };
+    // let start = std::time::Instant::now();
     // crate::console_log!("pulling to at {:?} size {:?}", this_pos, this_size);
     let expected = expected_deliveries(transports, this_pos);
     for (ty, count) in inputs {
@@ -101,6 +102,8 @@ pub(crate) fn pull_inputs(
             *src_count -= amount;
         }
     }
+    // let time = start.elapsed().as_secs_f64();
+    // println!("pull_inputs took {} sec", time);
 }
 
 fn find_from_other_inventory_mut<'a>(
@@ -166,10 +169,8 @@ pub(crate) fn push_outputs(
     //     size,
     //     start_neighbors
     // );
-    let dest = first.iter_mut().chain(last.iter_mut()).find_map(|b| {
-        let Some(b) = b.payload.as_mut() else {
-            return None;
-        };
+    // let start = std::time::Instant::now();
+    let dest = first.items_mut().chain(last.items_mut()).find_map(|b| {
         if !b.type_.is_storage() {
             return None;
         }
@@ -201,6 +202,9 @@ pub(crate) fn push_outputs(
         )?;
         Some((b, path))
     });
+    // let time = start.elapsed().as_secs_f64();
+    // println!("searching {:?} nodes path took {} sec", dest.as_ref().map(|(_, path)| path.len()), time);
+
     // Push away outputs
     if let Some((dest, path)) = dest {
         let product = this

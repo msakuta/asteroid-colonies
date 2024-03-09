@@ -68,3 +68,15 @@ pub const WIDTH: usize = 100;
 pub const HEIGHT: usize = 100;
 
 pub type Pos = [i32; 2];
+
+#[cfg(not(target_arch = "wasm32"))]
+fn measure_time<T>(f: impl FnOnce() -> T) -> (T, f64) {
+    let start = std::time::Instant::now();
+    let ret = f();
+    (ret, start.elapsed().as_secs_f64())
+}
+
+#[cfg(target_arch = "wasm32")]
+fn measure_time<T>(f: impl FnOnce() -> T) -> (T, f64) {
+    (f(), 0.)
+}

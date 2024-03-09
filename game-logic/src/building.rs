@@ -15,6 +15,7 @@ use crate::{
     entity::{EntityEntry, EntityIterExt, EntityIterMutExt},
     hash_map,
     items::ItemType,
+    measure_time,
     push_pull::{pull_inputs, push_outputs},
     task::{GlobalTask, Task, RAW_ORE_SMELT_TIME},
     tile::Tiles,
@@ -258,6 +259,13 @@ impl Building {
                         return Ok(());
                     }
                 }
+                fn print_time<R>(name: &str, f: impl FnOnce() -> R) -> R {
+                    let (r, t) = measure_time(f);
+                    if 0.001 < t {
+                        println!("{name} time: {}", t);
+                    }
+                    r
+                }
                 for construction in constructions {
                     let pos = construction.pos;
                     if !matches!(tiles[pos].state, TileState::Empty) {
@@ -271,10 +279,19 @@ impl Building {
                         crews,
                         tiles,
                     };
-                    let crew = this
-                        .try_find_deliver(construction, &envs)
-                        .or_else(|| this.try_find_pickup_and_deliver(construction, &envs))
-                        .or_else(|| this.try_send_to_build(construction, &envs));
+                    let crew = print_time("try_find_deliver", || {
+                        this.try_find_deliver(construction, &envs)
+                    })
+                    .or_else(|| {
+                        print_time("try_find_pickup_and_deliver", || {
+                            this.try_find_pickup_and_deliver(construction, &envs)
+                        })
+                    })
+                    .or_else(|| {
+                        print_time("try_send_to_build", || {
+                            this.try_send_to_build(construction, &envs)
+                        })
+                    });
                     if let Some(crew) = crew {
                         crews.push(crew);
                         this.crews -= 1;

@@ -214,8 +214,17 @@ impl Crew {
             self.task = CrewTask::Deliver { dst: dest, item };
             Some(())
         };
+
+        let intersects = |b: &Building| {
+            let size = b.type_.size();
+            b.pos[0] <= src[0]
+                && src[0] < size[0] as i32 + b.pos[0]
+                && b.pos[1] <= src[1]
+                && src[1] < size[1] as i32 + b.pos[1]
+        };
+
         let res =
-            (|| process_inventory(&mut buildings.items_mut().find(|o| o.pos == src)?.inventory))()
+            (|| process_inventory(&mut buildings.items_mut().find(|o| intersects(o))?.inventory))()
                 .or_else(|| {
                     process_inventory(
                         &mut constructions

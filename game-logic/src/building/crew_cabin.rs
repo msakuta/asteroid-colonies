@@ -1,6 +1,9 @@
 use crate::{
-    construction::Construction, entity::EntityEntry, transport::find_multipath, Crew, TileState,
-    Tiles, Transport,
+    construction::Construction,
+    entity::{EntityEntry, EntityIterExt},
+    push_pull::HasInventory,
+    transport::find_multipath,
+    Crew, TileState, Tiles, Transport,
 };
 
 use super::Building;
@@ -22,6 +25,17 @@ impl Building {
         construction
             .required_ingredients(envs.transports, envs.crews)
             .find_map(|(ty, _)| {
+                let mut targets = std::collections::HashMap::new();
+                for o in envs.first.items().chain(envs.last.items()) {
+                    if 0 < o.inventory.get(&ty).copied().unwrap_or(0) {
+                        let size = o.size();
+                        for iy in 0..size[1] {
+                            for ix in 0..size[0] {
+                                targets.insert([o.pos[0] + ix as i32, o.pos[1] + iy as i32], o);
+                            }
+                        }
+                    }
+                }
                 self.inventory
                     .get_mut(&ty)
                     .and_then(|n| {
@@ -35,17 +49,7 @@ impl Building {
                     .or_else(|| {
                         let path_to_source = find_multipath(
                             [self.pos].into_iter(),
-                            |pos| {
-                                envs.first.iter().chain(envs.last.iter()).any(|o| {
-                                    o.payload
-                                        .as_ref()
-                                        .map(|o| {
-                                            o.pos == pos
-                                                && 0 < o.inventory.get(&ty).copied().unwrap_or(0)
-                                        })
-                                        .unwrap_or(false)
-                                })
-                            },
+                            |pos| targets.contains_key(&pos),
                             |_, pos| matches!(envs.tiles[pos].state, TileState::Empty),
                         );
                         path_to_source
