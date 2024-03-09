@@ -8,7 +8,7 @@ use crate::{
     building::Building,
     conveyor::Conveyor,
     direction::Direction,
-    entity::{EntityEntry, EntityIterMutExt, EntitySet},
+    entity::{EntityEntry, EntityId, EntityIterMutExt, EntitySet},
     items::ItemType,
     transport::{expected_deliveries, find_multipath_should_expand, CPos, LevelTarget, Transport},
     Pos, Tile, Tiles, WIDTH,
@@ -43,6 +43,7 @@ pub(crate) fn pull_inputs(
     inputs: &HashMap<ItemType, usize>,
     tiles: &impl TileSampler,
     transports: &mut EntitySet<Transport>,
+    expected_transports: &mut HashSet<EntityId>,
     this_pos: Pos,
     this_size: [usize; 2],
     this_inventory: &mut HashMap<ItemType, usize>,
@@ -57,7 +58,8 @@ pub(crate) fn pull_inputs(
     };
     // let start = std::time::Instant::now();
     // crate::console_log!("pulling to at {:?} size {:?}", this_pos, this_size);
-    let expected = expected_deliveries(transports, this_pos);
+    let expected = expected_deliveries(transports, expected_transports);
+
     for (ty, count) in inputs {
         let this_count =
             this_inventory.get(ty).copied().unwrap_or(0) + expected.get(ty).copied().unwrap_or(0);
@@ -89,13 +91,14 @@ pub(crate) fn pull_inputs(
         };
         let src_count = src.inventory.entry(*ty).or_default();
         let amount = (*src_count).min(*count - this_count);
-        transports.insert(Transport {
+        let id = transports.insert(Transport {
             src: src.pos,
             dest: this_pos,
             path,
             item: *ty,
             amount,
         });
+        expected_transports.insert(id);
         if *src_count <= amount {
             src.inventory.remove(ty);
         } else {
@@ -176,7 +179,7 @@ pub(crate) fn push_outputs(
         }
         if b.type_.capacity()
             <= b.inventory_size()
-                + expected_deliveries(transports, b.pos)
+                + expected_deliveries(transports, &b.expected_transports)
                     .values()
                     .sum::<usize>()
         {
@@ -212,13 +215,14 @@ pub(crate) fn push_outputs(
             .iter_mut()
             .find(|(t, count)| is_output(**t) && 0 < **count);
         if let Some((&item, amount)) = product {
-            transports.insert(Transport {
+            let id = transports.insert(Transport {
                 src: pos,
                 dest: dest.pos,
                 path,
                 item,
                 amount: 1,
             });
+            dest.expected_transports.insert(id);
             // *dest.inventory.entry(*product.0).or_default() += 1;
             if *amount <= 1 {
                 this.inventory().remove(&item);

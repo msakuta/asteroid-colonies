@@ -12,14 +12,14 @@ use self::crew_cabin::Envs;
 use crate::{
     construction::Construction,
     crew::expected_crew_pickup_any,
-    entity::{EntityEntry, EntityIterExt, EntityIterMutExt, EntitySet},
+    entity::{EntityEntry, EntityId, EntityIterExt, EntityIterMutExt, EntitySet},
     hash_map,
     items::ItemType,
     measure_time,
     push_pull::{pull_inputs, push_outputs},
     task::{GlobalTask, Task, RAW_ORE_SMELT_TIME},
     tile::Tiles,
-    AsteroidColoniesGame, Crew, Direction, TileState, Transport, Xor128,
+    AsteroidColoniesGame, Crew, Direction, Pos, TileState, Transport, Xor128,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -118,6 +118,9 @@ pub struct Building {
     pub recipe: Option<Recipe>,
     /// Some buildings have direction.
     pub direction: Option<Direction>,
+    #[serde(skip)]
+    /// A cache of expected transports
+    pub expected_transports: HashSet<EntityId>,
 }
 
 impl Building {
@@ -130,6 +133,7 @@ impl Building {
             crews: type_.max_crews(),
             recipe: None,
             direction: None,
+            expected_transports: HashSet::new(),
         }
     }
 
@@ -146,6 +150,7 @@ impl Building {
             crews: type_.max_crews(),
             recipe: None,
             direction: None,
+            expected_transports: HashSet::new(),
         }
     }
 
@@ -161,6 +166,14 @@ impl Building {
 
     pub fn inventory_size(&self) -> usize {
         self.inventory.iter().map(|(_, v)| *v).sum()
+    }
+
+    pub fn intersects(&self, pos: Pos) -> bool {
+        let size = self.type_.size();
+        self.pos[0] <= pos[0]
+            && pos[0] <= self.pos[0] + size[0] as i32
+            && self.pos[1] <= pos[1]
+            && pos[1] <= self.pos[1] + size[1] as i32
     }
 
     pub fn tick(
@@ -193,6 +206,7 @@ impl Building {
                     &recipe.inputs,
                     tiles,
                     transports,
+                    &mut this.expected_transports,
                     this.pos,
                     this.type_.size(),
                     &mut this.inventory,
@@ -316,6 +330,7 @@ impl Building {
                     &recipe.inputs,
                     tiles,
                     transports,
+                    &mut this.expected_transports,
                     this.pos,
                     this.type_.size(),
                     &mut this.inventory,

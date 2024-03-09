@@ -6,7 +6,7 @@ use std::{
 
 use crate::{
     direction::Direction,
-    entity::{EntityIterMutExt, EntitySet},
+    entity::{EntityId, EntityIterMutExt, EntitySet},
     items::ItemType,
     AsteroidColoniesGame, Conveyor, Pos,
 };
@@ -30,7 +30,7 @@ impl AsteroidColoniesGame {
                 && iy < size[1] as i32 + pos[1]
         };
 
-        let mut check_construction = |t: &mut Transport| {
+        let mut check_construction = |id, t: &mut Transport| {
             if let Some(construction) = self
                 .constructions
                 .iter_mut()
@@ -45,6 +45,7 @@ impl AsteroidColoniesGame {
                     .unwrap_or(0);
                 if arrived + t.amount <= demand {
                     *construction.ingredients.entry(t.item).or_default() += t.amount;
+                    construction.clear_expected(id);
                     t.path.clear();
                     return true;
                 }
@@ -73,9 +74,9 @@ impl AsteroidColoniesGame {
             .filter_map(|t| t.path.last().copied())
             .collect();
 
-        for t in self.transports.iter_mut() {
+        for (id, t) in self.transports.items_mut() {
             if t.path.len() <= 1 {
-                let delivered = check_construction(t) || check_building(t);
+                let delivered = check_construction(id, t) || check_building(t);
                 if !delivered {
                     let tiles = &self.tiles;
                     let return_path = find_multipath(
@@ -113,15 +114,16 @@ impl AsteroidColoniesGame {
 /// Count all items in delivery flight and sum up in a single HashMap.
 pub(crate) fn expected_deliveries(
     transports: &EntitySet<Transport>,
-    dest: Pos,
+    expected_transports: &HashSet<EntityId>,
 ) -> HashMap<ItemType, usize> {
-    transports
+    let mut expected = HashMap::new();
+    for t in expected_transports
         .iter()
-        .filter(|t| t.dest == dest)
-        .fold(HashMap::new(), |mut acc, cur| {
-            *acc.entry(cur.item).or_default() += cur.amount;
-            acc
-        })
+        .filter_map(|id| transports.get(*id))
+    {
+        *expected.entry(t.item).or_default() += t.amount;
+    }
+    expected
 }
 
 /// Conveyor position, or composite position.

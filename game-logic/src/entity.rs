@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, ops::Index};
 
 use serde::{Deserialize, Serialize};
 
@@ -51,6 +51,13 @@ impl<T> EntitySet<T> {
             .filter_map(|(i, v)| Some((EntityId::new(i as u32, v.gen), v.payload.as_ref()?)))
     }
 
+    pub fn items_mut(&mut self) -> impl Iterator<Item = (EntityId, &mut T)> {
+        self.v
+            .iter_mut()
+            .enumerate()
+            .filter_map(|(i, v)| Some((EntityId::new(i as u32, v.gen), v.payload.as_mut()?)))
+    }
+
     pub fn insert(&mut self, val: T) -> EntityId {
         for (i, entry) in self.v.iter_mut().enumerate() {
             if entry.payload.is_none() {
@@ -64,9 +71,13 @@ impl<T> EntitySet<T> {
     }
 
     pub fn remove(&mut self, id: EntityId) -> Option<T> {
-        self.v
-            .get_mut(id.id as usize)
-            .and_then(|entry| entry.payload.take())
+        self.v.get_mut(id.id as usize).and_then(|entry| {
+            if id.gen == entry.gen {
+                entry.payload.take()
+            } else {
+                None
+            }
+        })
     }
 
     pub fn retain(&mut self, f: impl Fn(&T) -> bool) {
@@ -78,6 +89,24 @@ impl<T> EntitySet<T> {
                 entry.payload = None;
             }
         }
+    }
+
+    pub fn get(&self, id: EntityId) -> Option<&T> {
+        self.v.get(id.id as usize).and_then(|entry| {
+            if id.gen == entry.gen {
+                entry.payload.as_ref()
+            } else {
+                None
+            }
+        })
+    }
+}
+
+/// Index operator. You should prefer `get()` since it will panic if the entity is destroyed
+impl<T> Index<EntityId> for EntitySet<T> {
+    type Output = T;
+    fn index(&self, index: EntityId) -> &Self::Output {
+        &self.v[index.id as usize].payload.as_ref().unwrap()
     }
 }
 
@@ -91,7 +120,7 @@ impl<'a, T> IntoIterator for &'a EntitySet<T> {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct EntityId {
     id: u32,
     gen: u32,

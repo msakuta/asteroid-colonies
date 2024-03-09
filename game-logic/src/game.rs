@@ -437,6 +437,31 @@ impl AsteroidColoniesGame {
         self.transports = ser_data.transports;
         self.constructions = ser_data.constructions;
         self.rng = ser_data.rng;
+
+        // Clear transports expectation cache
+        for building in self.buildings.items_mut() {
+            building.expected_transports.clear();
+        }
+
+        // Clear transports expectation cache
+        for construction in &mut self.constructions {
+            construction.clear_expected_all();
+        }
+
+        // Reconstruct transports expectation cache from actual data
+        for (id, t) in self.transports.items() {
+            let Some(t_pos) = t.path.last() else {
+                continue;
+            };
+            if let Some(building) = self.buildings.items_mut().find(|b| b.intersects(*t_pos)) {
+                building.expected_transports.insert(id);
+            } else if let Some(construction) =
+                self.constructions.iter_mut().find(|c| c.intersects(*t_pos))
+            {
+                construction.insert_expected_transports(id);
+            }
+        }
+
         if let Some(ref f) = self.calculate_back_image {
             f(&mut self.tiles);
         }

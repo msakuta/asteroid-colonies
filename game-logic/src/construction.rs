@@ -1,10 +1,13 @@
-use std::{collections::HashMap, sync::OnceLock};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::OnceLock,
+};
 
 use crate::{
     building::{Building, BuildingType},
     crew::{expected_crew_deliveries, Crew},
     direction::Direction,
-    entity::{EntityEntry, EntitySet},
+    entity::{EntityEntry, EntityId, EntitySet},
     items::{Inventory, ItemType},
     push_pull::{pull_inputs, push_outputs, HasInventory},
     task::{BUILD_CONVEYOR_TIME, BUILD_POWER_GRID_TIME},
@@ -32,6 +35,9 @@ pub struct Construction {
     pub recipe: BuildMenuItem,
     canceling: bool,
     pub progress: f64,
+    #[serde(skip)]
+    /// A cache of expected transports
+    expected_transports: HashSet<EntityId>,
 }
 
 impl Construction {
@@ -43,6 +49,7 @@ impl Construction {
             recipe: (*item).clone(),
             canceling: false,
             progress: 0.,
+            expected_transports: HashSet::new(),
         }
     }
 
@@ -98,6 +105,7 @@ impl Construction {
             recipe: recipe.clone(),
             canceling: true,
             progress: recipe.time,
+            expected_transports: HashSet::new(),
         })
     }
 
@@ -117,6 +125,14 @@ impl Construction {
             ConstructionType::Building(b) => b.size(),
             _ => [1; 2],
         }
+    }
+
+    pub fn intersects(&self, pos: Pos) -> bool {
+        let size = self.size();
+        self.pos[0] <= pos[0]
+            && pos[0] <= self.pos[0] + size[0] as i32
+            && self.pos[1] <= pos[1]
+            && pos[1] <= self.pos[1] + size[1] as i32
     }
 
     pub fn canceling(&self) -> bool {
@@ -145,7 +161,7 @@ impl Construction {
         if self.canceling {
             return Box::new(std::iter::empty());
         }
-        let expected = expected_deliveries(transports, self.pos);
+        let expected = expected_deliveries(transports, &self.expected_transports);
         let crew_expected = expected_crew_deliveries(crews, self.pos);
         Box::new(
             self.recipe
@@ -174,6 +190,18 @@ impl Construction {
                 .iter()
                 .filter_map(|(i, v)| if 0 < *v { Some((*i, *v)) } else { None }),
         )
+    }
+
+    pub fn insert_expected_transports(&mut self, id: EntityId) {
+        self.expected_transports.insert(id);
+    }
+
+    pub fn clear_expected(&mut self, id: EntityId) {
+        self.expected_transports.remove(&id);
+    }
+
+    pub fn clear_expected_all(&mut self) {
+        self.expected_transports.clear();
     }
 }
 
@@ -255,12 +283,14 @@ impl AsteroidColoniesGame {
                     crate::console_log!("Pushed out after: {:?}", construction.ingredients);
                 }
             } else {
+                let size = construction.size();
                 pull_inputs(
                     &construction.recipe.ingredients,
                     &self.tiles,
                     &mut self.transports,
+                    &mut construction.expected_transports,
                     construction.pos,
-                    construction.size(),
+                    size,
                     &mut construction.ingredients,
                     &mut self.buildings,
                     &mut [],
