@@ -235,8 +235,7 @@ impl Crew {
                 })
                 .or_else(|| {
                     let (idx, transport) = transports
-                        .iter()
-                        .enumerate()
+                        .items()
                         .find(|(_, t)| t.path.last() == Some(&src))?;
                     println!("Found transports: {idx}, {transport:?}");
                     let item = transport.item;

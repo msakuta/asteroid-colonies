@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -42,26 +44,29 @@ impl<T> EntitySet<T> {
         self.v.iter_mut().filter_map(|v| v.payload.as_mut())
     }
 
-    pub fn items(&self) -> impl Iterator<Item = (usize, &T)> {
+    pub fn items(&self) -> impl Iterator<Item = (EntityId, &T)> {
         self.v
             .iter()
             .enumerate()
-            .filter_map(|(i, v)| Some((i, v.payload.as_ref()?)))
+            .filter_map(|(i, v)| Some((EntityId::new(i as u32, v.gen), v.payload.as_ref()?)))
     }
 
-    pub fn insert(&mut self, val: T) -> usize {
+    pub fn insert(&mut self, val: T) -> EntityId {
         for (i, entry) in self.v.iter_mut().enumerate() {
             if entry.payload.is_none() {
+                entry.gen += 1;
                 entry.payload = Some(val);
-                return i;
+                return EntityId::new(i as u32, entry.gen);
             }
         }
         self.v.push(EntityEntry::new(val));
-        self.v.len() - 1
+        EntityId::new(self.v.len() as u32 - 1, 0)
     }
 
-    pub fn remove(&mut self, idx: usize) -> Option<T> {
-        self.v.get_mut(idx).and_then(|entry| entry.payload.take())
+    pub fn remove(&mut self, id: EntityId) -> Option<T> {
+        self.v
+            .get_mut(id.id as usize)
+            .and_then(|entry| entry.payload.take())
     }
 }
 
@@ -72,6 +77,24 @@ impl<'a, T> IntoIterator for &'a EntitySet<T> {
     type IntoIter = Box<dyn Iterator<Item = &'a T> + 'a>;
     fn into_iter(self) -> Self::IntoIter {
         Box::new(self.v.iter().filter_map(|v| v.payload.as_ref()))
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EntityId {
+    id: u32,
+    gen: u32,
+}
+
+impl EntityId {
+    fn new(id: u32, gen: u32) -> Self {
+        Self { id, gen }
+    }
+}
+
+impl Display for EntityId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({},{})", self.id, self.gen)
     }
 }
 
