@@ -68,6 +68,17 @@ impl<T> EntitySet<T> {
             .get_mut(id.id as usize)
             .and_then(|entry| entry.payload.take())
     }
+
+    pub fn retain(&mut self, f: impl Fn(&T) -> bool) {
+        for entry in &mut self.v {
+            let Some(payload) = entry.payload.as_mut() else {
+                continue;
+            };
+            if !f(payload) {
+                entry.payload = None;
+            }
+        }
+    }
 }
 
 /// An inefficient implementation of IntoIterator.

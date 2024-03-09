@@ -106,14 +106,7 @@ impl AsteroidColoniesGame {
             }
         }
 
-        let removes: Vec<_> = self
-            .transports
-            .items()
-            .filter_map(|(i, v)| if v.path.is_empty() { Some(i) } else { None })
-            .collect();
-        for r in removes {
-            self.transports.remove(r);
-        }
+        self.transports.retain(|v| !v.path.is_empty());
     }
 }
 
