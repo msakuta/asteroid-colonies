@@ -8,7 +8,7 @@ use crate::{
     building::Building,
     conveyor::Conveyor,
     direction::Direction,
-    entity::{EntityEntry, EntityId, EntityIterMutExt, EntitySet},
+    entity::{EntityEntry, EntityId, EntitySet},
     items::ItemType,
     transport::{expected_deliveries, find_multipath_should_expand, CPos, LevelTarget, Transport},
     Pos, Tile, Tiles, WIDTH,
@@ -66,7 +66,13 @@ pub(crate) fn pull_inputs(
         if *count <= this_count {
             continue;
         }
-        let Some((src, amount)) = find_from_other_inventory_mut(*ty, first, last) else {
+        let Some((src, amount)) = find_from_inventory_mut(
+            *ty,
+            first
+                .iter_mut()
+                .chain(last.iter_mut())
+                .filter_map(|e| e.payload.as_mut()),
+        ) else {
             continue;
         };
         if amount == 0 {
@@ -109,7 +115,7 @@ pub(crate) fn pull_inputs(
     // println!("pull_inputs took {} sec", time);
 }
 
-fn find_from_other_inventory_mut<'a>(
+fn _find_from_other_inventory_mut<'a>(
     item: ItemType,
     first: &'a mut [EntityEntry<Building>],
     last: &'a mut [EntityEntry<Building>],
@@ -118,6 +124,32 @@ fn find_from_other_inventory_mut<'a>(
         let Some(ref mut o) = o.payload else {
             return None;
         };
+        let count = *o.inventory.get(&item)?;
+        if count == 0 {
+            return None;
+        }
+        Some((o, count))
+    })
+}
+
+fn find_from_inventory_mut<'a>(
+    item: ItemType,
+    mut iter: impl Iterator<Item = &'a mut Building>,
+) -> Option<(&'a mut Building, usize)> {
+    iter.find_map(|o| {
+        let count = *o.inventory.get(&item)?;
+        if count == 0 {
+            return None;
+        }
+        Some((o, count))
+    })
+}
+
+fn _find_from_inventory<'a>(
+    item: ItemType,
+    mut iter: impl Iterator<Item = &'a Building>,
+) -> Option<(&'a Building, usize)> {
+    iter.find_map(|o| {
         let count = *o.inventory.get(&item)?;
         if count == 0 {
             return None;
@@ -154,12 +186,11 @@ impl HasInventory for Building {
     }
 }
 
-pub(crate) fn push_outputs(
+pub(crate) fn push_outputs<'a>(
     tiles: &impl TileSampler,
     transports: &mut EntitySet<Transport>,
     this: &mut impl HasInventory,
-    first: &mut [EntityEntry<Building>],
-    last: &mut [EntityEntry<Building>],
+    mut buildings: impl Iterator<Item = &'a mut Building>,
     is_output: &impl Fn(ItemType) -> bool,
 ) {
     let pos = this.pos();
@@ -173,7 +204,7 @@ pub(crate) fn push_outputs(
     //     start_neighbors
     // );
     // let start = std::time::Instant::now();
-    let dest = first.items_mut().chain(last.items_mut()).find_map(|b| {
+    let dest = buildings.find_map(|b| {
         if !b.type_.is_storage() {
             return None;
         }

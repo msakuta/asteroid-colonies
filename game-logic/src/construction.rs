@@ -7,7 +7,7 @@ use crate::{
     building::{Building, BuildingType},
     crew::{expected_crew_deliveries, Crew},
     direction::Direction,
-    entity::{EntityEntry, EntityId, EntitySet},
+    entity::{EntityId, EntitySet},
     items::{Inventory, ItemType},
     push_pull::{pull_inputs, push_outputs, HasInventory},
     task::{BUILD_CONVEYOR_TIME, BUILD_POWER_GRID_TIME},
@@ -276,8 +276,7 @@ impl AsteroidColoniesGame {
                         &self.tiles,
                         &mut self.transports,
                         construction,
-                        &mut self.buildings,
-                        &mut [],
+                        self.buildings.iter_mut(),
                         &|_| true,
                     );
                     crate::console_log!("Pushed out after: {:?}", construction.ingredients);
@@ -292,7 +291,7 @@ impl AsteroidColoniesGame {
                     construction.pos,
                     size,
                     &mut construction.ingredients,
-                    &mut self.buildings,
+                    self.buildings.as_mut(),
                     &mut [],
                 );
                 // TODO: should we always use the same amount of time to deconstruct as construction?
@@ -303,14 +302,7 @@ impl AsteroidColoniesGame {
                 let pos = construction.pos;
                 match construction.type_ {
                     ConstructionType::Building(ty) => {
-                        let b = self.buildings.iter_mut().find(|c| c.payload.is_none());
-                        if let Some(b) = b {
-                            b.gen += 1;
-                            b.payload = Some(Building::new(pos, ty));
-                        } else {
-                            self.buildings
-                                .push(EntityEntry::new(Building::new(pos, ty)));
-                        }
+                        self.buildings.insert(Building::new(pos, ty));
                     }
                     ConstructionType::PowerGrid => {
                         if let Some(tile) = self.tiles.try_get_mut(pos) {

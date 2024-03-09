@@ -12,7 +12,7 @@ use self::crew_cabin::Envs;
 use crate::{
     construction::Construction,
     crew::expected_crew_pickup_any,
-    entity::{EntityEntry, EntityId, EntityIterExt, EntityIterMutExt, EntitySet},
+    entity::{EntityId, EntitySet},
     hash_map,
     items::ItemType,
     measure_time,
@@ -177,7 +177,7 @@ impl Building {
     }
 
     pub fn tick(
-        bldgs: &mut [EntityEntry<Building>],
+        bldgs: &mut EntitySet<Building>,
         idx: usize,
         tiles: &Tiles,
         transports: &mut EntitySet<Transport>,
@@ -186,19 +186,22 @@ impl Building {
         gtasks: &[GlobalTask],
         rng: &mut Xor128,
     ) -> Result<(), String> {
-        let (first, rest) = bldgs.split_at_mut(idx);
-        let Some((this, last)) = rest.split_first_mut() else {
-            return Ok(());
-        };
-        let Some(ref mut this) = this.payload else {
+        let Some((this, first, last)) = bldgs.split_mid_mut(idx) else {
             return Ok(());
         };
         // Try pushing out products
         if let Some(ref recipe) = this.recipe {
             let outputs: HashSet<_> = recipe.outputs.keys().copied().collect();
-            push_outputs(tiles, transports, this, first, last, &|item| {
-                outputs.contains(&item)
-            });
+            push_outputs(
+                tiles,
+                transports,
+                this,
+                first
+                    .iter_mut()
+                    .chain(last.iter_mut())
+                    .filter_map(|b| b.payload.as_mut()),
+                &|item| outputs.contains(&item),
+            );
         }
         if matches!(this.task, Task::None) {
             if let Some(recipe) = &this.recipe {
@@ -240,9 +243,16 @@ impl Building {
         }
         match this.type_ {
             BuildingType::Excavator => {
-                push_outputs(tiles, transports, this, first, last, &|t| {
-                    matches!(t, ItemType::RawOre)
-                });
+                push_outputs(
+                    tiles,
+                    transports,
+                    this,
+                    first
+                        .iter_mut()
+                        .chain(last.iter_mut())
+                        .filter_map(|b| b.payload.as_mut()),
+                    &|t| matches!(t, ItemType::RawOre),
+                );
             }
             BuildingType::CrewCabin => {
                 if this.crews == 0 {
@@ -314,9 +324,16 @@ impl Building {
                 }
             }
             BuildingType::Furnace => {
-                push_outputs(tiles, transports, this, first, last, &|t| {
-                    !matches!(t, ItemType::RawOre)
-                });
+                push_outputs(
+                    tiles,
+                    transports,
+                    this,
+                    first
+                        .iter_mut()
+                        .chain(last.iter_mut())
+                        .filter_map(|b| b.payload.as_mut()),
+                    &|t| !matches!(t, ItemType::RawOre),
+                );
                 if !matches!(this.task, Task::None) {
                     return Ok(());
                 }
@@ -365,12 +382,12 @@ impl AsteroidColoniesGame {
     pub(super) fn process_buildings(&mut self) {
         let power_demand = self
             .buildings
-            .items()
+            .iter()
             .map(|b| b.power().min(0).abs() as usize)
             .sum::<usize>();
         let power_supply = self
             .buildings
-            .items()
+            .iter()
             .map(|b| b.power().max(0).abs() as usize)
             .sum::<usize>();
         // let power_load = (power_demand as f64 / power_supply as f64).min(1.);
@@ -392,7 +409,7 @@ impl AsteroidColoniesGame {
                 crate::console_log!("Building::tick error: {}", e);
             };
         }
-        for building in self.buildings.items_mut() {
+        for building in self.buildings.iter_mut() {
             if let Some((item, dest)) = Self::process_task(
                 &mut self.tiles,
                 building,
@@ -404,7 +421,7 @@ impl AsteroidColoniesGame {
         }
 
         for (item, item_pos) in moving_items {
-            let found = self.buildings.items_mut().find(|b| b.pos == item_pos);
+            let found = self.buildings.iter_mut().find(|b| b.pos == item_pos);
             if let Some(found) = found {
                 *found.inventory.entry(item).or_default() += 1;
             }

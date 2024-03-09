@@ -6,7 +6,6 @@ use crate::{
     building::{Building, BuildingType, Recipe},
     construction::Construction,
     direction::Direction,
-    entity::{EntityIterExt, EntityIterMutExt},
     game::CalculateBackImage,
     items::ItemType,
     transport::find_path,
@@ -64,7 +63,7 @@ impl AsteroidColoniesGame {
         if !matches!(self.tiles[[ix, iy]].state, TileState::Solid) {
             return Err("Already excavated".to_string());
         }
-        for building in self.buildings.items_mut() {
+        for building in self.buildings.iter_mut() {
             if building.type_ != BuildingType::Excavator {
                 continue;
             }
@@ -79,7 +78,7 @@ impl AsteroidColoniesGame {
         }
         if self
             .buildings
-            .items()
+            .iter()
             .find(|b| {
                 matches!(b.type_, BuildingType::CrewCabin)
                     && find_path(b.pos, [ix, iy], |pos| {
@@ -124,15 +123,12 @@ impl AsteroidColoniesGame {
         }
         let Some(_dest) = self
             .buildings
-            .items()
+            .iter()
             .find(|b| b.pos[0] == ix && b.pos[1] == iy)
         else {
             return Err(String::from("Needs a building at the destination"));
         };
-        for building in &mut self.buildings {
-            let Some(ref mut building) = building.payload else {
-                continue;
-            };
+        for building in self.buildings.iter_mut() {
             if 0 < *building.inventory.get(&ItemType::RawOre).unwrap_or(&0) {
                 building.task = Task::MoveItem {
                     t: MOVE_ITEM_TIME,
@@ -163,15 +159,7 @@ impl AsteroidColoniesGame {
         iy: i32,
         recipe: Option<&Recipe>,
     ) -> Result<bool, String> {
-        let intersects = |b: &Building| {
-            let size = b.type_.size();
-            b.pos[0] <= ix
-                && ix < size[0] as i32 + b.pos[0]
-                && b.pos[1] <= iy
-                && iy < size[1] as i32 + b.pos[1]
-        };
-
-        let Some(assembler) = self.buildings.items_mut().find(|b| intersects(b)) else {
+        let Some(assembler) = self.buildings.iter_mut().find(|b| b.intersects([ix, iy])) else {
             return Err(String::from("The building does not exist at the target"));
         };
         if !matches!(assembler.type_, BuildingType::Assembler) {
@@ -259,11 +247,7 @@ impl AsteroidColoniesGame {
     }
 
     pub(super) fn process_global_tasks(&mut self) {
-        let power_cap: isize = self
-            .buildings
-            .iter()
-            .filter_map(|b| b.payload.as_ref().map(|b| b.power()))
-            .sum();
+        let power_cap: isize = self.buildings.iter().map(|b| b.power()).sum();
         let power = power_cap;
 
         for task in &self.global_tasks {

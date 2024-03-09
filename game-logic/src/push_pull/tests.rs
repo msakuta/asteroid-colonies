@@ -35,11 +35,13 @@ fn test_pull_inputs() {
     let mut inputs = HashMap::new();
     inputs.insert(ItemType::RawOre, 1);
 
-    let mut storage = [EntityEntry::new(Building::new_inventory(
+    let mut storage: EntitySet<_> = [Building::new_inventory(
         [1, -1],
         BuildingType::Storage,
         inputs.clone(),
-    ))];
+    )]
+    .into_iter()
+    .collect();
 
     let mut transports = EntitySet::new();
 
@@ -47,10 +49,11 @@ fn test_pull_inputs() {
         &inputs,
         &MockTiles,
         &mut transports,
+        &mut HashSet::new(),
         [1, 3],
         [1, 1],
         &mut HashMap::new(),
-        &mut storage,
+        storage.as_mut(),
         &mut [],
     );
 
@@ -84,10 +87,9 @@ impl HasInventory for MockInventory {
 
 #[test]
 fn test_push_outputs() {
-    let mut storage = [EntityEntry::new(Building::new(
-        [1, -1],
-        BuildingType::Storage,
-    ))];
+    let mut storage: EntitySet<_> = [Building::new([1, -1], BuildingType::Storage)]
+        .into_iter()
+        .collect();
 
     let mut transports = EntitySet::new();
 
@@ -100,8 +102,7 @@ fn test_push_outputs() {
         &MockTiles,
         &mut transports,
         &mut mock_inventory,
-        &mut storage,
-        &mut [],
+        storage.iter_mut(),
         &|_| true,
     );
 
@@ -221,6 +222,7 @@ fn test_pull_inputs2() {
         &inputs,
         &MockTiles2,
         &mut transports,
+        &mut HashSet::new(),
         [1, 4],
         [1, 1],
         &mut HashMap::new(),
@@ -251,10 +253,9 @@ fn test_pull_inputs2() {
 
 #[test]
 fn test_push_outputs2() {
-    let mut storage = [EntityEntry::new(Building::new(
-        [1, -1],
-        BuildingType::Storage,
-    ))];
+    let mut storage: EntitySet<_> = [Building::new([1, -1], BuildingType::Storage)]
+        .into_iter()
+        .collect();
 
     let mut transports = EntitySet::new();
 
@@ -269,8 +270,7 @@ fn test_push_outputs2() {
         &MockTiles2,
         &mut transports,
         &mut mock_inventory,
-        &mut storage,
-        &mut [],
+        storage.iter_mut(),
         &|_| true,
     );
 

@@ -6,7 +6,7 @@ use std::{
 
 use crate::{
     direction::Direction,
-    entity::{EntityId, EntityIterMutExt, EntitySet},
+    entity::{EntityId, EntitySet},
     items::ItemType,
     AsteroidColoniesGame, Conveyor, Pos,
 };
@@ -56,7 +56,7 @@ impl AsteroidColoniesGame {
         let mut check_building = |t: &mut Transport| {
             let building = self
                 .buildings
-                .items_mut()
+                .iter_mut()
                 .find(|b| intersects(b.pos, b.type_.size(), t.dest));
             if let Some(building) = building {
                 if building.inventory_size() + t.amount <= building.type_.capacity() {

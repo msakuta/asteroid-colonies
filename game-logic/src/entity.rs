@@ -58,6 +58,27 @@ impl<T> EntitySet<T> {
             .filter_map(|(i, v)| Some((EntityId::new(i as u32, v.gen), v.payload.as_mut()?)))
     }
 
+    pub fn split_mid(&self, idx: usize) -> Option<(&T, &[EntityEntry<T>], &[EntityEntry<T>])> {
+        if self.v.len() <= idx {
+            return None;
+        }
+        let (first, mid) = self.v.split_at(idx);
+        let (center, last) = mid.split_first()?;
+        Some((center.payload.as_ref()?, first, last))
+    }
+
+    pub fn split_mid_mut(
+        &mut self,
+        idx: usize,
+    ) -> Option<(&mut T, &mut [EntityEntry<T>], &mut [EntityEntry<T>])> {
+        if self.v.len() <= idx {
+            return None;
+        }
+        let (first, mid) = self.v.split_at_mut(idx);
+        let (center, last) = mid.split_first_mut()?;
+        Some((center.payload.as_mut()?, first, last))
+    }
+
     pub fn insert(&mut self, val: T) -> EntityId {
         for (i, entry) in self.v.iter_mut().enumerate() {
             if entry.payload.is_none() {
@@ -102,6 +123,12 @@ impl<T> EntitySet<T> {
     }
 }
 
+impl<T> AsMut<Vec<EntityEntry<T>>> for EntitySet<T> {
+    fn as_mut(&mut self) -> &mut Vec<EntityEntry<T>> {
+        &mut self.v
+    }
+}
+
 /// Index operator. You should prefer `get()` since it will panic if the entity is destroyed
 impl<T> Index<EntityId> for EntitySet<T> {
     type Output = T;
@@ -117,6 +144,13 @@ impl<'a, T> IntoIterator for &'a EntitySet<T> {
     type IntoIter = Box<dyn Iterator<Item = &'a T> + 'a>;
     fn into_iter(self) -> Self::IntoIter {
         Box::new(self.v.iter().filter_map(|v| v.payload.as_ref()))
+    }
+}
+
+impl<A> FromIterator<A> for EntitySet<A> {
+    fn from_iter<T: IntoIterator<Item = A>>(iter: T) -> Self {
+        let v = iter.into_iter().map(EntityEntry::new).collect();
+        Self { v }
     }
 }
 

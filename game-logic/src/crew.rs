@@ -5,7 +5,7 @@ use crate::{
     building::Building,
     console_log,
     construction::Construction,
-    entity::{EntityEntry, EntityIterMutExt, EntitySet},
+    entity::EntitySet,
     hash_map,
     items::ItemType,
     task::{GlobalTask, EXCAVATE_ORE_AMOUNT, LABOR_EXCAVATE_TIME},
@@ -193,7 +193,7 @@ impl Crew {
         src: Pos,
         dest: Pos,
         tiles: &Tiles,
-        buildings: &mut [EntityEntry<Building>],
+        buildings: &mut EntitySet<Building>,
         constructions: &mut [Construction],
         transports: &mut EntitySet<Transport>,
     ) {
@@ -224,7 +224,7 @@ impl Crew {
         };
 
         let res =
-            (|| process_inventory(&mut buildings.items_mut().find(|o| intersects(o))?.inventory))()
+            (|| process_inventory(&mut buildings.iter_mut().find(|o| intersects(o))?.inventory))()
                 .or_else(|| {
                     process_inventory(
                         &mut constructions
@@ -275,8 +275,8 @@ impl Crew {
 
 impl AsteroidColoniesGame {
     pub(super) fn process_crews(&mut self) {
-        let try_return = |crew: &mut Crew, buildings: &mut [EntityEntry<Building>]| {
-            if let Some(building) = buildings.items_mut().find(|b| b.pos == crew.from) {
+        let try_return = |crew: &mut Crew, buildings: &mut EntitySet<Building>| {
+            if let Some(building) = buildings.iter_mut().find(|b| b.pos == crew.from) {
                 building.crews += 1;
                 for (item, amount) in &crew.inventory {
                     *building.inventory.entry(*item).or_default() += *amount;
