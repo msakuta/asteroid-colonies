@@ -1,6 +1,6 @@
 use crate::{
     construction::Construction,
-    entity::{EntityEntry, EntityIterExt},
+    entity::{EntityEntry, EntityIterExt, EntitySet},
     push_pull::HasInventory,
     transport::find_multipath,
     Crew, TileState, Tiles, Transport,
@@ -11,7 +11,7 @@ use super::Building;
 pub(super) struct Envs<'a> {
     pub first: &'a [EntityEntry<Building>],
     pub last: &'a [EntityEntry<Building>],
-    pub transports: &'a [Transport],
+    pub transports: &'a EntitySet<Transport>,
     pub crews: &'a [Crew],
     pub tiles: &'a Tiles,
 }

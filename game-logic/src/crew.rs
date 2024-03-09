@@ -5,7 +5,7 @@ use crate::{
     building::Building,
     console_log,
     construction::Construction,
-    entity::{EntityEntry, EntityIterMutExt},
+    entity::{EntityEntry, EntityIterMutExt, EntitySet},
     hash_map,
     items::ItemType,
     task::{GlobalTask, EXCAVATE_ORE_AMOUNT, LABOR_EXCAVATE_TIME},
@@ -195,7 +195,7 @@ impl Crew {
         tiles: &Tiles,
         buildings: &mut [EntityEntry<Building>],
         constructions: &mut [Construction],
-        transports: &mut Vec<Transport>,
+        transports: &mut EntitySet<Transport>,
     ) {
         let mut process_inventory = |inventory: &mut HashMap<ItemType, usize>| {
             let Some(item) = item.or_else(|| inventory.keys().copied().next()) else {

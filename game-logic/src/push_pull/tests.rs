@@ -41,7 +41,7 @@ fn test_pull_inputs() {
         inputs.clone(),
     ))];
 
-    let mut transports = vec![];
+    let mut transports = EntitySet::new();
 
     pull_inputs(
         &inputs,
@@ -54,16 +54,16 @@ fn test_pull_inputs() {
         &mut [],
     );
 
-    assert_eq!(
-        transports,
-        vec![Transport {
-            src: [1, -1],
-            dest: [1, 3],
-            item: ItemType::RawOre,
-            amount: 1,
-            path: vec![[1, 3], [1, 2], [0, 2], [0, 1], [0, 0], [1, 0], [1, -1]],
-        }]
-    )
+    let mut expected = EntitySet::new();
+    expected.insert(Transport {
+        src: [1, -1],
+        dest: [1, 3],
+        item: ItemType::RawOre,
+        amount: 1,
+        path: vec![[1, 3], [1, 2], [0, 2], [0, 1], [0, 0], [1, 0], [1, -1]],
+    });
+
+    assert_eq!(transports, expected)
 }
 
 struct MockInventory(Pos, Inventory);
@@ -89,7 +89,7 @@ fn test_push_outputs() {
         BuildingType::Storage,
     ))];
 
-    let mut transports = vec![];
+    let mut transports = EntitySet::new();
 
     let mut outputs = Inventory::new();
     outputs.insert(ItemType::RawOre, 1);
@@ -105,16 +105,16 @@ fn test_push_outputs() {
         &|_| true,
     );
 
-    assert_eq!(
-        transports,
-        vec![Transport {
-            src: [1, 3],
-            dest: [1, -1],
-            item: ItemType::RawOre,
-            amount: 1,
-            path: vec![[1, -1], [1, 0], [2, 0], [2, 1], [2, 2], [1, 2], [1, 3]],
-        }]
-    )
+    let mut expected = EntitySet::new();
+    expected.insert(Transport {
+        src: [1, 3],
+        dest: [1, -1],
+        item: ItemType::RawOre,
+        amount: 1,
+        path: vec![[1, -1], [1, 0], [2, 0], [2, 1], [2, 2], [1, 2], [1, 3]],
+    });
+
+    assert_eq!(transports, expected)
 }
 
 struct MockTiles2;
@@ -215,7 +215,7 @@ fn test_pull_inputs2() {
         inputs.clone(),
     ))];
 
-    let mut transports = vec![];
+    let mut transports = EntitySet::new();
 
     pull_inputs(
         &inputs,
@@ -228,25 +228,25 @@ fn test_pull_inputs2() {
         &mut [],
     );
 
-    assert_eq!(
-        transports,
-        vec![Transport {
-            src: [1, -1],
-            dest: [1, 4],
-            item: ItemType::RawOre,
-            amount: 1,
-            path: vec![
-                [1, 4],
-                [1, 3],
-                [0, 3],
-                [0, 2],
-                [0, 1],
-                [0, 0],
-                [1, 0],
-                [1, -1]
-            ],
-        }]
-    )
+    let mut expected = EntitySet::new();
+    expected.insert(Transport {
+        src: [1, -1],
+        dest: [1, 4],
+        item: ItemType::RawOre,
+        amount: 1,
+        path: vec![
+            [1, 4],
+            [1, 3],
+            [0, 3],
+            [0, 2],
+            [0, 1],
+            [0, 0],
+            [1, 0],
+            [1, -1],
+        ],
+    });
+
+    assert_eq!(transports, expected)
 }
 
 #[test]
@@ -256,7 +256,7 @@ fn test_push_outputs2() {
         BuildingType::Storage,
     ))];
 
-    let mut transports = vec![];
+    let mut transports = EntitySet::new();
 
     let mut outputs = Inventory::new();
     outputs.insert(ItemType::RawOre, 1);
@@ -274,29 +274,29 @@ fn test_push_outputs2() {
         &|_| true,
     );
 
-    assert_eq!(
-        transports,
-        vec![Transport {
-            src: [1, 4],
-            dest: [1, -1],
-            item: ItemType::RawOre,
-            amount: 1,
-            path: vec![
-                [1, -1],
-                [1, 0],
-                [2, 0],
-                [3, 0],
-                [3, 1],
-                [3, 2],
-                [2, 2],
-                [1, 2],
-                [1, 1],
-                [2, 1],
-                [2, 2],
-                [2, 3],
-                [1, 3],
-                [1, 4]
-            ],
-        }]
-    )
+    let mut expected = EntitySet::new();
+    expected.insert(Transport {
+        src: [1, 4],
+        dest: [1, -1],
+        item: ItemType::RawOre,
+        amount: 1,
+        path: vec![
+            [1, -1],
+            [1, 0],
+            [2, 0],
+            [3, 0],
+            [3, 1],
+            [3, 2],
+            [2, 2],
+            [1, 2],
+            [1, 1],
+            [2, 1],
+            [2, 2],
+            [2, 3],
+            [1, 3],
+            [1, 4],
+        ],
+    });
+
+    assert_eq!(transports, expected)
 }

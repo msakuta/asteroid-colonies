@@ -4,7 +4,7 @@ use crate::{
     building::{Building, BuildingType},
     crew::{expected_crew_deliveries, Crew},
     direction::Direction,
-    entity::EntityEntry,
+    entity::{EntityEntry, EntitySet},
     items::{Inventory, ItemType},
     push_pull::{pull_inputs, push_outputs, HasInventory},
     task::{BUILD_CONVEYOR_TIME, BUILD_POWER_GRID_TIME},
@@ -139,7 +139,7 @@ impl Construction {
 
     pub fn required_ingredients<'a>(
         &'a self,
-        transports: &'a [Transport],
+        transports: &'a EntitySet<Transport>,
         crews: &'a [Crew],
     ) -> Box<dyn Iterator<Item = (ItemType, usize)> + 'a> {
         if self.canceling {

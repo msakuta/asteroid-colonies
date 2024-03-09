@@ -8,7 +8,7 @@ use crate::{
     conveyor::Conveyor,
     crew::Crew,
     direction::Direction,
-    entity::{EntityEntry, EntityIterExt, EntityIterMutExt},
+    entity::{EntityEntry, EntityIterExt, EntityIterMutExt, EntitySet},
     hash_map,
     items::{recipes, ItemType},
     task::{GlobalTask, Task, MOVE_TIME},
@@ -27,7 +27,7 @@ pub struct AsteroidColoniesGame {
     /// Used power for the last tick, in kW
     pub(crate) used_power: usize,
     pub(crate) global_time: usize,
-    pub(crate) transports: Vec<Transport>,
+    pub(crate) transports: EntitySet<Transport>,
     pub(crate) constructions: Vec<Construction>,
     /// Ghost conveyors staged for commit. After committing, they will be queued to construction plans
     pub(crate) conveyor_staged: HashMap<Pos, Conveyor>,
@@ -135,7 +135,7 @@ impl AsteroidColoniesGame {
             global_tasks: vec![],
             used_power: 0,
             global_time: 0,
-            transports: vec![],
+            transports: EntitySet::new(),
             constructions: vec![],
             conveyor_staged: HashMap::new(),
             conveyor_preview: HashMap::new(),
@@ -486,7 +486,7 @@ pub struct SerializeGame {
     crews: Vec<Crew>,
     global_tasks: Vec<GlobalTask>,
     global_time: usize,
-    transports: Vec<Transport>,
+    transports: EntitySet<Transport>,
     constructions: Vec<Construction>,
     rng: Xor128,
 }

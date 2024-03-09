@@ -8,7 +8,7 @@ use crate::{
     building::Building,
     conveyor::Conveyor,
     direction::Direction,
-    entity::{EntityEntry, EntityIterMutExt},
+    entity::{EntityEntry, EntityIterMutExt, EntitySet},
     items::ItemType,
     transport::{expected_deliveries, find_multipath_should_expand, CPos, LevelTarget, Transport},
     Pos, Tile, Tiles, WIDTH,
@@ -42,7 +42,7 @@ impl TileSampler for Tiles {
 pub(crate) fn pull_inputs(
     inputs: &HashMap<ItemType, usize>,
     tiles: &impl TileSampler,
-    transports: &mut Vec<Transport>,
+    transports: &mut EntitySet<Transport>,
     this_pos: Pos,
     this_size: [usize; 2],
     this_inventory: &mut HashMap<ItemType, usize>,
@@ -89,7 +89,7 @@ pub(crate) fn pull_inputs(
         };
         let src_count = src.inventory.entry(*ty).or_default();
         let amount = (*src_count).min(*count - this_count);
-        transports.push(Transport {
+        transports.insert(Transport {
             src: src.pos,
             dest: this_pos,
             path,
@@ -153,7 +153,7 @@ impl HasInventory for Building {
 
 pub(crate) fn push_outputs(
     tiles: &impl TileSampler,
-    transports: &mut Vec<Transport>,
+    transports: &mut EntitySet<Transport>,
     this: &mut impl HasInventory,
     first: &mut [EntityEntry<Building>],
     last: &mut [EntityEntry<Building>],
@@ -212,7 +212,7 @@ pub(crate) fn push_outputs(
             .iter_mut()
             .find(|(t, count)| is_output(**t) && 0 < **count);
         if let Some((&item, amount)) = product {
-            transports.push(Transport {
+            transports.insert(Transport {
                 src: pos,
                 dest: dest.pos,
                 path,

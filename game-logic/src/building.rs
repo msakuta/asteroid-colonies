@@ -12,7 +12,7 @@ use self::crew_cabin::Envs;
 use crate::{
     construction::Construction,
     crew::expected_crew_pickup_any,
-    entity::{EntityEntry, EntityIterExt, EntityIterMutExt},
+    entity::{EntityEntry, EntityIterExt, EntityIterMutExt, EntitySet},
     hash_map,
     items::ItemType,
     measure_time,
@@ -167,7 +167,7 @@ impl Building {
         bldgs: &mut [EntityEntry<Building>],
         idx: usize,
         tiles: &Tiles,
-        transports: &mut Vec<Transport>,
+        transports: &mut EntitySet<Transport>,
         constructions: &mut [Construction],
         crews: &mut Vec<Crew>,
         gtasks: &[GlobalTask],

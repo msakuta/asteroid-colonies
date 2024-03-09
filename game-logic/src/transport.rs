@@ -5,8 +5,10 @@ use std::{
 };
 
 use crate::{
-    direction::Direction, entity::EntityIterMutExt, items::ItemType, AsteroidColoniesGame,
-    Conveyor, Pos,
+    direction::Direction,
+    entity::{EntityIterMutExt, EntitySet},
+    items::ItemType,
+    AsteroidColoniesGame, Conveyor, Pos,
 };
 
 /// Transporting item
@@ -71,7 +73,7 @@ impl AsteroidColoniesGame {
             .filter_map(|t| t.path.last().copied())
             .collect();
 
-        for t in &mut self.transports {
+        for t in self.transports.iter_mut() {
             if t.path.len() <= 1 {
                 let delivered = check_construction(t) || check_building(t);
                 if !delivered {
@@ -104,12 +106,22 @@ impl AsteroidColoniesGame {
             }
         }
 
-        self.transports.retain(|t| !t.path.is_empty());
+        let removes: Vec<_> = self
+            .transports
+            .items()
+            .filter_map(|(i, v)| if v.path.is_empty() { Some(i) } else { None })
+            .collect();
+        for r in removes {
+            self.transports.remove(r);
+        }
     }
 }
 
 /// Count all items in delivery flight and sum up in a single HashMap.
-pub(crate) fn expected_deliveries(transports: &[Transport], dest: Pos) -> HashMap<ItemType, usize> {
+pub(crate) fn expected_deliveries(
+    transports: &EntitySet<Transport>,
+    dest: Pos,
+) -> HashMap<ItemType, usize> {
     transports
         .iter()
         .filter(|t| t.dest == dest)
