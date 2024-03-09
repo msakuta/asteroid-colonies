@@ -177,7 +177,7 @@ impl Building {
     }
 
     pub fn tick(
-        bldgs: &mut EntitySet<Building>,
+        bldgs: &EntitySet<Building>,
         idx: usize,
         tiles: &Tiles,
         transports: &mut EntitySet<Transport>,
@@ -186,23 +186,17 @@ impl Building {
         gtasks: &[GlobalTask],
         rng: &mut Xor128,
     ) -> Result<(), String> {
-        let Some((this, first, last)) = bldgs.split_mid_mut(idx) else {
+        let Some(mut this) = bldgs.borrow_mut_at(idx) else {
             return Ok(());
         };
         // Try pushing out products
         if let Some(ref recipe) = this.recipe {
             let outputs: HashSet<_> = recipe.outputs.keys().copied().collect();
-            push_outputs(
-                tiles,
-                transports,
-                this,
-                first
-                    .iter_mut()
-                    .chain(last.iter_mut())
-                    .filter_map(|b| b.payload.as_mut()),
-                &|item| outputs.contains(&item),
-            );
+            push_outputs(tiles, transports, &mut *this, bldgs, &|item| {
+                outputs.contains(&item)
+            });
         }
+        let this = &mut *this;
         if matches!(this.task, Task::None) {
             if let Some(recipe) = &this.recipe {
                 pull_inputs(
@@ -213,8 +207,7 @@ impl Building {
                     this.pos,
                     this.type_.size(),
                     &mut this.inventory,
-                    first,
-                    last,
+                    bldgs,
                 );
                 for (ty, recipe_count) in &recipe.inputs {
                     let actual_count = *this.inventory.get(&ty).unwrap_or(&0);
@@ -243,16 +236,9 @@ impl Building {
         }
         match this.type_ {
             BuildingType::Excavator => {
-                push_outputs(
-                    tiles,
-                    transports,
-                    this,
-                    first
-                        .iter_mut()
-                        .chain(last.iter_mut())
-                        .filter_map(|b| b.payload.as_mut()),
-                    &|t| matches!(t, ItemType::RawOre),
-                );
+                push_outputs(tiles, transports, &mut *this, bldgs, &|t| {
+                    matches!(t, ItemType::RawOre)
+                });
             }
             BuildingType::CrewCabin => {
                 if this.crews == 0 {
@@ -297,8 +283,7 @@ impl Building {
                         continue;
                     }
                     let envs = Envs {
-                        first,
-                        last,
+                        buildings: bldgs,
                         transports,
                         crews,
                         tiles,
@@ -324,16 +309,9 @@ impl Building {
                 }
             }
             BuildingType::Furnace => {
-                push_outputs(
-                    tiles,
-                    transports,
-                    this,
-                    first
-                        .iter_mut()
-                        .chain(last.iter_mut())
-                        .filter_map(|b| b.payload.as_mut()),
-                    &|t| !matches!(t, ItemType::RawOre),
-                );
+                push_outputs(tiles, transports, &mut *this, bldgs, &|t| {
+                    !matches!(t, ItemType::RawOre)
+                });
                 if !matches!(this.task, Task::None) {
                     return Ok(());
                 }
@@ -351,8 +329,7 @@ impl Building {
                     this.pos,
                     this.type_.size(),
                     &mut this.inventory,
-                    first,
-                    last,
+                    bldgs,
                 );
                 if let Some(source) = this.inventory.get_mut(&ItemType::RawOre) {
                     if *source < 1 {

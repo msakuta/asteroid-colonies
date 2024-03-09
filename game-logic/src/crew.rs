@@ -245,6 +245,7 @@ impl Crew {
                     })?;
                     self.path = Some(path);
                     self.task = CrewTask::Deliver { dst: dest, item };
+                    drop(transport);
                     transports.remove(idx);
                     Some(())
                 });

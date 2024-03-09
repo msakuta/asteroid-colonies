@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, io::Read};
+use std::{cell::Ref, collections::HashMap, io::Read};
 
 use crate::{
     building::{Building, BuildingType, Recipe},
@@ -163,7 +163,7 @@ impl AsteroidColoniesGame {
         &self.tiles[pos]
     }
 
-    pub fn iter_building(&self) -> impl Iterator<Item = &Building> {
+    pub fn iter_building(&self) -> impl Iterator<Item = Ref<Building>> {
         self.buildings.iter()
     }
 
@@ -183,7 +183,7 @@ impl AsteroidColoniesGame {
         self.transports.len()
     }
 
-    pub fn iter_transport(&self) -> impl Iterator<Item = &Transport> {
+    pub fn iter_transport(&self) -> impl Iterator<Item = Ref<Transport>> {
         self.transports.iter()
     }
 
@@ -298,6 +298,7 @@ impl AsteroidColoniesGame {
         let decon = Construction::new_deconstruct(b.type_, [ix, iy], &b.inventory)
             .ok_or_else(|| String::from("No build recipe was found to deconstruct"))?;
         self.constructions.push(decon);
+        drop(b);
 
         self.buildings.remove(id);
 
@@ -319,15 +320,7 @@ impl AsteroidColoniesGame {
     }
 
     pub fn set_recipe(&mut self, ix: i32, iy: i32, name: Option<&str>) -> Result<(), String> {
-        let intersects = |b: &Building| {
-            let size = b.type_.size();
-            b.pos[0] <= ix
-                && ix < size[0] as i32 + b.pos[0]
-                && b.pos[1] <= iy
-                && iy < size[1] as i32 + b.pos[1]
-        };
-
-        let Some(assembler) = self.buildings.iter().find(|b| intersects(*b)) else {
+        let Some(assembler) = self.buildings.iter().find(|b| b.intersects([ix, iy])) else {
             return Err(String::from("The building does not exist at the target"));
         };
         if !matches!(assembler.type_, BuildingType::Assembler) {
@@ -452,12 +445,10 @@ impl AsteroidColoniesGame {
         chunks_digest: &HashMap<Position, u64>,
     ) -> Result<Vec<u8>, String> {
         let tiles = self.tiles.filter_with_diffs(chunks_digest)?;
-        if let Some((b, data)) = self
-            .buildings
-            .iter()
-            .next()
-            .and_then(|b| Some((b, bincode::serialize(b).ok()?)))
-        {
+        if let Some((b, data)) = self.buildings.iter().next().and_then(|b| {
+            let bytes = bincode::serialize(&*b).ok()?;
+            Some((b, bytes))
+        }) {
             println!("serialized bincode: {} {:?}", data.len(), b.type_);
         }
         let ser_game = SerializeGame {

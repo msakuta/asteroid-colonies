@@ -2,7 +2,10 @@
 #[cfg(test)]
 mod tests;
 
-use std::collections::{HashMap, HashSet};
+use std::{
+    cell::RefMut,
+    collections::{HashMap, HashSet},
+};
 
 use crate::{
     building::Building,
@@ -47,8 +50,7 @@ pub(crate) fn pull_inputs(
     this_pos: Pos,
     this_size: [usize; 2],
     this_inventory: &mut HashMap<ItemType, usize>,
-    first: &mut [EntityEntry<Building>],
-    last: &mut [EntityEntry<Building>],
+    buildings: &EntitySet<Building>,
 ) {
     let intersects_goal = |[ix, iy]: [i32; 2]| {
         this_pos[0] <= ix
@@ -66,13 +68,7 @@ pub(crate) fn pull_inputs(
         if *count <= this_count {
             continue;
         }
-        let Some((src, amount)) = find_from_inventory_mut(
-            *ty,
-            first
-                .iter_mut()
-                .chain(last.iter_mut())
-                .filter_map(|e| e.payload.as_mut()),
-        ) else {
+        let Some((mut src, amount)) = find_from_inventory_mut(*ty, buildings) else {
             continue;
         };
         if amount == 0 {
@@ -95,10 +91,11 @@ pub(crate) fn pull_inputs(
         let Some(path) = path else {
             continue;
         };
+        let src_pos = src.pos;
         let src_count = src.inventory.entry(*ty).or_default();
         let amount = (*src_count).min(*count - this_count);
         let id = transports.insert(Transport {
-            src: src.pos,
+            src: src_pos,
             dest: this_pos,
             path,
             item: *ty,
@@ -124,6 +121,7 @@ fn _find_from_other_inventory_mut<'a>(
         let Some(ref mut o) = o.payload else {
             return None;
         };
+        let o = o.get_mut();
         let count = *o.inventory.get(&item)?;
         if count == 0 {
             return None;
@@ -134,9 +132,9 @@ fn _find_from_other_inventory_mut<'a>(
 
 fn find_from_inventory_mut<'a>(
     item: ItemType,
-    mut iter: impl Iterator<Item = &'a mut Building>,
-) -> Option<(&'a mut Building, usize)> {
-    iter.find_map(|o| {
+    buildings: &'a EntitySet<Building>,
+) -> Option<(RefMut<'a, Building>, usize)> {
+    buildings.iter_borrow_mut().find_map(|o| {
         let count = *o.inventory.get(&item)?;
         if count == 0 {
             return None;
@@ -186,13 +184,15 @@ impl HasInventory for Building {
     }
 }
 
-pub(crate) fn push_outputs<'a>(
+pub(crate) fn push_outputs<'a, 'b>(
     tiles: &impl TileSampler,
     transports: &mut EntitySet<Transport>,
     this: &mut impl HasInventory,
-    mut buildings: impl Iterator<Item = &'a mut Building>,
+    buildings: &EntitySet<Building>,
     is_output: &impl Fn(ItemType) -> bool,
-) {
+) where
+    'b: 'a,
+{
     let pos = this.pos();
     let size = this.size();
     let start_pos = || rect_iter(pos, size);
@@ -204,7 +204,7 @@ pub(crate) fn push_outputs<'a>(
     //     start_neighbors
     // );
     // let start = std::time::Instant::now();
-    let dest = buildings.find_map(|b| {
+    let dest = buildings.iter_borrow_mut().find_map(|b| {
         if !b.type_.is_storage() {
             return None;
         }
@@ -240,7 +240,7 @@ pub(crate) fn push_outputs<'a>(
     // println!("searching {:?} nodes path took {} sec", dest.as_ref().map(|(_, path)| path.len()), time);
 
     // Push away outputs
-    if let Some((dest, path)) = dest {
+    if let Some((mut dest, path)) = dest {
         let product = this
             .inventory()
             .iter_mut()

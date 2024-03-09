@@ -97,7 +97,7 @@ impl Handler<Message> for SessionWs {
             Message::Text(txt) => ctx.text(txt),
             Message::Bin(bin) => ctx.binary(bin),
             Message::StateWithDiff => {
-                let game = self.data.game.read().unwrap();
+                let game = self.data.game.lock().unwrap();
                 match game.serialize_with_diffs(&self.chunks_digest) {
                     Ok(bytes) => ctx.binary(bytes),
                     Err(e) => ctx.text(format!("Error: {e}")),
@@ -225,7 +225,7 @@ impl StreamHandler<WsResult> for SessionWs {
 
 impl SessionWs {
     fn handle_message(&mut self, payload: WsMessage) -> anyhow::Result<()> {
-        let mut game = self.data.game.write().unwrap();
+        let mut game = self.data.game.lock().unwrap();
 
         match payload {
             WsMessage::Excavate { x, y } => {

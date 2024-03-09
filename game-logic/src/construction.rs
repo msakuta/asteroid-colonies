@@ -276,7 +276,7 @@ impl AsteroidColoniesGame {
                         &self.tiles,
                         &mut self.transports,
                         construction,
-                        self.buildings.iter_mut(),
+                        &self.buildings,
                         &|_| true,
                     );
                     crate::console_log!("Pushed out after: {:?}", construction.ingredients);
@@ -291,8 +291,7 @@ impl AsteroidColoniesGame {
                     construction.pos,
                     size,
                     &mut construction.ingredients,
-                    self.buildings.as_mut(),
-                    &mut [],
+                    &self.buildings,
                 );
                 // TODO: should we always use the same amount of time to deconstruct as construction?
                 // Some buildings should be easier to deconstruct than construct.

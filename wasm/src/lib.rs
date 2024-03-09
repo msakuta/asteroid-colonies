@@ -120,7 +120,7 @@ impl AsteroidColonies {
 
     pub fn start_move_building(&mut self, x: f64, y: f64) -> bool {
         let pos = self.transform_pos(x, y);
-        let intersects = |b: &&Building| {
+        let intersects = |b: &Building| {
             let size = b.type_.size();
             b.pos[0] <= pos[0]
                 && pos[0] < size[0] as i32 + b.pos[0]
@@ -130,7 +130,7 @@ impl AsteroidColonies {
         if self
             .game
             .iter_building()
-            .find(intersects)
+            .find(|b| intersects(b))
             .is_some_and(|b| b.type_.is_mobile())
         {
             self.move_cursor = Some(pos);

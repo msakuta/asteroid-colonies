@@ -128,7 +128,7 @@ impl AsteroidColoniesGame {
         else {
             return Err(String::from("Needs a building at the destination"));
         };
-        for building in self.buildings.iter_mut() {
+        for mut building in self.buildings.iter_borrow_mut() {
             if 0 < *building.inventory.get(&ItemType::RawOre).unwrap_or(&0) {
                 building.task = Task::MoveItem {
                     t: MOVE_ITEM_TIME,
@@ -154,12 +154,16 @@ impl AsteroidColoniesGame {
     }
 
     pub(super) fn set_building_recipe(
-        &mut self,
+        &self,
         ix: i32,
         iy: i32,
         recipe: Option<&Recipe>,
     ) -> Result<bool, String> {
-        let Some(assembler) = self.buildings.iter_mut().find(|b| b.intersects([ix, iy])) else {
+        let Some(mut assembler) = self
+            .buildings
+            .iter_borrow_mut()
+            .find(|b| b.intersects([ix, iy]))
+        else {
             return Err(String::from("The building does not exist at the target"));
         };
         if !matches!(assembler.type_, BuildingType::Assembler) {

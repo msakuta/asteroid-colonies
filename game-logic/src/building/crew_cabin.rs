@@ -1,16 +1,12 @@
 use crate::{
-    construction::Construction,
-    entity::{EntityEntry, EntityIterExt, EntitySet},
-    push_pull::HasInventory,
-    transport::find_multipath,
-    Crew, TileState, Tiles, Transport,
+    construction::Construction, entity::EntitySet, push_pull::HasInventory,
+    transport::find_multipath, Crew, TileState, Tiles, Transport,
 };
 
 use super::Building;
 
 pub(super) struct Envs<'a> {
-    pub first: &'a [EntityEntry<Building>],
-    pub last: &'a [EntityEntry<Building>],
+    pub buildings: &'a EntitySet<Building>,
     pub transports: &'a EntitySet<Transport>,
     pub crews: &'a [Crew],
     pub tiles: &'a Tiles,
@@ -26,12 +22,13 @@ impl Building {
             .required_ingredients(envs.transports, envs.crews)
             .find_map(|(ty, _)| {
                 let mut targets = std::collections::HashMap::new();
-                for o in envs.first.items().chain(envs.last.items()) {
+                for (id, o) in envs.buildings.items() {
                     if 0 < o.inventory.get(&ty).copied().unwrap_or(0) {
+                        let opos = o.pos;
                         let size = o.size();
                         for iy in 0..size[1] {
                             for ix in 0..size[0] {
-                                targets.insert([o.pos[0] + ix as i32, o.pos[1] + iy as i32], o);
+                                targets.insert([opos[0] + ix as i32, opos[1] + iy as i32], id);
                             }
                         }
                     }
@@ -70,12 +67,9 @@ impl Building {
             let path_to_dest = find_multipath(
                 [construction.pos].into_iter(),
                 |pos| {
-                    envs.first.iter().chain(envs.last.iter()).any(|o| {
-                        o.payload
-                            .as_ref()
-                            .map(|o| o.pos == pos && o.inventory_size() < o.type_.capacity())
-                            .unwrap_or(false)
-                    })
+                    envs.buildings
+                        .iter()
+                        .any(|o| o.pos == pos && o.inventory_size() < o.type_.capacity())
                 },
                 |_, pos| matches!(envs.tiles[pos].state, TileState::Empty),
             );

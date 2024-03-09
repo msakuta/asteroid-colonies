@@ -74,9 +74,9 @@ impl AsteroidColoniesGame {
             .filter_map(|t| t.path.last().copied())
             .collect();
 
-        for (id, t) in self.transports.items_mut() {
+        for (id, mut t) in self.transports.items_mut() {
             if t.path.len() <= 1 {
-                let delivered = check_construction(id, t) || check_building(t);
+                let delivered = check_construction(id, &mut *t) || check_building(&mut *t);
                 if !delivered {
                     let tiles = &self.tiles;
                     let return_path = find_multipath(
@@ -93,6 +93,7 @@ impl AsteroidColoniesGame {
                         },
                     );
                     if let Some(return_path) = return_path {
+                        let t = &mut *t;
                         std::mem::swap(&mut t.src, &mut t.dest);
                         t.path = return_path;
                     }
