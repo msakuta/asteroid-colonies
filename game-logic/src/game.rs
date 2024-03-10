@@ -11,6 +11,7 @@ use crate::{
     entity::EntitySet,
     hash_map,
     items::{recipes, ItemType},
+    push_pull::send_item,
     task::{GlobalTask, Task, MOVE_TIME},
     tile::CHUNK_SIZE,
     transport::{find_path, Transport},
@@ -232,6 +233,22 @@ impl AsteroidColoniesGame {
         path.pop();
         building.task = Task::Move(MOVE_TIME, path);
         Ok(())
+    }
+
+    pub fn move_item(&mut self, from: Pos, to: Pos) -> Result<(), String> {
+        let mut src = self
+            .buildings
+            .iter_borrow_mut()
+            .find(|b| b.intersects(from))
+            .ok_or_else(|| "Moving an item needs a building at the source")?;
+        send_item(
+            &mut self.tiles,
+            &mut self.transports,
+            &mut *src,
+            to,
+            &self.buildings,
+            &|_| true,
+        )
     }
 
     pub fn build(&mut self, ix: i32, iy: i32, type_: BuildingType) -> Result<(), String> {

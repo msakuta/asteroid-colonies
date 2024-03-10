@@ -8,7 +8,6 @@ use crate::{
     direction::Direction,
     game::CalculateBackImage,
     items::ItemType,
-    push_pull::send_item,
     transport::find_path,
     AsteroidColoniesGame, Pos, TileState, Tiles,
 };
@@ -112,22 +111,6 @@ impl AsteroidColoniesGame {
         self.constructions
             .push(Construction::new_power_grid([ix, iy]));
         Ok(true)
-    }
-
-    pub fn move_item(&mut self, from: Pos, to: Pos) -> Result<(), String> {
-        let mut src = self
-            .buildings
-            .iter_borrow_mut()
-            .find(|b| b.intersects(from))
-            .ok_or_else(|| "Moving an item needs a building at the source")?;
-        send_item(
-            &mut self.tiles,
-            &mut self.transports,
-            &mut *src,
-            to,
-            &self.buildings,
-            &|_| true,
-        )
     }
 
     pub(super) fn _is_clear(&self, ix: i32, iy: i32, size: [usize; 2]) -> bool {
