@@ -109,6 +109,7 @@ heartbeatDiv.appendChild(heartbeatElem);
     game.render(ctx);
     let mousePos = null;
     let moving = false;
+    let movingItem = false;
     let buildingConveyor = null;
     let dragStart = null;
     let dragLast = null;
@@ -179,6 +180,19 @@ heartbeatDiv.appendChild(heartbeatElem);
             moving = false;
             return;
         }
+        if (movingItem) {
+            try {
+                const to = game.transform_coords(x, y);
+                const from = game.move_item(x, y);
+                requestWs("MoveItem", {from: [from[0], from[1]], to: [to[0], to[1]]});
+            }
+            catch (e) {
+                console.error(`move_item: ${e}`);
+            }
+            messageOverlayElem.style.display = "none";
+            movingItem = false;
+            return;
+        }
 
         if (buildingConveyor) {
             const elem = document.getElementById("conveyor");
@@ -201,9 +215,17 @@ heartbeatDiv.appendChild(heartbeatElem);
                 if (name === "move") {
                     if (game.start_move_building(x, y)) {
                         recipesElem.style.display = "none";
-                        messageOverlayElem.innerHTML = "Choose move destination";
+                        messageOverlayElem.innerHTML = "Choose move building destination";
                         messageOverlayElem.style.display = "block";
                         moving = true;
+                    }
+                }
+                else if (name === "moveItem") {
+                    if (game.start_move_item(x, y)) {
+                        recipesElem.style.display = "none";
+                        messageOverlayElem.innerHTML = "Choose move item destination";
+                        messageOverlayElem.style.display = "block";
+                        movingItem = true;
                     }
                 }
                 else if (name === "conveyor") {

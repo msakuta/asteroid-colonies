@@ -63,6 +63,7 @@ pub struct AsteroidColonies {
     game: AsteroidColoniesGame,
     cursor: Option<Pos>,
     move_cursor: Option<Pos>,
+    move_item_cursor: Option<Pos>,
     assets: Assets,
     viewport: Viewport,
     debug_draw_chunks: bool,
@@ -80,6 +81,7 @@ impl AsteroidColonies {
             game: AsteroidColoniesGame::new(Some(Box::new(calculate_back_image)))?,
             cursor: None,
             move_cursor: None,
+            move_item_cursor: None,
             assets: Assets::new(image_assets)?,
             viewport: Viewport {
                 offset: [
@@ -112,25 +114,37 @@ impl AsteroidColonies {
         let res = match com {
             "excavate" => self.game.excavate(ix, iy),
             "power" => self.game.build_power_grid(ix, iy),
-            "moveItem" => self.game.move_item(ix, iy),
             _ => Err(format!("Unknown command: {}", com)),
         };
         res.map(|r| JsValue::from(r)).map_err(|e| JsValue::from(e))
     }
 
+    pub fn start_move_item(&mut self, x: f64, y: f64) -> bool {
+        let pos = self.transform_pos(x, y);
+        if self.game.iter_building().any(|b| b.intersects(pos)) {
+            self.move_item_cursor = Some(pos);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn move_item(&mut self, dst_x: f64, dst_y: f64) -> Result<JsValue, JsValue> {
+        let dpos = self.transform_pos(dst_x, dst_y);
+        let src = self
+            .move_item_cursor
+            .ok_or_else(|| JsValue::from("Select a building to move items from first"))?;
+        self.move_item_cursor = None;
+        self.game.move_item(src, dpos).map_err(JsValue::from)?;
+        Ok(serde_wasm_bindgen::to_value(&src)?)
+    }
+
     pub fn start_move_building(&mut self, x: f64, y: f64) -> bool {
         let pos = self.transform_pos(x, y);
-        let intersects = |b: &Building| {
-            let size = b.type_.size();
-            b.pos[0] <= pos[0]
-                && pos[0] < size[0] as i32 + b.pos[0]
-                && b.pos[1] <= pos[1]
-                && pos[1] < size[1] as i32 + b.pos[1]
-        };
         if self
             .game
             .iter_building()
-            .find(|b| intersects(b))
+            .find(|b| b.intersects(pos))
             .is_some_and(|b| b.type_.is_mobile())
         {
             self.move_cursor = Some(pos);

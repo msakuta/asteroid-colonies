@@ -265,6 +265,67 @@ pub(crate) fn push_outputs<'a, 'b>(
     }
 }
 
+pub(crate) fn send_item<'a, 'b>(
+    tiles: &impl TileSampler,
+    transports: &mut EntitySet<Transport>,
+    src: &mut impl HasInventory,
+    dest_pos: Pos,
+    buildings: &EntitySet<Building>,
+    is_output: &impl Fn(ItemType) -> bool,
+) -> Result<(), String>
+where
+    'b: 'a,
+{
+    let pos = src.pos();
+    let size = src.size();
+    let start_pos = || rect_iter(pos, size);
+    let start_neighbors = neighbors_set(start_pos());
+    let mut dest = buildings
+        .iter_borrow_mut()
+        .find(|b| b.intersects(dest_pos))
+        .ok_or_else(|| "Destination did not have a building")?;
+    let expected_inventory_size = dest.inventory_size()
+        + expected_deliveries(transports, &dest.expected_transports)
+            .values()
+            .sum::<usize>();
+    if dest.type_.capacity() <= expected_inventory_size {
+        return Err("Destination capacity is full".to_string());
+    }
+    let path = find_multipath_should_expand(
+        start_pos(),
+        |pos| dest.intersects(pos),
+        |from_direction, pos| {
+            if dest.intersects(pos) {
+                return true;
+            }
+            push_pull_passable(tiles, from_direction, &start_neighbors, pos)
+        },
+        |to, pos, from| push_pull_should_expand(tiles, to, pos, from),
+    )
+    .ok_or_else(|| "Could not find a path from source to dest")?;
+
+    let (&item, amount) = src
+        .inventory()
+        .iter_mut()
+        .find(|(t, count)| is_output(**t) && 0 < **count)
+        .ok_or_else(|| "The designated item was not found")?;
+
+    let id = transports.insert(Transport {
+        src: pos,
+        dest: dest.pos,
+        path,
+        item,
+        amount: 1,
+    });
+    dest.expected_transports.insert(id);
+    if *amount <= 1 {
+        src.inventory().remove(&item);
+    } else {
+        *amount -= 1;
+    }
+    Ok(())
+}
+
 fn push_pull_passable(
     tiles: &impl TileSampler,
     from_direction: Option<Direction>,

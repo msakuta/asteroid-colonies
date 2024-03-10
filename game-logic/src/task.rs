@@ -8,6 +8,7 @@ use crate::{
     direction::Direction,
     game::CalculateBackImage,
     items::ItemType,
+    push_pull::send_item,
     transport::find_path,
     AsteroidColoniesGame, Pos, TileState, Tiles,
 };
@@ -113,32 +114,20 @@ impl AsteroidColoniesGame {
         Ok(true)
     }
 
-    pub fn move_item(&mut self, ix: i32, iy: i32) -> Result<bool, String> {
-        let tile = &self.tiles[[ix, iy]];
-        if matches!(tile.state, TileState::Solid) {
-            return Err(String::from("Needs excavation before building conveyor"));
-        }
-        if !tile.conveyor.is_some() {
-            return Err(String::from("Conveyor is needed to move items"));
-        }
-        let Some(_dest) = self
+    pub fn move_item(&mut self, from: Pos, to: Pos) -> Result<(), String> {
+        let mut src = self
             .buildings
-            .iter()
-            .find(|b| b.pos[0] == ix && b.pos[1] == iy)
-        else {
-            return Err(String::from("Needs a building at the destination"));
-        };
-        for mut building in self.buildings.iter_borrow_mut() {
-            if 0 < *building.inventory.get(&ItemType::RawOre).unwrap_or(&0) {
-                building.task = Task::MoveItem {
-                    t: MOVE_ITEM_TIME,
-                    item_type: ItemType::RawOre,
-                    dest: [ix, iy],
-                };
-                return Ok(true);
-            }
-        }
-        Err(String::from("No structure to send from"))
+            .iter_borrow_mut()
+            .find(|b| b.intersects(from))
+            .ok_or_else(|| "Moving an item needs a building at the source")?;
+        send_item(
+            &mut self.tiles,
+            &mut self.transports,
+            &mut *src,
+            to,
+            &self.buildings,
+            &|_| true,
+        )
     }
 
     pub(super) fn _is_clear(&self, ix: i32, iy: i32, size: [usize; 2]) -> bool {

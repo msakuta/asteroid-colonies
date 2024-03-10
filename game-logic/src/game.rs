@@ -194,8 +194,8 @@ impl AsteroidColoniesGame {
             .chain(self.conveyor_preview.iter())
     }
 
-    pub fn move_building(&mut self, ix: i32, iy: i32, dx: i32, dy: i32) -> Result<(), String> {
-        let Some(building) = self.buildings.iter_mut().find(|b| b.pos == [ix, iy]) else {
+    pub fn move_building(&mut self, src: Pos, dest: Pos) -> Result<(), String> {
+        let Some(building) = self.buildings.iter_mut().find(|b| b.pos == src) else {
             return Err(String::from("Building does not exist at that position"));
         };
         if !building.type_.is_mobile() {
@@ -219,14 +219,14 @@ impl AsteroidColoniesGame {
             })
         };
 
-        let mut path = find_path([ix, iy], [dx, dy], |pos| {
+        let mut path = find_path(src, dest, |pos| {
             let tile = &tiles[pos];
             !intersects(pos) && matches!(tile.state, TileState::Empty) && tile.power_grid
         })
         .ok_or_else(|| String::from("Failed to find the path"))?;
 
         // Re-borrow to avoid borrow checker
-        let Some(building) = self.buildings.iter_mut().find(|b| b.pos == [ix, iy]) else {
+        let Some(building) = self.buildings.iter_mut().find(|b| b.pos == src) else {
             return Err(String::from("Building does not exist at that position"));
         };
         path.pop();
