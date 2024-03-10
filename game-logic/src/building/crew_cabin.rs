@@ -8,7 +8,7 @@ use super::Building;
 pub(super) struct Envs<'a> {
     pub buildings: &'a EntitySet<Building>,
     pub transports: &'a EntitySet<Transport>,
-    pub crews: &'a [Crew],
+    pub crews: &'a EntitySet<Crew>,
     pub tiles: &'a Tiles,
 }
 

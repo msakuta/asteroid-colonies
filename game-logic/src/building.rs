@@ -182,7 +182,7 @@ impl Building {
         tiles: &Tiles,
         transports: &mut EntitySet<Transport>,
         constructions: &mut [Construction],
-        crews: &mut Vec<Crew>,
+        crews: &mut EntitySet<Crew>,
         gtasks: &[GlobalTask],
         rng: &mut Xor128,
     ) -> Result<(), String> {
@@ -264,7 +264,7 @@ impl Building {
                         continue;
                     }
                     if let Some(crew) = Crew::new_task(this.pos, gtask, tiles) {
-                        crews.push(crew);
+                        crews.insert(crew);
                         this.crews -= 1;
                         return Ok(());
                     }
@@ -302,7 +302,7 @@ impl Building {
                         })
                     });
                     if let Some(crew) = crew {
-                        crews.push(crew);
+                        crews.insert(crew);
                         this.crews -= 1;
                         return Ok(());
                     }

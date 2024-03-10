@@ -124,7 +124,7 @@ impl<T> EntitySet<T> {
     //     })
     // }
 
-    pub fn retain(&mut self, f: impl Fn(&T) -> bool) {
+    pub fn retain(&mut self, mut f: impl FnMut(&mut T) -> bool) {
         for entry in &mut self.v {
             let Some(payload) = entry.payload.as_mut() else {
                 continue;

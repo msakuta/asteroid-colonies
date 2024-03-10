@@ -39,7 +39,6 @@ pub struct Crew {
     pub from: Pos,
     task: CrewTask,
     inventory: HashMap<ItemType, usize>,
-    to_delete: bool,
 }
 
 impl Crew {
@@ -64,7 +63,6 @@ impl Crew {
             from: pos,
             task,
             inventory: HashMap::new(),
-            to_delete: false,
         })
     }
 
@@ -78,7 +76,6 @@ impl Crew {
             from: pos,
             task: CrewTask::Build(dest),
             inventory: HashMap::new(),
-            to_delete: false,
         })
     }
 
@@ -110,7 +107,6 @@ impl Crew {
                 item: Some(item),
             },
             inventory: HashMap::new(),
-            to_delete: false,
         })
     }
 
@@ -124,7 +120,6 @@ impl Crew {
             from: pos,
             task: CrewTask::Deliver { dst: dest, item },
             inventory: hash_map!(item => 1),
-            to_delete: false,
         })
     }
 
@@ -282,22 +277,24 @@ impl AsteroidColoniesGame {
                 for (item, amount) in &crew.inventory {
                     *building.inventory.entry(*item).or_default() += *amount;
                 }
-                crew.to_delete = true;
+                false
+            } else {
+                true
             }
         };
 
-        for crew in &mut self.crews {
+        self.crews.retain(|crew| {
             // console_log!("crew has path: {:?}", crew.path.as_ref().map(|p| p.len()));
             if let Some(path) = &mut crew.path {
                 if path.len() <= 1 {
                     crew.path = None;
                     if matches!(crew.task, CrewTask::Return) {
-                        try_return(crew, &mut self.buildings);
+                        return try_return(crew, &mut self.buildings);
                     }
                 } else if let Some(pos) = path.pop() {
                     crew.pos = pos;
                 }
-                continue;
+                return true;
             }
             match crew.task {
                 CrewTask::Excavate(ct_pos) => {
@@ -323,7 +320,7 @@ impl AsteroidColoniesGame {
                 _ => {
                     console_log!("Returning home at {:?}", crew.from);
                     if crew.from == crew.pos {
-                        try_return(crew, &mut self.buildings);
+                        return try_return(crew, &mut self.buildings);
                     } else if let Some(path) = find_path(crew.pos, crew.from, |pos| {
                         matches!(self.tiles[pos].state, TileState::Empty) || pos == crew.from
                     }) {
@@ -332,9 +329,10 @@ impl AsteroidColoniesGame {
                     }
                 }
             }
-        }
+            true
+        });
 
-        self.crews.retain(|c| !c.to_delete);
+        // self.crews.retain(|c| !c.to_delete);
     }
 }
 
@@ -362,7 +360,7 @@ pub(crate) fn _expected_crew_pickups(crews: &[Crew], src: Pos) -> HashMap<ItemTy
 }
 
 /// Count Pickup tasks without specific item type.
-pub(crate) fn expected_crew_pickup_any(crews: &[Crew], src: Pos) -> usize {
+pub(crate) fn expected_crew_pickup_any(crews: &EntitySet<Crew>, src: Pos) -> usize {
     crews
         .iter()
         .filter(|t| match t.task {
@@ -376,7 +374,10 @@ pub(crate) fn expected_crew_pickup_any(crews: &[Crew], src: Pos) -> usize {
         .count()
 }
 
-pub(crate) fn expected_crew_deliveries(crews: &[Crew], dest: Pos) -> HashMap<ItemType, usize> {
+pub(crate) fn expected_crew_deliveries(
+    crews: &EntitySet<Crew>,
+    dest: Pos,
+) -> HashMap<ItemType, usize> {
     crews
         .iter()
         .filter_map(|t| match t.task {

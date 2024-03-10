@@ -22,7 +22,7 @@ pub type CalculateBackImage = Box<dyn Fn(&mut Tiles) + Send + Sync>;
 pub struct AsteroidColoniesGame {
     pub(crate) tiles: Tiles,
     pub(crate) buildings: EntitySet<Building>,
-    pub(crate) crews: Vec<Crew>,
+    pub(crate) crews: EntitySet<Crew>,
     pub(crate) global_tasks: Vec<GlobalTask>,
     /// Used power for the last tick, in kW
     pub(crate) used_power: usize,
@@ -130,7 +130,7 @@ impl AsteroidColoniesGame {
         Ok(Self {
             tiles,
             buildings,
-            crews: vec![],
+            crews: EntitySet::new(),
             global_tasks: vec![],
             used_power: 0,
             global_time: 0,
@@ -171,7 +171,7 @@ impl AsteroidColoniesGame {
         self.constructions.iter()
     }
 
-    pub fn iter_crew(&self) -> impl Iterator<Item = &Crew> {
+    pub fn iter_crew(&self) -> impl Iterator<Item = Ref<Crew>> {
         self.crews.iter()
     }
 
@@ -469,7 +469,7 @@ impl AsteroidColoniesGame {
 pub struct SerializeGame {
     tiles: Tiles,
     buildings: EntitySet<Building>,
-    crews: Vec<Crew>,
+    crews: EntitySet<Crew>,
     global_tasks: Vec<GlobalTask>,
     global_time: usize,
     transports: EntitySet<Transport>,

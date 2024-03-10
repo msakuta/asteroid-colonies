@@ -156,7 +156,7 @@ impl Construction {
     pub fn required_ingredients<'a>(
         &'a self,
         transports: &'a EntitySet<Transport>,
-        crews: &'a [Crew],
+        crews: &'a EntitySet<Crew>,
     ) -> Box<dyn Iterator<Item = (ItemType, usize)> + 'a> {
         if self.canceling {
             return Box::new(std::iter::empty());
