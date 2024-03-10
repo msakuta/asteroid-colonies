@@ -235,10 +235,6 @@ impl AsteroidColoniesGame {
     }
 
     pub fn build(&mut self, ix: i32, iy: i32, type_: BuildingType) -> Result<(), String> {
-        if ix < 0 || WIDTH as i32 <= ix || iy < 0 || HEIGHT as i32 <= iy {
-            return Err(String::from("Point outside tile"));
-        }
-
         let size = type_.size();
         for jy in iy..iy + size[1] as i32 {
             for jx in ix..ix + size[0] as i32 {
@@ -252,18 +248,21 @@ impl AsteroidColoniesGame {
             }
         }
 
-        let tile = &self.tiles[[ix, iy]];
-        if !tile.power_grid {
-            return Err(String::from("Power grid is required to build"));
-        }
-
-        if self.buildings.iter().any(|b| b.intersects([ix, iy])) {
-            return Err(String::from(
-                "The destination is already occupied by a building",
+        if let Some((id, _)) = self
+            .buildings
+            .items()
+            .find(|(_, b)| b.intersects_rect([ix, iy], size))
+        {
+            return Err(format!(
+                "The destination is already occupied by a building {id}",
             ));
         }
 
-        if self.constructions.iter().any(|c| c.intersects([ix, iy])) {
+        if self
+            .constructions
+            .iter()
+            .any(|c| c.intersects_rect([ix, iy], size))
+        {
             return Err(String::from(
                 "The destination is already occupied by a construction plan",
             ));

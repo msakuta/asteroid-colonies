@@ -176,6 +176,14 @@ impl Building {
             && pos[1] <= self.pos[1] + size[1] as i32
     }
 
+    pub fn intersects_rect(&self, pos: Pos, other_size: [usize; 2]) -> bool {
+        let size = self.type_.size();
+        self.pos[0] < pos[0] + other_size[0] as i32
+            && pos[0] < self.pos[0] + size[0] as i32
+            && self.pos[1] < pos[1] + other_size[1] as i32
+            && pos[1] < self.pos[1] + size[1] as i32
+    }
+
     pub(super) fn set_recipe(&mut self, recipe: Option<&Recipe>) -> Result<(), String> {
         if !matches!(self.type_, BuildingType::Assembler) {
             return Err(String::from("The building is not an assembler"));
