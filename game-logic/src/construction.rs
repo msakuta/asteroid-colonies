@@ -1,10 +1,13 @@
-use std::{collections::HashMap, sync::OnceLock};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::OnceLock,
+};
 
 use crate::{
     building::{Building, BuildingType},
     crew::{expected_crew_deliveries, Crew},
     direction::Direction,
-    entity::EntityEntry,
+    entity::{EntityId, EntitySet},
     items::{Inventory, ItemType},
     push_pull::{pull_inputs, push_outputs, HasInventory},
     task::{BUILD_CONVEYOR_TIME, BUILD_POWER_GRID_TIME},
@@ -28,10 +31,13 @@ pub enum ConstructionType {
 pub struct Construction {
     type_: ConstructionType,
     pub pos: Pos,
-    pub ingredients: HashMap<ItemType, usize>,
+    pub ingredients: Inventory,
     pub recipe: BuildMenuItem,
     canceling: bool,
     pub progress: f64,
+    #[serde(skip)]
+    /// A cache of expected transports
+    expected_transports: HashSet<EntityId>,
 }
 
 impl Construction {
@@ -39,10 +45,11 @@ impl Construction {
         Self {
             type_,
             pos,
-            ingredients: HashMap::new(),
+            ingredients: Inventory::new(),
             recipe: (*item).clone(),
             canceling: false,
             progress: 0.,
+            expected_transports: HashSet::new(),
         }
     }
 
@@ -87,7 +94,7 @@ impl Construction {
     ) -> Option<Self> {
         let con_ty = ConstructionType::Building(building);
         let recipe = get_build_menu().iter().find(|bi| bi.type_ == con_ty)?;
-        let mut ingredients = recipe.ingredients.clone();
+        let mut ingredients: Inventory = recipe.ingredients.iter().map(|(k, v)| (*k, *v)).collect();
         for (item, amount) in inventory {
             ingredients.insert(*item, *amount);
         }
@@ -98,6 +105,7 @@ impl Construction {
             recipe: recipe.clone(),
             canceling: true,
             progress: recipe.time,
+            expected_transports: HashSet::new(),
         })
     }
 
@@ -117,6 +125,22 @@ impl Construction {
             ConstructionType::Building(b) => b.size(),
             _ => [1; 2],
         }
+    }
+
+    pub fn intersects(&self, pos: Pos) -> bool {
+        let size = self.size();
+        self.pos[0] <= pos[0]
+            && pos[0] <= self.pos[0] + size[0] as i32
+            && self.pos[1] <= pos[1]
+            && pos[1] <= self.pos[1] + size[1] as i32
+    }
+
+    pub fn intersects_rect(&self, pos: Pos, other_size: [usize; 2]) -> bool {
+        let size = self.size();
+        self.pos[0] < pos[0] + other_size[0] as i32
+            && pos[0] < self.pos[0] + size[0] as i32
+            && self.pos[1] < pos[1] + other_size[1] as i32
+            && pos[1] < self.pos[1] + size[1] as i32
     }
 
     pub fn canceling(&self) -> bool {
@@ -139,13 +163,13 @@ impl Construction {
 
     pub fn required_ingredients<'a>(
         &'a self,
-        transports: &'a [Transport],
-        crews: &'a [Crew],
+        transports: &'a EntitySet<Transport>,
+        crews: &'a EntitySet<Crew>,
     ) -> Box<dyn Iterator<Item = (ItemType, usize)> + 'a> {
         if self.canceling {
             return Box::new(std::iter::empty());
         }
-        let expected = expected_deliveries(transports, self.pos);
+        let expected = expected_deliveries(transports, &self.expected_transports);
         let crew_expected = expected_crew_deliveries(crews, self.pos);
         Box::new(
             self.recipe
@@ -175,6 +199,18 @@ impl Construction {
                 .filter_map(|(i, v)| if 0 < *v { Some((*i, *v)) } else { None }),
         )
     }
+
+    pub fn insert_expected_transports(&mut self, id: EntityId) {
+        self.expected_transports.insert(id);
+    }
+
+    pub fn clear_expected(&mut self, id: EntityId) {
+        self.expected_transports.remove(&id);
+    }
+
+    pub fn clear_expected_all(&mut self) {
+        self.expected_transports.clear();
+    }
 }
 
 impl HasInventory for Construction {
@@ -186,7 +222,7 @@ impl HasInventory for Construction {
         self.size()
     }
 
-    fn inventory(&mut self) -> &mut HashMap<ItemType, usize> {
+    fn inventory(&mut self) -> &mut Inventory {
         &mut self.ingredients
     }
 }
@@ -238,49 +274,41 @@ pub fn get_build_menu() -> &'static [BuildMenuItem] {
 
 impl AsteroidColoniesGame {
     pub(super) fn process_constructions(&mut self) {
-        let mut to_delete = vec![];
-        for (i, construction) in self.constructions.iter_mut().enumerate() {
+        self.constructions.retain(|construction| {
             if construction.canceling {
                 if construction.ingredients.is_empty() {
-                    to_delete.push(i);
+                    return false;
                 } else if construction.progress <= 0. {
                     push_outputs(
                         &self.tiles,
                         &mut self.transports,
                         construction,
-                        &mut self.buildings,
-                        &mut [],
+                        &self.buildings,
                         &|_| true,
                     );
                     crate::console_log!("Pushed out after: {:?}", construction.ingredients);
                 }
             } else {
+                let size = construction.size();
                 pull_inputs(
                     &construction.recipe.ingredients,
                     &self.tiles,
                     &mut self.transports,
+                    &mut construction.expected_transports,
                     construction.pos,
-                    construction.size(),
+                    size,
                     &mut construction.ingredients,
-                    &mut self.buildings,
-                    &mut [],
+                    &self.buildings,
                 );
                 // TODO: should we always use the same amount of time to deconstruct as construction?
                 // Some buildings should be easier to deconstruct than construct.
                 if construction.progress < construction.recipe.time {
-                    continue;
+                    return true;
                 }
                 let pos = construction.pos;
                 match construction.type_ {
                     ConstructionType::Building(ty) => {
-                        let b = self.buildings.iter_mut().find(|c| c.payload.is_none());
-                        if let Some(b) = b {
-                            b.gen += 1;
-                            b.payload = Some(Building::new(pos, ty));
-                        } else {
-                            self.buildings
-                                .push(EntityEntry::new(Building::new(pos, ty)));
-                        }
+                        self.buildings.insert(Building::new(pos, ty));
                     }
                     ConstructionType::PowerGrid => {
                         if let Some(tile) = self.tiles.try_get_mut(pos) {
@@ -293,12 +321,9 @@ impl AsteroidColoniesGame {
                         }
                     }
                 }
-                to_delete.push(i);
+                return false;
             }
-        }
-
-        for i in to_delete.iter().rev() {
-            self.constructions.remove(*i);
-        }
+            true
+        });
     }
 }

@@ -2,14 +2,14 @@
 #[cfg(test)]
 mod tests;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use crate::{
     building::Building,
     conveyor::Conveyor,
     direction::Direction,
-    entity::EntityEntry,
-    items::ItemType,
+    entity::{EntityEntry, EntityId, EntitySet, RefMutOption},
+    items::{Inventory, ItemType},
     transport::{expected_deliveries, find_multipath_should_expand, CPos, LevelTarget, Transport},
     Pos, Tile, Tiles, WIDTH,
 };
@@ -39,15 +39,15 @@ impl TileSampler for Tiles {
 }
 
 /// Pull inputs over transportation network
-pub(crate) fn pull_inputs(
-    inputs: &HashMap<ItemType, usize>,
+pub(crate) fn pull_inputs<'a>(
+    inputs: impl IntoIterator<Item = (&'a ItemType, &'a usize)>,
     tiles: &impl TileSampler,
-    transports: &mut Vec<Transport>,
+    transports: &mut EntitySet<Transport>,
+    expected_transports: &mut HashSet<EntityId>,
     this_pos: Pos,
     this_size: [usize; 2],
-    this_inventory: &mut HashMap<ItemType, usize>,
-    first: &mut [EntityEntry<Building>],
-    last: &mut [EntityEntry<Building>],
+    this_inventory: &mut Inventory,
+    buildings: &EntitySet<Building>,
 ) {
     let intersects_goal = |[ix, iy]: [i32; 2]| {
         this_pos[0] <= ix
@@ -55,15 +55,17 @@ pub(crate) fn pull_inputs(
             && this_pos[1] <= iy
             && iy < this_size[1] as i32 + this_pos[1]
     };
+    // let start = std::time::Instant::now();
     // crate::console_log!("pulling to at {:?} size {:?}", this_pos, this_size);
-    let expected = expected_deliveries(transports, this_pos);
+    let expected = expected_deliveries(transports, expected_transports);
+
     for (ty, count) in inputs {
         let this_count =
             this_inventory.get(ty).copied().unwrap_or(0) + expected.get(ty).copied().unwrap_or(0);
         if *count <= this_count {
             continue;
         }
-        let Some((src, amount)) = find_from_other_inventory_mut(*ty, first, last) else {
+        let Some((mut src, amount)) = find_from_inventory_mut(*ty, buildings) else {
             continue;
         };
         if amount == 0 {
@@ -86,32 +88,62 @@ pub(crate) fn pull_inputs(
         let Some(path) = path else {
             continue;
         };
+        let src_pos = src.pos;
         let src_count = src.inventory.entry(*ty).or_default();
         let amount = (*src_count).min(*count - this_count);
-        transports.push(Transport {
-            src: src.pos,
+        let id = transports.insert(Transport {
+            src: src_pos,
             dest: this_pos,
             path,
             item: *ty,
             amount,
         });
+        expected_transports.insert(id);
         if *src_count <= amount {
             src.inventory.remove(ty);
         } else {
             *src_count -= amount;
         }
     }
+    // let time = start.elapsed().as_secs_f64();
+    // println!("pull_inputs took {} sec", time);
 }
 
-fn find_from_other_inventory_mut<'a>(
+fn _find_from_other_inventory_mut<'a>(
     item: ItemType,
     first: &'a mut [EntityEntry<Building>],
     last: &'a mut [EntityEntry<Building>],
 ) -> Option<(&'a mut Building, usize)> {
     first.iter_mut().chain(last.iter_mut()).find_map(|o| {
-        let Some(ref mut o) = o.payload else {
+        let Some(ref mut o) = o.payload.get_mut() else {
             return None;
         };
+        let count = *o.inventory.get(&item)?;
+        if count == 0 {
+            return None;
+        }
+        Some((o, count))
+    })
+}
+
+fn find_from_inventory_mut<'a>(
+    item: ItemType,
+    buildings: &'a EntitySet<Building>,
+) -> Option<(RefMutOption<'a, Building>, usize)> {
+    buildings.iter_borrow_mut().find_map(|o| {
+        let count = *o.inventory.get(&item)?;
+        if count == 0 {
+            return None;
+        }
+        Some((o, count))
+    })
+}
+
+fn _find_from_inventory<'a>(
+    item: ItemType,
+    mut iter: impl Iterator<Item = &'a Building>,
+) -> Option<(&'a Building, usize)> {
+    iter.find_map(|o| {
         let count = *o.inventory.get(&item)?;
         if count == 0 {
             return None;
@@ -131,7 +163,7 @@ pub(crate) fn rect_iter(pos: Pos, size: [usize; 2]) -> impl Iterator<Item = Pos>
 pub(crate) trait HasInventory {
     fn pos(&self) -> Pos;
     fn size(&self) -> [usize; 2];
-    fn inventory(&mut self) -> &mut HashMap<ItemType, usize>;
+    fn inventory(&mut self) -> &mut Inventory;
 }
 
 impl HasInventory for Building {
@@ -143,19 +175,20 @@ impl HasInventory for Building {
         self.type_.size()
     }
 
-    fn inventory(&mut self) -> &mut HashMap<ItemType, usize> {
+    fn inventory(&mut self) -> &mut Inventory {
         &mut self.inventory
     }
 }
 
-pub(crate) fn push_outputs(
+pub(crate) fn push_outputs<'a, 'b>(
     tiles: &impl TileSampler,
-    transports: &mut Vec<Transport>,
+    transports: &mut EntitySet<Transport>,
     this: &mut impl HasInventory,
-    first: &mut [EntityEntry<Building>],
-    last: &mut [EntityEntry<Building>],
+    buildings: &EntitySet<Building>,
     is_output: &impl Fn(ItemType) -> bool,
-) {
+) where
+    'b: 'a,
+{
     let pos = this.pos();
     let size = this.size();
     let start_pos = || rect_iter(pos, size);
@@ -166,16 +199,14 @@ pub(crate) fn push_outputs(
     //     size,
     //     start_neighbors
     // );
-    let dest = first.iter_mut().chain(last.iter_mut()).find_map(|b| {
-        let Some(b) = b.payload.as_mut() else {
-            return None;
-        };
+    // let start = std::time::Instant::now();
+    let dest = buildings.iter_borrow_mut().find_map(|b| {
         if !b.type_.is_storage() {
             return None;
         }
         if b.type_.capacity()
             <= b.inventory_size()
-                + expected_deliveries(transports, b.pos)
+                + expected_deliveries(transports, &b.expected_transports)
                     .values()
                     .sum::<usize>()
         {
@@ -201,20 +232,24 @@ pub(crate) fn push_outputs(
         )?;
         Some((b, path))
     });
+    // let time = start.elapsed().as_secs_f64();
+    // println!("searching {:?} nodes path took {} sec", dest.as_ref().map(|(_, path)| path.len()), time);
+
     // Push away outputs
-    if let Some((dest, path)) = dest {
+    if let Some((mut dest, path)) = dest {
         let product = this
             .inventory()
             .iter_mut()
             .find(|(t, count)| is_output(**t) && 0 < **count);
         if let Some((&item, amount)) = product {
-            transports.push(Transport {
+            let id = transports.insert(Transport {
                 src: pos,
                 dest: dest.pos,
                 path,
                 item,
                 amount: 1,
             });
+            dest.expected_transports.insert(id);
             // *dest.inventory.entry(*product.0).or_default() += 1;
             if *amount <= 1 {
                 this.inventory().remove(&item);
@@ -224,6 +259,67 @@ pub(crate) fn push_outputs(
             // this.output_path = Some(path);
         }
     }
+}
+
+pub(crate) fn send_item<'a, 'b>(
+    tiles: &impl TileSampler,
+    transports: &mut EntitySet<Transport>,
+    src: &mut impl HasInventory,
+    dest_pos: Pos,
+    buildings: &EntitySet<Building>,
+    is_output: &impl Fn(ItemType) -> bool,
+) -> Result<(), String>
+where
+    'b: 'a,
+{
+    let pos = src.pos();
+    let size = src.size();
+    let start_pos = || rect_iter(pos, size);
+    let start_neighbors = neighbors_set(start_pos());
+    let mut dest = buildings
+        .iter_borrow_mut()
+        .find(|b| b.intersects(dest_pos))
+        .ok_or_else(|| "Destination did not have a building")?;
+    let expected_inventory_size = dest.inventory_size()
+        + expected_deliveries(transports, &dest.expected_transports)
+            .values()
+            .sum::<usize>();
+    if dest.type_.capacity() <= expected_inventory_size {
+        return Err("Destination capacity is full".to_string());
+    }
+    let path = find_multipath_should_expand(
+        start_pos(),
+        |pos| dest.intersects(pos),
+        |from_direction, pos| {
+            if dest.intersects(pos) {
+                return true;
+            }
+            push_pull_passable(tiles, from_direction, &start_neighbors, pos)
+        },
+        |to, pos, from| push_pull_should_expand(tiles, to, pos, from),
+    )
+    .ok_or_else(|| "Could not find a path from source to dest")?;
+
+    let (&item, amount) = src
+        .inventory()
+        .iter_mut()
+        .find(|(t, count)| is_output(**t) && 0 < **count)
+        .ok_or_else(|| "The designated item was not found")?;
+
+    let id = transports.insert(Transport {
+        src: pos,
+        dest: dest.pos,
+        path,
+        item,
+        amount: 1,
+    });
+    dest.expected_transports.insert(id);
+    if *amount <= 1 {
+        src.inventory().remove(&item);
+    } else {
+        *amount -= 1;
+    }
+    Ok(())
 }
 
 fn push_pull_passable(

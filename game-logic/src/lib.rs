@@ -4,8 +4,9 @@ pub use crate::{
     conveyor::Conveyor,
     crew::Crew,
     direction::Direction,
+    entity::EntityId,
     game::{AsteroidColoniesGame, DigestMessage, SerializeGame},
-    items::ItemType,
+    items::{Inventory, ItemType},
     tile::{new_hasher, Chunk, ImageIdx, Position, Tile, TileState, Tiles, CHUNK_SIZE},
     transport::Transport,
     xor128::Xor128,
@@ -42,6 +43,22 @@ macro_rules! hash_map {
 }
 
 #[macro_export]
+macro_rules! btree_map {
+    { $($key:expr => $value:expr),+ } => {
+        {
+            let mut m = ::std::collections::BTreeMap::new();
+            $(
+                m.insert($key, $value);
+            )+
+            m
+        }
+    };
+    { } => {
+        ::std::collections::BTreeMap::new()
+    }
+}
+
+#[macro_export]
 macro_rules! console_log {
     ($fmt:expr, $($arg1:expr),*) => {
         crate::log(&format!($fmt, $($arg1),+))
@@ -68,3 +85,15 @@ pub const WIDTH: usize = 100;
 pub const HEIGHT: usize = 100;
 
 pub type Pos = [i32; 2];
+
+#[cfg(not(target_arch = "wasm32"))]
+fn measure_time<T>(f: impl FnOnce() -> T) -> (T, f64) {
+    let start = std::time::Instant::now();
+    let ret = f();
+    (ret, start.elapsed().as_secs_f64())
+}
+
+#[cfg(target_arch = "wasm32")]
+fn measure_time<T>(f: impl FnOnce() -> T) -> (T, f64) {
+    (f(), 0.)
+}

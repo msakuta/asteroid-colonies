@@ -5,8 +5,10 @@ use std::{
 };
 
 use crate::{
-    direction::Direction, entity::EntityIterMutExt, items::ItemType, AsteroidColoniesGame,
-    Conveyor, Pos,
+    direction::Direction,
+    entity::{EntityId, EntitySet},
+    items::ItemType,
+    AsteroidColoniesGame, Conveyor, Pos,
 };
 
 /// Transporting item
@@ -28,7 +30,7 @@ impl AsteroidColoniesGame {
                 && iy < size[1] as i32 + pos[1]
         };
 
-        let mut check_construction = |t: &mut Transport| {
+        let mut check_construction = |id, t: &mut Transport| {
             if let Some(construction) = self
                 .constructions
                 .iter_mut()
@@ -43,6 +45,7 @@ impl AsteroidColoniesGame {
                     .unwrap_or(0);
                 if arrived + t.amount <= demand {
                     *construction.ingredients.entry(t.item).or_default() += t.amount;
+                    construction.clear_expected(id);
                     t.path.clear();
                     return true;
                 }
@@ -53,7 +56,7 @@ impl AsteroidColoniesGame {
         let mut check_building = |t: &mut Transport| {
             let building = self
                 .buildings
-                .items_mut()
+                .iter_mut()
                 .find(|b| intersects(b.pos, b.type_.size(), t.dest));
             if let Some(building) = building {
                 if building.inventory_size() + t.amount <= building.type_.capacity() {
@@ -71,9 +74,9 @@ impl AsteroidColoniesGame {
             .filter_map(|t| t.path.last().copied())
             .collect();
 
-        for t in &mut self.transports {
+        for (id, t) in self.transports.items_mut() {
             if t.path.len() <= 1 {
-                let delivered = check_construction(t) || check_building(t);
+                let delivered = check_construction(id, &mut *t) || check_building(&mut *t);
                 if !delivered {
                     let tiles = &self.tiles;
                     let return_path = find_multipath(
@@ -90,6 +93,7 @@ impl AsteroidColoniesGame {
                         },
                     );
                     if let Some(return_path) = return_path {
+                        let t = &mut *t;
                         std::mem::swap(&mut t.src, &mut t.dest);
                         t.path = return_path;
                     }
@@ -104,19 +108,23 @@ impl AsteroidColoniesGame {
             }
         }
 
-        self.transports.retain(|t| !t.path.is_empty());
+        self.transports.retain(|v| !v.path.is_empty());
     }
 }
 
 /// Count all items in delivery flight and sum up in a single HashMap.
-pub(crate) fn expected_deliveries(transports: &[Transport], dest: Pos) -> HashMap<ItemType, usize> {
-    transports
+pub(crate) fn expected_deliveries(
+    transports: &EntitySet<Transport>,
+    expected_transports: &HashSet<EntityId>,
+) -> HashMap<ItemType, usize> {
+    let mut expected = HashMap::new();
+    for t in expected_transports
         .iter()
-        .filter(|t| t.dest == dest)
-        .fold(HashMap::new(), |mut acc, cur| {
-            *acc.entry(cur.item).or_default() += cur.amount;
-            acc
-        })
+        .filter_map(|id| transports.get(*id))
+    {
+        *expected.entry(t.item).or_default() += t.amount;
+    }
+    expected
 }
 
 /// Conveyor position, or composite position.

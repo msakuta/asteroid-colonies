@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use ::serde::{Deserialize, Serialize};
 
@@ -57,4 +57,4 @@ pub(crate) fn recipes() -> &'static [Recipe] {
     })
 }
 
-pub type Inventory = HashMap<ItemType, usize>;
+pub type Inventory = BTreeMap<ItemType, usize>;

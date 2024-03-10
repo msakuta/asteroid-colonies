@@ -13,7 +13,7 @@ use ::serde::{Deserialize, Serialize};
 use actix_web_actors::ws;
 use asteroid_colonies_logic::{
     construction::{Construction, ConstructionType},
-    DigestMessage, Pos, Position,
+    DigestMessage, EntityId, Pos, Position,
 };
 
 /// Open a WebSocket instance and give it to the client.
@@ -52,7 +52,7 @@ struct SessionWs {
     pub session_id: SessionId,
     pub addr: Addr<ChatServer>,
     pub chunks_digest: HashMap<Position, u64>,
-    pub buildings_digest: HashMap<usize, u64>,
+    pub buildings_digest: HashMap<EntityId, u64>,
 }
 
 impl Actor for SessionWs {
@@ -99,7 +99,7 @@ impl Handler<Message> for SessionWs {
             Message::Text(txt) => ctx.text(txt),
             Message::Bin(bin) => ctx.binary(bin),
             Message::StateWithDiff => {
-                let game = self.data.game.read().unwrap();
+                let game = self.data.game.lock().unwrap();
                 match game.serialize_with_diffs(&self.chunks_digest, &self.buildings_digest) {
                     Ok(bytes) => ctx.binary(bytes),
                     Err(e) => ctx.text(format!("Error: {e}")),
@@ -165,6 +165,10 @@ enum WsMessage {
         y: i32,
     },
     Move {
+        from: Pos,
+        to: Pos,
+    },
+    MoveItem {
         from: Pos,
         to: Pos,
     },
@@ -235,14 +239,18 @@ impl StreamHandler<WsResult> for SessionWs {
 
 impl SessionWs {
     fn handle_message(&mut self, payload: WsMessage) -> anyhow::Result<()> {
-        let mut game = self.data.game.write().unwrap();
+        let mut game = self.data.game.lock().unwrap();
 
         match payload {
             WsMessage::Excavate { x, y } => {
                 game.excavate(x, y).map_err(|e| anyhow::anyhow!("{e}"))?;
             }
             WsMessage::Move { from, to } => {
-                game.move_building(from[0], from[1], to[0], to[1])
+                game.move_building(from, to)
+                    .map_err(|e| anyhow::anyhow!("{e}"))?;
+            }
+            WsMessage::MoveItem { from, to } => {
+                game.move_item(from, to)
                     .map_err(|e| anyhow::anyhow!("{e}"))?;
             }
             WsMessage::Build { pos, ty } => match ty {
