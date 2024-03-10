@@ -249,6 +249,29 @@ impl AsteroidColoniesGame {
             &self.buildings,
             &|_| true,
         )
+        .or_else(|e| {
+            let item = *src
+                .inventory
+                .keys()
+                .next()
+                .ok_or_else(|| "Moving item source does not have an item")?;
+            let crew = if matches!(src.type_, BuildingType::CrewCabin) && 0 < src.crews {
+                Crew::new_deliver(from, to, item, &self.tiles).map(|crew| (crew, src))
+            } else {
+                self.buildings.iter_borrow_mut().find_map(|b| {
+                    Crew::new_pickup(b.pos, from, to, item, &self.tiles).map(|crew| (crew, b))
+                })
+            };
+            if let Some((crew, mut cabin)) = crew {
+                self.crews.insert(crew);
+                cabin.crews -= 1;
+                Ok(())
+            } else {
+                Err(format!(
+                    "Neither conveyors ({e}) or a crew cannot move the item"
+                ))
+            }
+        })
     }
 
     pub fn build(&mut self, ix: i32, iy: i32, type_: BuildingType) -> Result<(), String> {

@@ -254,17 +254,26 @@ impl Crew {
         item: ItemType,
         dest: Pos,
         constructions: &mut [Construction],
+        buildings: &EntitySet<Building>,
     ) {
-        let Some(construction) = constructions.iter_mut().find(|o| o.pos == dest) else {
+        let Some(crew_amount) = self.inventory.get_mut(&item) else {
             self.task = CrewTask::None;
             return;
         };
-        let Some(amount) = self.inventory.remove(&item) else {
+        if *crew_amount <= 0 {
             self.task = CrewTask::None;
             return;
-        };
-        let entry = construction.ingredients.entry(item).or_default();
-        *entry += amount;
+        }
+        if let Some(construction) = constructions.iter_mut().find(|o| o.pos == dest) {
+            let entry = construction.ingredients.entry(item).or_default();
+            *entry += *crew_amount;
+            *crew_amount = 0;
+        }
+        if let Some(mut building) = buildings.iter_borrow_mut().find(|b| b.intersects(dest)) {
+            let entry = building.inventory.entry(item).or_default();
+            *entry += *crew_amount;
+            *crew_amount = 0;
+        }
         self.task = CrewTask::None;
     }
 }
@@ -315,7 +324,7 @@ impl AsteroidColoniesGame {
                     );
                 }
                 CrewTask::Deliver { dst, item } => {
-                    crew.process_deliver_task(item, dst, &mut self.constructions);
+                    crew.process_deliver_task(item, dst, &mut self.constructions, &self.buildings);
                 }
                 _ => {
                     console_log!("Returning home at {:?}", crew.from);

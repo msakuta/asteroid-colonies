@@ -158,9 +158,7 @@ impl AsteroidColonies {
         let dpos = self.transform_pos(dst_x, dst_y);
         if let Some(src) = self.move_cursor {
             self.move_cursor = None;
-            self.game
-                .move_building(src[0], src[1], dpos[0], dpos[1])
-                .map_err(JsValue::from)?;
+            self.game.move_building(src, dpos).map_err(JsValue::from)?;
             Ok(serde_wasm_bindgen::to_value(&src)?)
         } else {
             Err(JsValue::from("Select a building to move first"))
