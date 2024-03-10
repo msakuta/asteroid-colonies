@@ -8,8 +8,7 @@ use wasm_bindgen::prelude::*;
 use web_sys::js_sys;
 
 use asteroid_colonies_logic::{
-    building::{Building, BuildingType},
-    get_build_menu, AsteroidColoniesGame, Pos, HEIGHT, TILE_SIZE, WIDTH,
+    building::BuildingType, get_build_menu, AsteroidColoniesGame, Pos, HEIGHT, TILE_SIZE, WIDTH,
 };
 
 use crate::{assets::Assets, render::calculate_back_image};

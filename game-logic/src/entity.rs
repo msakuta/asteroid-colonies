@@ -1,6 +1,7 @@
 use std::{
     cell::{Ref, RefCell, RefMut},
     fmt::Display,
+    ops::{Deref, DerefMut},
 };
 
 use serde::{Deserialize, Serialize};
@@ -9,14 +10,14 @@ use serde::{Deserialize, Serialize};
 /// An entry in entity list with generational ids, with the payload and the generation
 pub struct EntityEntry<T> {
     pub gen: u32,
-    pub payload: Option<RefCell<T>>,
+    pub payload: RefCell<Option<T>>,
 }
 
 impl<T> EntityEntry<T> {
     pub(crate) fn new(payload: T) -> Self {
         Self {
             gen: 0,
-            payload: Some(RefCell::new(payload)),
+            payload: RefCell::new(Some(payload)),
         }
     }
 }
@@ -37,16 +38,14 @@ impl<T> EntitySet<T> {
         // TODO: optimize by caching active elements
         self.v
             .iter()
-            .filter(|entry| entry.payload.is_some())
+            .filter(|entry| entry.payload.borrow().is_some())
             .count()
     }
 
     /// Return an iterator over Ref<T>.
     /// It borrows the T immutably.
-    pub fn iter(&self) -> impl Iterator<Item = Ref<T>> {
-        self.v
-            .iter()
-            .filter_map(|v| v.payload.as_ref().and_then(|v| v.try_borrow().ok()))
+    pub fn iter(&self) -> impl Iterator<Item = RefOption<T>> {
+        self.v.iter().filter_map(|v| RefOption::new(&v.payload))
     }
 
     /// Return an iterator over &mut T. It does not borrow the T with a RefMut,
@@ -54,26 +53,21 @@ impl<T> EntitySet<T> {
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut T> {
         self.v
             .iter_mut()
-            .filter_map(|v| v.payload.as_mut().map(|v| v.get_mut()))
+            .filter_map(|v| v.payload.get_mut().as_mut())
     }
 
     /// Return an iterator over RefMut<T>, skipping already borrowed items.
     /// It borrows the T mutablly.
-    pub fn iter_borrow_mut(&self) -> impl Iterator<Item = RefMut<T>> {
-        self.v
-            .iter()
-            .filter_map(|entry| entry.payload.as_ref().and_then(|v| v.try_borrow_mut().ok()))
+    pub fn iter_borrow_mut(&self) -> impl Iterator<Item = RefMutOption<T>> {
+        self.v.iter().filter_map(|v| RefMutOption::new(&v.payload))
     }
 
     /// Return an iterator over (id, Ref<T>)
     /// It is convenient when you want the EntityId of the iterated items.
     /// It borrows the T immutably.
-    pub fn items(&self) -> impl Iterator<Item = (EntityId, Ref<T>)> {
+    pub fn items(&self) -> impl Iterator<Item = (EntityId, RefOption<T>)> {
         self.v.iter().enumerate().filter_map(|(i, v)| {
-            Some((
-                EntityId::new(i as u32, v.gen),
-                v.payload.as_ref()?.try_borrow().ok()?,
-            ))
+            Some((EntityId::new(i as u32, v.gen), RefOption::new(&v.payload)?))
         })
     }
 
@@ -84,7 +78,7 @@ impl<T> EntitySet<T> {
         self.v.iter_mut().enumerate().filter_map(|(i, v)| {
             Some((
                 EntityId::new(i as u32, v.gen),
-                v.payload.as_mut()?.get_mut(),
+                v.payload.get_mut().as_mut()?,
             ))
         })
     }
@@ -92,23 +86,23 @@ impl<T> EntitySet<T> {
     /// Return an iterator over (id, RefMut<T>), skipping already borrowed items.
     /// It is convenient when you want the EntityId of the iterated items.
     /// It borrows the T mutablly.
-    pub fn items_borrow_mut(&self) -> impl Iterator<Item = (EntityId, RefMut<T>)> {
+    pub fn items_borrow_mut(&self) -> impl Iterator<Item = (EntityId, RefMutOption<T>)> {
         self.v.iter().enumerate().filter_map(|(i, v)| {
             Some((
                 EntityId::new(i as u32, v.gen),
-                v.payload.as_ref()?.try_borrow_mut().ok()?,
+                RefMutOption::new(&v.payload)?,
             ))
         })
     }
 
-    pub fn split_mid(&self, idx: usize) -> Option<(Ref<T>, &[EntityEntry<T>], &[EntityEntry<T>])> {
-        if self.v.len() <= idx {
-            return None;
-        }
-        let (first, mid) = self.v.split_at(idx);
-        let (center, last) = mid.split_first()?;
-        Some((center.payload.as_ref()?.try_borrow().ok()?, first, last))
-    }
+    // pub fn split_mid(&self, idx: usize) -> Option<(Ref<T>, &[EntityEntry<T>], &[EntityEntry<T>])> {
+    //     if self.v.len() <= idx {
+    //         return None;
+    //     }
+    //     let (first, mid) = self.v.split_at(idx);
+    //     let (center, last) = mid.split_first()?;
+    //     Some((center.payload.as_ref()?.try_borrow().ok()?, first, last))
+    // }
 
     // pub fn split_mid_mut(&mut self, idx: usize) -> Option<(&mut T, EntitySliceMut<T>)> {
     //     if self.v.len() <= idx {
@@ -121,9 +115,10 @@ impl<T> EntitySet<T> {
 
     pub fn insert(&mut self, val: T) -> EntityId {
         for (i, entry) in self.v.iter_mut().enumerate() {
-            if entry.payload.is_none() {
+            let payload = entry.payload.get_mut();
+            if payload.is_none() {
                 entry.gen += 1;
-                entry.payload = Some(RefCell::new(val));
+                entry.payload = RefCell::new(Some(val));
                 return EntityId::new(i as u32, entry.gen);
             }
         }
@@ -134,7 +129,7 @@ impl<T> EntitySet<T> {
     pub fn remove(&mut self, id: EntityId) -> Option<T> {
         self.v.get_mut(id.id as usize).and_then(|entry| {
             if id.gen == entry.gen {
-                entry.payload.take().map(|v| v.into_inner())
+                entry.payload.get_mut().take()
             } else {
                 None
             }
@@ -155,19 +150,33 @@ impl<T> EntitySet<T> {
 
     pub fn retain(&mut self, mut f: impl FnMut(&mut T) -> bool) {
         for entry in &mut self.v {
-            let Some(payload) = entry.payload.as_mut() else {
+            let Some(payload) = entry.payload.get_mut().as_mut() else {
                 continue;
             };
-            if !f(payload.get_mut()) {
-                entry.payload = None;
+            if !f(payload) {
+                entry.payload = RefCell::new(None);
             }
         }
     }
 
-    pub fn get(&self, id: EntityId) -> Option<Ref<T>> {
+    pub fn retain_borrow_mut(&self, mut f: impl FnMut(&mut T) -> bool) {
+        for entry in &self.v {
+            let Ok(mut payload) = entry.payload.try_borrow_mut() else {
+                continue;
+            };
+            if payload.is_none() {
+                continue;
+            }
+            if !f(payload.as_mut().unwrap()) {
+                *payload = None;
+            }
+        }
+    }
+
+    pub fn get(&self, id: EntityId) -> Option<RefOption<T>> {
         self.v.get(id.id as usize).and_then(|entry| {
             if id.gen == entry.gen {
-                entry.payload.as_ref().and_then(|v| v.try_borrow().ok())
+                RefOption::new(&entry.payload)
             } else {
                 None
             }
@@ -177,7 +186,7 @@ impl<T> EntitySet<T> {
     pub fn get_mut(&mut self, id: EntityId) -> Option<&mut T> {
         self.v.get_mut(id.id as usize).and_then(|entry| {
             if id.gen == entry.gen {
-                entry.payload.as_mut().map(|v| v.get_mut())
+                entry.payload.get_mut().as_mut()
             } else {
                 None
             }
@@ -188,14 +197,64 @@ impl<T> EntitySet<T> {
     pub fn get_mut_at(&mut self, idx: usize) -> Option<&mut T> {
         self.v
             .get_mut(idx)
-            .and_then(|entry| entry.payload.as_mut().map(|v| v.get_mut()))
+            .and_then(|entry| entry.payload.get_mut().as_mut())
     }
 
-    pub fn borrow_mut_at(&self, idx: usize) -> Option<RefMut<T>> {
+    pub fn borrow_mut_at(&self, idx: usize) -> Option<RefMutOption<T>> {
         self.v
             .get(idx)
-            .and_then(|entry| entry.payload.as_ref())
-            .and_then(|v| v.try_borrow_mut().ok())
+            .and_then(|entry| RefMutOption::new(&entry.payload))
+    }
+}
+
+#[derive(Debug)]
+/// A wrapper around Ref<Option> that always has Some.
+/// We need a Ref to release the refcounter, but we would never return
+/// a Ref(None).
+pub struct RefOption<'a, T>(Ref<'a, Option<T>>);
+
+impl<'a, T> RefOption<'a, T> {
+    fn new(val: &'a RefCell<Option<T>>) -> Option<Self> {
+        let v = val.try_borrow().ok()?;
+        if v.is_none() {
+            return None;
+        }
+        Some(Self(v))
+    }
+}
+
+impl<'a, T> Deref for RefOption<'a, T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        self.0.as_ref().unwrap()
+    }
+}
+
+/// A wrapper around RefMut<Option> that always has Some.
+/// We need a RefMut to release the refcounter, but we would never return
+/// a RefMut(None).
+pub struct RefMutOption<'a, T>(RefMut<'a, Option<T>>);
+
+impl<'a, T> RefMutOption<'a, T> {
+    fn new(val: &'a RefCell<Option<T>>) -> Option<Self> {
+        let v = val.try_borrow_mut().ok()?;
+        if v.is_none() {
+            return None;
+        }
+        Some(Self(v))
+    }
+}
+
+impl<'a, T> Deref for RefMutOption<'a, T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        self.0.as_ref().unwrap()
+    }
+}
+
+impl<'a, T> DerefMut for RefMutOption<'a, T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.0.as_mut().unwrap()
     }
 }
 
@@ -261,14 +320,10 @@ impl<T> AsMut<Vec<EntityEntry<T>>> for EntitySet<T> {
 /// An inefficient implementation of IntoIterator.
 /// TODO: remove Box
 impl<'a, T> IntoIterator for &'a EntitySet<T> {
-    type Item = Ref<'a, T>;
-    type IntoIter = Box<dyn Iterator<Item = Ref<'a, T>> + 'a>;
+    type Item = RefOption<'a, T>;
+    type IntoIter = Box<dyn Iterator<Item = RefOption<'a, T>> + 'a>;
     fn into_iter(self) -> Self::IntoIter {
-        Box::new(
-            self.v
-                .iter()
-                .filter_map(|v| v.payload.as_ref().and_then(|v| v.try_borrow().ok())),
-        )
+        Box::new(self.v.iter().filter_map(|v| RefOption::new(&v.payload)))
     }
 }
 
@@ -300,7 +355,7 @@ impl Display for EntityId {
 /// An extension trait to allow a container to iterate over valid items
 pub trait EntityIterExt<T> {
     /// Iterate items in each entry's payload
-    fn items<'a>(&'a self) -> impl Iterator<Item = Ref<'a, T>>
+    fn items<'a>(&'a self) -> impl Iterator<Item = RefOption<'a, T>>
     where
         T: 'a;
 }
@@ -314,12 +369,11 @@ pub trait EntityIterMutExt<T>: EntityIterExt<T> {
 }
 
 impl<T> EntityIterExt<T> for [EntityEntry<T>] {
-    fn items<'a>(&'a self) -> impl Iterator<Item = Ref<'a, T>>
+    fn items<'a>(&'a self) -> impl Iterator<Item = RefOption<'a, T>>
     where
         T: 'a,
     {
-        self.iter()
-            .filter_map(|b| b.payload.as_ref().and_then(|b| b.try_borrow().ok()))
+        self.iter().filter_map(|b| RefOption::new(&b.payload))
     }
 }
 
@@ -328,18 +382,16 @@ impl<T> EntityIterMutExt<T> for [EntityEntry<T>] {
     where
         T: 'a,
     {
-        self.iter_mut()
-            .filter_map(|b| b.payload.as_mut().map(RefCell::get_mut))
+        self.iter_mut().filter_map(|b| b.payload.get_mut().as_mut())
     }
 }
 
 impl<T> EntityIterExt<T> for Vec<EntityEntry<T>> {
-    fn items<'a>(&'a self) -> impl Iterator<Item = Ref<'a, T>>
+    fn items<'a>(&'a self) -> impl Iterator<Item = RefOption<'a, T>>
     where
         T: 'a,
     {
-        self.iter()
-            .filter_map(|b| b.payload.as_ref().map(RefCell::borrow))
+        self.iter().filter_map(|b| RefOption::new(&b.payload))
     }
 }
 
@@ -348,7 +400,6 @@ impl<T> EntityIterMutExt<T> for Vec<EntityEntry<T>> {
     where
         T: 'a,
     {
-        self.iter_mut()
-            .filter_map(|b| b.payload.as_mut().map(RefCell::get_mut))
+        self.iter_mut().filter_map(|b| b.payload.get_mut().as_mut())
     }
 }

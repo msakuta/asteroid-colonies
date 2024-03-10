@@ -291,29 +291,66 @@ impl Crew {
         }
         self.task = CrewTask::None;
     }
+
+    fn process_idle(
+        &mut self,
+        crews: &EntitySet<Crew>,
+        tiles: &Tiles,
+        constructions: &mut [Construction],
+        buildings: &mut EntitySet<Building>,
+    ) -> bool {
+        let construction = constructions.iter().find(|construction| {
+            if crews
+                .iter()
+                .any(|crew| crew.target() == Some(construction.pos))
+            {
+                return false;
+            }
+            construction.ingredients_satisfied()
+        });
+
+        if let Some(construction) = construction {
+            self.task = CrewTask::Build(construction.pos);
+            return true;
+        }
+        console_log!("Returning home at {:?}", self.from);
+        let Some(from_building) = buildings.get(self.from) else {
+            return true;
+        };
+        if from_building.intersects(self.pos) {
+            drop(from_building);
+            return self.try_return(buildings);
+        } else if let Some(path) = find_path(self.pos, from_building.pos, |pos| {
+            matches!(tiles[pos].state, TileState::Empty) || pos == from_building.pos
+        }) {
+            self.task = CrewTask::Return;
+            self.path = Some(path);
+        }
+        true
+    }
+
+    fn try_return(&mut self, buildings: &mut EntitySet<Building>) -> bool {
+        if let Some(building) = buildings.get_mut(self.from) {
+            building.crews += 1;
+            for (item, amount) in &self.inventory {
+                *building.inventory.entry(*item).or_default() += *amount;
+            }
+            false
+        } else {
+            true
+        }
+    }
 }
 
 impl AsteroidColoniesGame {
     pub(super) fn process_crews(&mut self) {
-        let try_return = |crew: &mut Crew, buildings: &mut EntitySet<Building>| {
-            if let Some(building) = buildings.get_mut(crew.from) {
-                building.crews += 1;
-                for (item, amount) in &crew.inventory {
-                    *building.inventory.entry(*item).or_default() += *amount;
-                }
-                false
-            } else {
-                true
-            }
-        };
-
-        self.crews.retain(|crew| {
+        self.crews.retain_borrow_mut(|crew| {
             // console_log!("crew has path: {:?}", crew.path.as_ref().map(|p| p.len()));
             if let Some(path) = &mut crew.path {
                 if path.len() <= 1 {
                     crew.path = None;
                     if matches!(crew.task, CrewTask::Return) {
-                        return try_return(crew, &mut self.buildings);
+                        return crew.try_return(&mut self.buildings);
                     }
                 } else if let Some(pos) = path.pop() {
                     crew.pos = pos;
@@ -341,27 +378,18 @@ impl AsteroidColoniesGame {
                 CrewTask::Deliver { dst, item } => {
                     crew.process_deliver_task(item, dst, &mut self.constructions, &self.buildings);
                 }
-                _ => {
-                    console_log!("Returning home at {:?}", crew.from);
-                    let Some(from_building) = self.buildings.get(crew.from) else {
-                        return true;
-                    };
-                    if from_building.intersects(crew.pos) {
-                        drop(from_building);
-                        return try_return(crew, &mut self.buildings);
-                    } else if let Some(path) = find_path(crew.pos, from_building.pos, |pos| {
-                        matches!(self.tiles[pos].state, TileState::Empty)
-                            || pos == from_building.pos
-                    }) {
-                        crew.task = CrewTask::Return;
-                        crew.path = Some(path);
-                    }
+                CrewTask::None => {
+                    crew.process_idle(
+                        &self.crews,
+                        &self.tiles,
+                        &mut self.constructions,
+                        &mut self.buildings,
+                    );
                 }
+                CrewTask::Return => {}
             }
             true
         });
-
-        // self.crews.retain(|c| !c.to_delete);
     }
 }
 

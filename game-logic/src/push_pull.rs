@@ -2,16 +2,13 @@
 #[cfg(test)]
 mod tests;
 
-use std::{
-    cell::RefMut,
-    collections::{HashMap, HashSet},
-};
+use std::collections::{HashMap, HashSet};
 
 use crate::{
     building::Building,
     conveyor::Conveyor,
     direction::Direction,
-    entity::{EntityEntry, EntityId, EntitySet},
+    entity::{EntityEntry, EntityId, EntitySet, RefMutOption},
     items::ItemType,
     transport::{expected_deliveries, find_multipath_should_expand, CPos, LevelTarget, Transport},
     Pos, Tile, Tiles, WIDTH,
@@ -118,10 +115,9 @@ fn _find_from_other_inventory_mut<'a>(
     last: &'a mut [EntityEntry<Building>],
 ) -> Option<(&'a mut Building, usize)> {
     first.iter_mut().chain(last.iter_mut()).find_map(|o| {
-        let Some(ref mut o) = o.payload else {
+        let Some(ref mut o) = o.payload.get_mut() else {
             return None;
         };
-        let o = o.get_mut();
         let count = *o.inventory.get(&item)?;
         if count == 0 {
             return None;
@@ -133,7 +129,7 @@ fn _find_from_other_inventory_mut<'a>(
 fn find_from_inventory_mut<'a>(
     item: ItemType,
     buildings: &'a EntitySet<Building>,
-) -> Option<(RefMut<'a, Building>, usize)> {
+) -> Option<(RefMutOption<'a, Building>, usize)> {
     buildings.iter_borrow_mut().find_map(|o| {
         let count = *o.inventory.get(&item)?;
         if count == 0 {

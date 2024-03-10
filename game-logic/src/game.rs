@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::{cell::Ref, collections::HashMap, io::Read};
+use std::{collections::HashMap, io::Read};
 
 use crate::{
     building::{Building, BuildingType, Recipe},
@@ -8,7 +8,7 @@ use crate::{
     conveyor::Conveyor,
     crew::Crew,
     direction::Direction,
-    entity::EntitySet,
+    entity::{EntitySet, RefOption},
     hash_map,
     items::{recipes, ItemType},
     push_pull::send_item,
@@ -164,7 +164,7 @@ impl AsteroidColoniesGame {
         &self.tiles[pos]
     }
 
-    pub fn iter_building(&self) -> impl Iterator<Item = Ref<Building>> {
+    pub fn iter_building(&self) -> impl Iterator<Item = RefOption<Building>> {
         self.buildings.iter()
     }
 
@@ -172,7 +172,7 @@ impl AsteroidColoniesGame {
         self.constructions.iter()
     }
 
-    pub fn iter_crew(&self) -> impl Iterator<Item = Ref<Crew>> {
+    pub fn iter_crew(&self) -> impl Iterator<Item = RefOption<Crew>> {
         self.crews.iter()
     }
 
@@ -184,7 +184,7 @@ impl AsteroidColoniesGame {
         self.transports.len()
     }
 
-    pub fn iter_transport(&self) -> impl Iterator<Item = Ref<Transport>> {
+    pub fn iter_transport(&self) -> impl Iterator<Item = RefOption<Transport>> {
         self.transports.iter()
     }
 
