@@ -320,14 +320,14 @@ impl AsteroidColoniesGame {
     }
 
     pub fn set_recipe(&mut self, ix: i32, iy: i32, name: Option<&str>) -> Result<(), String> {
-        let Some(assembler) = self.buildings.iter().find(|b| b.intersects([ix, iy])) else {
-            return Err(String::from("The building does not exist at the target"));
+        let Some(assembler) = self.buildings.iter_mut().find(|b| b.intersects([ix, iy])) else {
+            return Err("The building does not exist at the target".to_string());
         };
         if !matches!(assembler.type_, BuildingType::Assembler) {
             return Err(String::from("The building is not an assembler"));
         }
         let Some(name) = name else {
-            self.set_building_recipe(ix, iy, None)?;
+            assembler.set_recipe(None)?;
             return Ok(());
         };
         for recipe in recipes() {
@@ -335,7 +335,7 @@ impl AsteroidColoniesGame {
                 continue;
             };
             if format!("{:?}", key) == name {
-                self.set_building_recipe(ix, iy, Some(recipe))?;
+                assembler.set_recipe(Some(recipe))?;
                 break;
             }
         }

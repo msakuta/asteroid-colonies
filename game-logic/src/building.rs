@@ -176,6 +176,14 @@ impl Building {
             && pos[1] <= self.pos[1] + size[1] as i32
     }
 
+    pub(super) fn set_recipe(&mut self, recipe: Option<&Recipe>) -> Result<(), String> {
+        if !matches!(self.type_, BuildingType::Assembler) {
+            return Err(String::from("The building is not an assembler"));
+        }
+        self.recipe = recipe.cloned();
+        Ok(())
+    }
+
     pub fn tick(
         bldgs: &EntitySet<Building>,
         idx: usize,

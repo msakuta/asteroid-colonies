@@ -3,7 +3,7 @@ use std::{collections::HashMap, fmt::Display};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    building::{Building, BuildingType, Recipe},
+    building::{Building, BuildingType},
     construction::Construction,
     direction::Direction,
     game::CalculateBackImage,
@@ -151,26 +151,6 @@ impl AsteroidColoniesGame {
             }
         }
         true
-    }
-
-    pub(super) fn set_building_recipe(
-        &self,
-        ix: i32,
-        iy: i32,
-        recipe: Option<&Recipe>,
-    ) -> Result<bool, String> {
-        let Some(mut assembler) = self
-            .buildings
-            .iter_borrow_mut()
-            .find(|b| b.intersects([ix, iy]))
-        else {
-            return Err(String::from("The building does not exist at the target"));
-        };
-        if !matches!(assembler.type_, BuildingType::Assembler) {
-            return Err(String::from("The building is not an assembler"));
-        }
-        assembler.recipe = recipe.cloned();
-        Ok(true)
     }
 
     pub(super) fn process_task(
