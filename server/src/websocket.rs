@@ -97,7 +97,7 @@ impl Handler<Message> for SessionWs {
             Message::Text(txt) => ctx.text(txt),
             Message::Bin(bin) => ctx.binary(bin),
             Message::StateWithDiff => {
-                let game = self.data.game.read().unwrap();
+                let game = self.data.game.lock().unwrap();
                 match game.serialize_with_diffs(&self.chunks_digest) {
                     Ok(bytes) => ctx.binary(bytes),
                     Err(e) => ctx.text(format!("Error: {e}")),
@@ -166,6 +166,10 @@ enum WsMessage {
         from: Pos,
         to: Pos,
     },
+    MoveItem {
+        from: Pos,
+        to: Pos,
+    },
     Build {
         pos: Pos,
         #[serde(rename = "type")]
@@ -225,14 +229,18 @@ impl StreamHandler<WsResult> for SessionWs {
 
 impl SessionWs {
     fn handle_message(&mut self, payload: WsMessage) -> anyhow::Result<()> {
-        let mut game = self.data.game.write().unwrap();
+        let mut game = self.data.game.lock().unwrap();
 
         match payload {
             WsMessage::Excavate { x, y } => {
                 game.excavate(x, y).map_err(|e| anyhow::anyhow!("{e}"))?;
             }
             WsMessage::Move { from, to } => {
-                game.move_building(from[0], from[1], to[0], to[1])
+                game.move_building(from, to)
+                    .map_err(|e| anyhow::anyhow!("{e}"))?;
+            }
+            WsMessage::MoveItem { from, to } => {
+                game.move_item(from, to)
                     .map_err(|e| anyhow::anyhow!("{e}"))?;
             }
             WsMessage::Build { pos, ty } => match ty {

@@ -3,7 +3,7 @@ use std::{collections::HashMap, fmt::Display};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    building::{Building, BuildingType, Recipe},
+    building::{Building, BuildingType},
     construction::Construction,
     direction::Direction,
     game::CalculateBackImage,
@@ -63,7 +63,7 @@ impl AsteroidColoniesGame {
         if !matches!(self.tiles[[ix, iy]].state, TileState::Solid) {
             return Err("Already excavated".to_string());
         }
-        for building in &mut self.buildings {
+        for building in self.buildings.iter_mut() {
             if building.type_ != BuildingType::Excavator {
                 continue;
             }
@@ -109,36 +109,8 @@ impl AsteroidColoniesGame {
             return Err(String::from("Power grid is already installed in this tile"));
         }
         self.constructions
-            .push(Construction::new_power_grid([ix, iy]));
+            .insert(Construction::new_power_grid([ix, iy]));
         Ok(true)
-    }
-
-    pub fn move_item(&mut self, ix: i32, iy: i32) -> Result<bool, String> {
-        let tile = &self.tiles[[ix, iy]];
-        if matches!(tile.state, TileState::Solid) {
-            return Err(String::from("Needs excavation before building conveyor"));
-        }
-        if !tile.conveyor.is_some() {
-            return Err(String::from("Conveyor is needed to move items"));
-        }
-        let Some(_dest) = self
-            .buildings
-            .iter()
-            .find(|b| b.pos[0] == ix && b.pos[1] == iy)
-        else {
-            return Err(String::from("Needs a building at the destination"));
-        };
-        for building in &mut self.buildings {
-            if 0 < *building.inventory.get(&ItemType::RawOre).unwrap_or(&0) {
-                building.task = Task::MoveItem {
-                    t: MOVE_ITEM_TIME,
-                    item_type: ItemType::RawOre,
-                    dest: [ix, iy],
-                };
-                return Ok(true);
-            }
-        }
-        Err(String::from("No structure to send from"))
     }
 
     pub(super) fn _is_clear(&self, ix: i32, iy: i32, size: [usize; 2]) -> bool {
@@ -151,30 +123,6 @@ impl AsteroidColoniesGame {
             }
         }
         true
-    }
-
-    pub(super) fn set_building_recipe(
-        &mut self,
-        ix: i32,
-        iy: i32,
-        recipe: Option<&Recipe>,
-    ) -> Result<bool, String> {
-        let intersects = |b: &Building| {
-            let size = b.type_.size();
-            b.pos[0] <= ix
-                && ix < size[0] as i32 + b.pos[0]
-                && b.pos[1] <= iy
-                && iy < size[1] as i32 + b.pos[1]
-        };
-
-        let Some(assembler) = self.buildings.iter_mut().find(|b| intersects(*b)) else {
-            return Err(String::from("The building does not exist at the target"));
-        };
-        if !matches!(assembler.type_, BuildingType::Assembler) {
-            return Err(String::from("The building is not an assembler"));
-        }
-        assembler.recipe = recipe.cloned();
-        Ok(true)
     }
 
     pub(super) fn process_task(

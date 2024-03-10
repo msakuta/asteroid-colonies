@@ -2,14 +2,16 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, io::Read};
 
 use crate::{
+    btree_map,
     building::{Building, BuildingType, Recipe},
     console_log,
     construction::{get_build_menu, Construction, ConstructionType},
     conveyor::Conveyor,
     crew::Crew,
     direction::Direction,
-    hash_map,
+    entity::{EntitySet, RefOption},
     items::{recipes, ItemType},
+    push_pull::send_item,
     task::{GlobalTask, Task, MOVE_TIME},
     tile::CHUNK_SIZE,
     transport::{find_path, Transport},
@@ -20,14 +22,14 @@ pub type CalculateBackImage = Box<dyn Fn(&mut Tiles) + Send + Sync>;
 
 pub struct AsteroidColoniesGame {
     pub(crate) tiles: Tiles,
-    pub(crate) buildings: Vec<Building>,
-    pub(crate) crews: Vec<Crew>,
+    pub(crate) buildings: EntitySet<Building>,
+    pub(crate) crews: EntitySet<Crew>,
     pub(crate) global_tasks: Vec<GlobalTask>,
     /// Used power for the last tick, in kW
     pub(crate) used_power: usize,
     pub(crate) global_time: usize,
-    pub(crate) transports: Vec<Transport>,
-    pub(crate) constructions: Vec<Construction>,
+    pub(crate) transports: EntitySet<Transport>,
+    pub(crate) constructions: EntitySet<Construction>,
     /// Ghost conveyors staged for commit. After committing, they will be queued to construction plans
     pub(crate) conveyor_staged: HashMap<Pos, Conveyor>,
     /// Preview of ghost conveyors, just for visualization.
@@ -55,7 +57,7 @@ impl AsteroidColoniesGame {
                 pos[1] - 5 + HEIGHT as i32 / 2,
             ]
         };
-        let buildings = vec![
+        let buildings: EntitySet<_> = [
             Building::new(start_ofs([1, 7]), BuildingType::CrewCabin),
             Building::new(start_ofs([3, 4]), BuildingType::Power),
             Building::new(start_ofs([4, 4]), BuildingType::Excavator),
@@ -63,12 +65,14 @@ impl AsteroidColoniesGame {
             Building::new_inventory(
                 start_ofs([6, 3]),
                 BuildingType::MediumStorage,
-                hash_map!(ItemType::ConveyorComponent => 20, ItemType::PowerGridComponent => 2),
+                btree_map!(ItemType::ConveyorComponent => 20, ItemType::PowerGridComponent => 2),
             ),
             Building::new(start_ofs([1, 10]), BuildingType::Assembler),
             Building::new(start_ofs([1, 4]), BuildingType::Furnace),
-        ];
-        for building in &buildings {
+        ]
+        .into_iter()
+        .collect();
+        for building in buildings.iter() {
             let pos = building.pos;
             let size = building.type_.size();
             for iy in 0..size[1] {
@@ -127,12 +131,12 @@ impl AsteroidColoniesGame {
         Ok(Self {
             tiles,
             buildings,
-            crews: vec![],
+            crews: EntitySet::new(),
             global_tasks: vec![],
             used_power: 0,
             global_time: 0,
-            transports: vec![],
-            constructions: vec![],
+            transports: EntitySet::new(),
+            constructions: EntitySet::new(),
             conveyor_staged: HashMap::new(),
             conveyor_preview: HashMap::new(),
             calculate_back_image,
@@ -160,15 +164,15 @@ impl AsteroidColoniesGame {
         &self.tiles[pos]
     }
 
-    pub fn iter_building(&self) -> impl Iterator<Item = &Building> {
+    pub fn iter_building(&self) -> impl Iterator<Item = RefOption<Building>> {
         self.buildings.iter()
     }
 
-    pub fn iter_construction(&self) -> impl Iterator<Item = &Construction> {
+    pub fn iter_construction(&self) -> impl Iterator<Item = RefOption<Construction>> {
         self.constructions.iter()
     }
 
-    pub fn iter_crew(&self) -> impl Iterator<Item = &Crew> {
+    pub fn iter_crew(&self) -> impl Iterator<Item = RefOption<Crew>> {
         self.crews.iter()
     }
 
@@ -180,7 +184,7 @@ impl AsteroidColoniesGame {
         self.transports.len()
     }
 
-    pub fn iter_transport(&self) -> impl Iterator<Item = &Transport> {
+    pub fn iter_transport(&self) -> impl Iterator<Item = RefOption<Transport>> {
         self.transports.iter()
     }
 
@@ -191,8 +195,8 @@ impl AsteroidColoniesGame {
             .chain(self.conveyor_preview.iter())
     }
 
-    pub fn move_building(&mut self, ix: i32, iy: i32, dx: i32, dy: i32) -> Result<(), String> {
-        let Some(building) = self.buildings.iter_mut().find(|b| b.pos == [ix, iy]) else {
+    pub fn move_building(&mut self, src: Pos, dest: Pos) -> Result<(), String> {
+        let Some(building) = self.buildings.iter_mut().find(|b| b.pos == src) else {
             return Err(String::from("Building does not exist at that position"));
         };
         if !building.type_.is_mobile() {
@@ -216,14 +220,14 @@ impl AsteroidColoniesGame {
             })
         };
 
-        let mut path = find_path([ix, iy], [dx, dy], |pos| {
+        let mut path = find_path(src, dest, |pos| {
             let tile = &tiles[pos];
             !intersects(pos) && matches!(tile.state, TileState::Empty) && tile.power_grid
         })
         .ok_or_else(|| String::from("Failed to find the path"))?;
 
         // Re-borrow to avoid borrow checker
-        let Some(building) = self.buildings.iter_mut().find(|b| b.pos == [ix, iy]) else {
+        let Some(building) = self.buildings.iter_mut().find(|b| b.pos == src) else {
             return Err(String::from("Building does not exist at that position"));
         };
         path.pop();
@@ -231,11 +235,47 @@ impl AsteroidColoniesGame {
         Ok(())
     }
 
-    pub fn build(&mut self, ix: i32, iy: i32, type_: BuildingType) -> Result<(), String> {
-        if ix < 0 || WIDTH as i32 <= ix || iy < 0 || HEIGHT as i32 <= iy {
-            return Err(String::from("Point outside tile"));
-        }
+    pub fn move_item(&mut self, from: Pos, to: Pos) -> Result<(), String> {
+        let (src_id, mut src) = self
+            .buildings
+            .items_borrow_mut()
+            .find(|(_, b)| b.intersects(from))
+            .ok_or_else(|| "Moving an item needs a building at the source")?;
+        send_item(
+            &mut self.tiles,
+            &mut self.transports,
+            &mut *src,
+            to,
+            &self.buildings,
+            &|_| true,
+        )
+        .or_else(|e| {
+            let item = *src
+                .inventory
+                .keys()
+                .next()
+                .ok_or_else(|| "Moving item source does not have an item")?;
+            let crew = if matches!(src.type_, BuildingType::CrewCabin) && 0 < src.crews {
+                Crew::new_deliver(src_id, src.pos, to, item, &self.tiles).map(|crew| (crew, src))
+            } else {
+                self.buildings.items_borrow_mut().find_map(|(from_id, b)| {
+                    Crew::new_pickup(from_id, b.pos, from, to, item, &self.tiles)
+                        .map(|crew| (crew, b))
+                })
+            };
+            if let Some((crew, mut cabin)) = crew {
+                self.crews.insert(crew);
+                cabin.crews -= 1;
+                Ok(())
+            } else {
+                Err(format!(
+                    "Neither conveyors ({e}) or a crew cannot move the item"
+                ))
+            }
+        })
+    }
 
+    pub fn build(&mut self, ix: i32, iy: i32, type_: BuildingType) -> Result<(), String> {
         let size = type_.size();
         for jy in iy..iy + size[1] as i32 {
             for jx in ix..ix + size[0] as i32 {
@@ -249,32 +289,20 @@ impl AsteroidColoniesGame {
             }
         }
 
-        let tile = &self.tiles[[ix, iy]];
-        if !tile.power_grid {
-            return Err(String::from("Power grid is required to build"));
-        }
-
-        let intersects = |pos: Pos, o_size: [usize; 2]| {
-            pos[0] < ix + size[0] as i32
-                && ix < o_size[0] as i32 + pos[0]
-                && pos[1] < iy + size[1] as i32
-                && iy < o_size[1] as i32 + pos[1]
-        };
-
-        if self
+        if let Some((id, _)) = self
             .buildings
-            .iter()
-            .any(|b| intersects(b.pos, b.type_.size()))
+            .items()
+            .find(|(_, b)| b.intersects_rect([ix, iy], size))
         {
-            return Err(String::from(
-                "The destination is already occupied by a building",
+            return Err(format!(
+                "The destination is already occupied by a building {id}",
             ));
         }
 
         if self
             .constructions
             .iter()
-            .any(|c| intersects(c.pos, c.size()))
+            .any(|c| c.intersects_rect([ix, iy], size))
         {
             return Err(String::from(
                 "The destination is already occupied by a construction plan",
@@ -285,14 +313,17 @@ impl AsteroidColoniesGame {
             .iter()
             .find(|it| it.type_ == ConstructionType::Building(type_))
         {
-            self.constructions.push(Construction::new(build, [ix, iy]));
+            self.constructions
+                .insert(Construction::new(build, [ix, iy]));
             // self.build_building(ix, iy, type_)?;
         }
         Ok(())
     }
 
     pub fn build_plan(&mut self, constructions: &[Construction]) {
-        self.constructions.extend_from_slice(constructions);
+        for c in constructions {
+            self.constructions.insert(c.clone());
+        }
     }
 
     pub fn cancel_build(&mut self, ix: i32, iy: i32) {
@@ -302,17 +333,16 @@ impl AsteroidColoniesGame {
     }
 
     pub fn deconstruct(&mut self, ix: i32, iy: i32) -> Result<(), String> {
-        let (i, b) = self
+        let (id, b) = self
             .buildings
-            .iter()
-            .enumerate()
-            .find(|(_, c)| c.pos == [ix, iy])
+            .items_mut()
+            .find(|(_, b)| b.pos == [ix, iy])
             .ok_or_else(|| String::from("Building not found at given position"))?;
         let decon = Construction::new_deconstruct(b.type_, [ix, iy], &b.inventory)
             .ok_or_else(|| String::from("No build recipe was found to deconstruct"))?;
+        self.constructions.insert(decon);
 
-        self.constructions.push(decon);
-        self.buildings.remove(i);
+        self.buildings.remove(id);
 
         Ok(())
     }
@@ -321,15 +351,8 @@ impl AsteroidColoniesGame {
         if ix < 0 || WIDTH as i32 <= ix || iy < 0 || HEIGHT as i32 <= iy {
             return Err(String::from("Point outside tile"));
         }
-        let intersects = |b: &Building| {
-            let size = b.type_.size();
-            b.pos[0] <= ix
-                && ix < size[0] as i32 + b.pos[0]
-                && b.pos[1] <= iy
-                && iy < size[1] as i32 + b.pos[1]
-        };
 
-        let Some(assembler) = self.buildings.iter().find(|b| intersects(*b)) else {
+        let Some(assembler) = self.buildings.iter().find(|b| b.intersects([ix, iy])) else {
             return Err(String::from("The building does not exist at the target"));
         };
         if !matches!(assembler.type_, BuildingType::Assembler) {
@@ -339,22 +362,14 @@ impl AsteroidColoniesGame {
     }
 
     pub fn set_recipe(&mut self, ix: i32, iy: i32, name: Option<&str>) -> Result<(), String> {
-        let intersects = |b: &Building| {
-            let size = b.type_.size();
-            b.pos[0] <= ix
-                && ix < size[0] as i32 + b.pos[0]
-                && b.pos[1] <= iy
-                && iy < size[1] as i32 + b.pos[1]
-        };
-
-        let Some(assembler) = self.buildings.iter().find(|b| intersects(*b)) else {
-            return Err(String::from("The building does not exist at the target"));
+        let Some(assembler) = self.buildings.iter_mut().find(|b| b.intersects([ix, iy])) else {
+            return Err("The building does not exist at the target".to_string());
         };
         if !matches!(assembler.type_, BuildingType::Assembler) {
             return Err(String::from("The building is not an assembler"));
         }
         let Some(name) = name else {
-            self.set_building_recipe(ix, iy, None)?;
+            assembler.set_recipe(None)?;
             return Ok(());
         };
         for recipe in recipes() {
@@ -362,7 +377,7 @@ impl AsteroidColoniesGame {
                 continue;
             };
             if format!("{:?}", key) == name {
-                self.set_building_recipe(ix, iy, Some(recipe))?;
+                assembler.set_recipe(Some(recipe))?;
                 break;
             }
         }
@@ -427,6 +442,31 @@ impl AsteroidColoniesGame {
         self.transports = ser_data.transports;
         self.constructions = ser_data.constructions;
         self.rng = ser_data.rng;
+
+        // Clear transports expectation cache
+        for building in self.buildings.iter_mut() {
+            building.expected_transports.clear();
+        }
+
+        // Clear transports expectation cache
+        for construction in self.constructions.iter_mut() {
+            construction.clear_expected_all();
+        }
+
+        // Reconstruct transports expectation cache from actual data
+        for (id, t) in self.transports.items() {
+            let Some(t_pos) = t.path.last() else {
+                continue;
+            };
+            if let Some(building) = self.buildings.iter_mut().find(|b| b.intersects(*t_pos)) {
+                building.expected_transports.insert(id);
+            } else if let Some(construction) =
+                self.constructions.iter_mut().find(|c| c.intersects(*t_pos))
+            {
+                construction.insert_expected_transports(id);
+            }
+        }
+
         if let Some(ref f) = self.calculate_back_image {
             f(&mut self.tiles);
         }
@@ -447,6 +487,12 @@ impl AsteroidColoniesGame {
         chunks_digest: &HashMap<Position, u64>,
     ) -> Result<Vec<u8>, String> {
         let tiles = self.tiles.filter_with_diffs(chunks_digest)?;
+        if let Some((b, data)) = self.buildings.iter().next().and_then(|b| {
+            let bytes = bincode::serialize(&*b).ok()?;
+            Some((b, bytes))
+        }) {
+            println!("serialized bincode: {} {:?}", data.len(), b.type_);
+        }
         let ser_game = SerializeGame {
             tiles,
             buildings: self.buildings.clone(),
@@ -464,12 +510,12 @@ impl AsteroidColoniesGame {
 #[derive(Serialize, Deserialize)]
 pub struct SerializeGame {
     tiles: Tiles,
-    buildings: Vec<Building>,
-    crews: Vec<Crew>,
+    buildings: EntitySet<Building>,
+    crews: EntitySet<Crew>,
     global_tasks: Vec<GlobalTask>,
     global_time: usize,
-    transports: Vec<Transport>,
-    constructions: Vec<Construction>,
+    transports: EntitySet<Transport>,
+    constructions: EntitySet<Construction>,
     rng: Xor128,
 }
 

@@ -1,3 +1,5 @@
+mod crew_cabin;
+
 use std::{
     collections::{HashMap, HashSet},
     fmt::Display,
@@ -5,16 +7,19 @@ use std::{
 
 use ::serde::{Deserialize, Serialize};
 
+use self::crew_cabin::Envs;
+
 use crate::{
     construction::Construction,
     crew::expected_crew_pickup_any,
+    entity::{EntityId, EntitySet},
     hash_map,
-    items::ItemType,
+    items::{Inventory, ItemType},
+    measure_time,
     push_pull::{pull_inputs, push_outputs},
     task::{GlobalTask, Task, RAW_ORE_SMELT_TIME},
     tile::Tiles,
-    transport::find_multipath,
-    AsteroidColoniesGame, Crew, Direction, TileState, Transport, Xor128,
+    AsteroidColoniesGame, Crew, Direction, Pos, TileState, Transport, Xor128,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -105,7 +110,7 @@ pub struct Building {
     pub pos: [i32; 2],
     pub type_: BuildingType,
     pub task: Task,
-    pub inventory: HashMap<ItemType, usize>,
+    pub inventory: Inventory,
     /// The number of crews attending this building.
     pub crews: usize,
     // TODO: We want to avoid copies of recipes, but deserializing a recipe with static is
@@ -113,6 +118,9 @@ pub struct Building {
     pub recipe: Option<Recipe>,
     /// Some buildings have direction.
     pub direction: Option<Direction>,
+    #[serde(skip)]
+    /// A cache of expected transports
+    pub expected_transports: HashSet<EntityId>,
 }
 
 impl Building {
@@ -121,18 +129,15 @@ impl Building {
             pos,
             type_,
             task: Task::None,
-            inventory: HashMap::new(),
+            inventory: Inventory::new(),
             crews: type_.max_crews(),
             recipe: None,
             direction: None,
+            expected_transports: HashSet::new(),
         }
     }
 
-    pub fn new_inventory(
-        pos: [i32; 2],
-        type_: BuildingType,
-        inventory: HashMap<ItemType, usize>,
-    ) -> Self {
+    pub fn new_inventory(pos: [i32; 2], type_: BuildingType, inventory: Inventory) -> Self {
         Self {
             pos,
             type_,
@@ -141,6 +146,7 @@ impl Building {
             crews: type_.max_crews(),
             recipe: None,
             direction: None,
+            expected_transports: HashSet::new(),
         }
     }
 
@@ -158,47 +164,69 @@ impl Building {
         self.inventory.iter().map(|(_, v)| *v).sum()
     }
 
+    pub fn intersects(&self, pos: Pos) -> bool {
+        let size = self.type_.size();
+        self.pos[0] <= pos[0]
+            && pos[0] < self.pos[0] + size[0] as i32
+            && self.pos[1] <= pos[1]
+            && pos[1] < self.pos[1] + size[1] as i32
+    }
+
+    pub fn intersects_rect(&self, pos: Pos, other_size: [usize; 2]) -> bool {
+        let size = self.type_.size();
+        self.pos[0] < pos[0] + other_size[0] as i32
+            && pos[0] < self.pos[0] + size[0] as i32
+            && self.pos[1] < pos[1] + other_size[1] as i32
+            && pos[1] < self.pos[1] + size[1] as i32
+    }
+
+    pub(super) fn set_recipe(&mut self, recipe: Option<&Recipe>) -> Result<(), String> {
+        if !matches!(self.type_, BuildingType::Assembler) {
+            return Err(String::from("The building is not an assembler"));
+        }
+        self.recipe = recipe.cloned();
+        Ok(())
+    }
+
     pub fn tick(
-        bldgs: &mut [Building],
-        idx: usize,
+        &mut self,
+        id: EntityId,
+        bldgs: &EntitySet<Building>,
         tiles: &Tiles,
-        transports: &mut Vec<Transport>,
-        constructions: &mut [Construction],
-        crews: &mut Vec<Crew>,
+        transports: &mut EntitySet<Transport>,
+        constructions: &mut EntitySet<Construction>,
+        crews: &mut EntitySet<Crew>,
         gtasks: &[GlobalTask],
         rng: &mut Xor128,
     ) -> Result<(), String> {
-        let (first, rest) = bldgs.split_at_mut(idx);
-        let Some((this, last)) = rest.split_first_mut() else {
-            return Ok(());
-        };
         // Try pushing out products
-        if let Some(ref recipe) = this.recipe {
+        if let Some(ref recipe) = self.recipe {
             let outputs: HashSet<_> = recipe.outputs.keys().copied().collect();
-            push_outputs(tiles, transports, this, first, last, &|item| {
+            push_outputs(tiles, transports, self, bldgs, &|item| {
                 outputs.contains(&item)
             });
         }
+        let this = self;
         if matches!(this.task, Task::None) {
             if let Some(recipe) = &this.recipe {
                 pull_inputs(
                     &recipe.inputs,
                     tiles,
                     transports,
+                    &mut this.expected_transports,
                     this.pos,
                     this.type_.size(),
                     &mut this.inventory,
-                    first,
-                    last,
+                    bldgs,
                 );
                 for (ty, recipe_count) in &recipe.inputs {
                     let actual_count = *this.inventory.get(&ty).unwrap_or(&0);
                     if actual_count < *recipe_count {
-                        crate::console_log!(
-                            "An ingredient {:?} is missing for recipe {:?}",
-                            ty,
-                            recipe.outputs
-                        );
+                        // crate::console_log!(
+                        //     "An ingredient {:?} is missing for recipe {:?}",
+                        //     ty,
+                        //     recipe.outputs
+                        // );
                         return Ok(());
                     }
                 }
@@ -218,7 +246,7 @@ impl Building {
         }
         match this.type_ {
             BuildingType::Excavator => {
-                push_outputs(tiles, transports, this, first, last, &|t| {
+                push_outputs(tiles, transports, &mut *this, bldgs, &|t| {
                     matches!(t, ItemType::RawOre)
                 });
             }
@@ -236,7 +264,7 @@ impl Building {
                         }
                         GlobalTask::Cleanup(pos) => {
                             let pickups = expected_crew_pickup_any(crews, *pos);
-                            if pickups == 0 {
+                            if pickups != 0 {
                                 continue;
                             }
                             pos
@@ -245,82 +273,53 @@ impl Building {
                     if crews.iter().any(|crew| crew.target() == Some(*goal_pos)) {
                         continue;
                     }
-                    if let Some(crew) = Crew::new_task(this.pos, gtask, tiles) {
-                        crews.push(crew);
+                    if let Some(crew) = Crew::new_task(id, this, gtask, tiles) {
+                        crews.insert(crew);
                         this.crews -= 1;
                         return Ok(());
                     }
                 }
-                for construction in constructions {
+                fn print_time<R>(name: &str, f: impl FnOnce() -> R) -> R {
+                    let (r, t) = measure_time(f);
+                    if 0.001 < t {
+                        println!("{name} time: {}", t);
+                    }
+                    r
+                }
+                for construction in constructions.iter() {
                     let pos = construction.pos;
                     if !matches!(tiles[pos].state, TileState::Empty) {
                         // Don't bother trying to find a path in an unreachable area.
                         continue;
                     }
-                    let crew = construction
-                        .required_ingredients(transports, crews)
-                        .find_map(|(ty, _)| {
-                            if 0 < this.inventory.get(&ty).copied().unwrap_or(0) {
-                                Crew::new_deliver(this.pos, construction.pos, ty, tiles)
-                            } else {
-                                let path_to_source = find_multipath(
-                                    [this.pos].into_iter(),
-                                    |pos| {
-                                        first.iter().chain(last.iter()).any(|o| {
-                                            o.pos == pos
-                                                && 0 < o.inventory.get(&ty).copied().unwrap_or(0)
-                                        })
-                                    },
-                                    |_, pos| matches!(tiles[pos].state, TileState::Empty),
-                                );
-                                path_to_source
-                                    .and_then(|src| src.first().copied())
-                                    .and_then(|src| {
-                                        Crew::new_pickup(this.pos, src, construction.pos, ty, tiles)
-                                    })
-                            }
+                    let envs = Envs {
+                        buildings: bldgs,
+                        transports,
+                        crews,
+                        tiles,
+                    };
+                    let crew = print_time("try_find_deliver", || {
+                        this.try_find_deliver(id, &*construction, &envs)
+                    })
+                    .or_else(|| {
+                        print_time("try_find_pickup_and_deliver", || {
+                            this.try_find_pickup_and_deliver(id, &*construction, &envs)
                         })
-                        .or_else(|| {
-                            construction.extra_ingredients().find_map(|(ty, _)| {
-                                let path_to_dest = find_multipath(
-                                    [construction.pos].into_iter(),
-                                    |pos| {
-                                        first.iter().chain(last.iter()).any(|o| {
-                                            o.pos == pos && o.inventory_size() < o.type_.capacity()
-                                        })
-                                    },
-                                    |_, pos| matches!(tiles[pos].state, TileState::Empty),
-                                );
-
-                                path_to_dest
-                                    .and_then(|dst| dst.first().copied())
-                                    .and_then(|dst| {
-                                        Crew::new_pickup(this.pos, construction.pos, dst, ty, tiles)
-                                    })
-                            })
+                    })
+                    .or_else(|| {
+                        print_time("try_send_to_build", || {
+                            this.try_send_to_build(id, &*construction, &envs)
                         })
-                        .or_else(|| {
-                            if crews
-                                .iter()
-                                .any(|crew| crew.target() == Some(construction.pos))
-                            {
-                                return None;
-                            }
-                            if construction.ingredients_satisfied() {
-                                Crew::new_build(this.pos, construction.pos, tiles)
-                            } else {
-                                None
-                            }
-                        });
+                    });
                     if let Some(crew) = crew {
-                        crews.push(crew);
+                        crews.insert(crew);
                         this.crews -= 1;
                         return Ok(());
                     }
                 }
             }
             BuildingType::Furnace => {
-                push_outputs(tiles, transports, this, first, last, &|t| {
+                push_outputs(tiles, transports, &mut *this, bldgs, &|t| {
                     !matches!(t, ItemType::RawOre)
                 });
                 if !matches!(this.task, Task::None) {
@@ -336,11 +335,11 @@ impl Building {
                     &recipe.inputs,
                     tiles,
                     transports,
+                    &mut this.expected_transports,
                     this.pos,
                     this.type_.size(),
                     &mut this.inventory,
-                    first,
-                    last,
+                    bldgs,
                 );
                 if let Some(source) = this.inventory.get_mut(&ItemType::RawOre) {
                     if *source < 1 {
@@ -382,10 +381,10 @@ impl AsteroidColoniesGame {
         let power_ratio = (power_supply as f64 / power_demand as f64).min(1.);
         // A buffer to avoid borrow checker
         let mut moving_items = vec![];
-        for i in 0..self.buildings.len() {
-            let res = Building::tick(
-                &mut self.buildings,
-                i,
+        for (id, mut b) in self.buildings.items_borrow_mut() {
+            let res = b.tick(
+                id,
+                &self.buildings,
                 &self.tiles,
                 &mut self.transports,
                 &mut self.constructions,
@@ -397,7 +396,7 @@ impl AsteroidColoniesGame {
                 crate::console_log!("Building::tick error: {}", e);
             };
         }
-        for building in &mut self.buildings {
+        for building in self.buildings.iter_mut() {
             if let Some((item, dest)) = Self::process_task(
                 &mut self.tiles,
                 building,

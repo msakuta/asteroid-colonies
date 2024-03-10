@@ -74,7 +74,7 @@ struct Args {
 }
 
 struct ServerData {
-    game: RwLock<AsteroidColoniesGame>,
+    game: Mutex<AsteroidColoniesGame>,
     // asset_path: PathBuf,
     js_path: PathBuf,
     last_saved: Mutex<Instant>,
@@ -124,7 +124,7 @@ async fn new_session(data: web::Data<ServerData>) -> actix_web::Result<HttpRespo
 async fn get_state(data: web::Data<ServerData>) -> actix_web::Result<HttpResponse> {
     let start = Instant::now();
 
-    let game = data.game.read().unwrap();
+    let game = data.game.lock().unwrap();
 
     let serialized = serialize_state(&game, false)?;
 
@@ -215,7 +215,7 @@ async fn main() -> std::io::Result<()> {
     }
 
     let data = web::Data::new(ServerData {
-        game: RwLock::new(game),
+        game: Mutex::new(game),
         // asset_path: args.asset_path,
         js_path: args.js_path,
         last_saved: Mutex::new(Instant::now()),
@@ -240,7 +240,7 @@ async fn main() -> std::io::Result<()> {
 
             let start = Instant::now();
 
-            let mut game = data_copy.game.write().unwrap();
+            let mut game = data_copy.game.lock().unwrap();
             if let Err(e) = game.tick() {
                 println!("Tick error: {e}");
             }
@@ -321,7 +321,7 @@ async fn main() -> std::io::Result<()> {
     .run()
     .await;
 
-    match serialize_state(&data_copy2.game.read().unwrap(), autosave_pretty) {
+    match serialize_state(&data_copy2.game.lock().unwrap(), autosave_pretty) {
         Ok(serialized) => save_file(&data_copy2.autosave_file, &serialized),
         Err(e) => println!("Error saving file: {e}"),
     }

@@ -1,10 +1,10 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use ::serde::{Deserialize, Serialize};
 
 use crate::{hash_map, Recipe};
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Serialize, Deserialize)]
 pub enum ItemType {
     /// Freshly dug soil from asteroid body. Hardly useful unless refined
     RawOre,
@@ -57,4 +57,4 @@ pub(crate) fn recipes() -> &'static [Recipe] {
     })
 }
 
-pub type Inventory = HashMap<ItemType, usize>;
+pub type Inventory = BTreeMap<ItemType, usize>;
