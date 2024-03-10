@@ -198,7 +198,7 @@ impl Building {
         bldgs: &EntitySet<Building>,
         tiles: &Tiles,
         transports: &mut EntitySet<Transport>,
-        constructions: &mut [Construction],
+        constructions: &mut EntitySet<Construction>,
         crews: &mut EntitySet<Crew>,
         gtasks: &[GlobalTask],
         rng: &mut Xor128,
@@ -290,7 +290,7 @@ impl Building {
                     }
                     r
                 }
-                for construction in constructions {
+                for construction in constructions.iter() {
                     let pos = construction.pos;
                     if !matches!(tiles[pos].state, TileState::Empty) {
                         // Don't bother trying to find a path in an unreachable area.
@@ -303,16 +303,16 @@ impl Building {
                         tiles,
                     };
                     let crew = print_time("try_find_deliver", || {
-                        this.try_find_deliver(id, construction, &envs)
+                        this.try_find_deliver(id, &*construction, &envs)
                     })
                     .or_else(|| {
                         print_time("try_find_pickup_and_deliver", || {
-                            this.try_find_pickup_and_deliver(id, construction, &envs)
+                            this.try_find_pickup_and_deliver(id, &*construction, &envs)
                         })
                     })
                     .or_else(|| {
                         print_time("try_send_to_build", || {
-                            this.try_send_to_build(id, construction, &envs)
+                            this.try_send_to_build(id, &*construction, &envs)
                         })
                     });
                     if let Some(crew) = crew {

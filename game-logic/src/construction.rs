@@ -274,11 +274,10 @@ pub fn get_build_menu() -> &'static [BuildMenuItem] {
 
 impl AsteroidColoniesGame {
     pub(super) fn process_constructions(&mut self) {
-        let mut to_delete = vec![];
-        for (i, construction) in self.constructions.iter_mut().enumerate() {
+        self.constructions.retain(|construction| {
             if construction.canceling {
                 if construction.ingredients.is_empty() {
-                    to_delete.push(i);
+                    return false;
                 } else if construction.progress <= 0. {
                     push_outputs(
                         &self.tiles,
@@ -304,7 +303,7 @@ impl AsteroidColoniesGame {
                 // TODO: should we always use the same amount of time to deconstruct as construction?
                 // Some buildings should be easier to deconstruct than construct.
                 if construction.progress < construction.recipe.time {
-                    continue;
+                    return true;
                 }
                 let pos = construction.pos;
                 match construction.type_ {
@@ -322,12 +321,9 @@ impl AsteroidColoniesGame {
                         }
                     }
                 }
-                to_delete.push(i);
+                return false;
             }
-        }
-
-        for i in to_delete.iter().rev() {
-            self.constructions.remove(*i);
-        }
+            true
+        });
     }
 }

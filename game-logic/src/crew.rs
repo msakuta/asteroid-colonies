@@ -175,7 +175,7 @@ impl Crew {
         self.task = CrewTask::None;
     }
 
-    fn process_build_task(&mut self, constructions: &mut [Construction], ct_pos: Pos) {
+    fn process_build_task(&mut self, constructions: &mut EntitySet<Construction>, ct_pos: Pos) {
         for con in constructions.iter_mut() {
             let canceling = con.canceling();
             let t = &mut con.progress;
@@ -205,7 +205,7 @@ impl Crew {
         dest: Pos,
         tiles: &Tiles,
         buildings: &mut EntitySet<Building>,
-        constructions: &mut [Construction],
+        constructions: &mut EntitySet<Construction>,
         transports: &mut EntitySet<Transport>,
     ) {
         let mut process_inventory = |inventory: &mut HashMap<ItemType, usize>| {
@@ -269,7 +269,7 @@ impl Crew {
         &mut self,
         item: ItemType,
         dest: Pos,
-        constructions: &mut [Construction],
+        constructions: &mut EntitySet<Construction>,
         buildings: &EntitySet<Building>,
     ) {
         let Some(crew_amount) = self.inventory.get_mut(&item) else {
@@ -297,7 +297,7 @@ impl Crew {
         &mut self,
         crews: &EntitySet<Crew>,
         tiles: &Tiles,
-        constructions: &mut [Construction],
+        constructions: &mut EntitySet<Construction>,
         buildings: &mut EntitySet<Building>,
     ) -> bool {
         let construction = constructions.iter().find(|construction| {

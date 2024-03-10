@@ -29,7 +29,7 @@ pub struct AsteroidColoniesGame {
     pub(crate) used_power: usize,
     pub(crate) global_time: usize,
     pub(crate) transports: EntitySet<Transport>,
-    pub(crate) constructions: Vec<Construction>,
+    pub(crate) constructions: EntitySet<Construction>,
     /// Ghost conveyors staged for commit. After committing, they will be queued to construction plans
     pub(crate) conveyor_staged: HashMap<Pos, Conveyor>,
     /// Preview of ghost conveyors, just for visualization.
@@ -136,7 +136,7 @@ impl AsteroidColoniesGame {
             used_power: 0,
             global_time: 0,
             transports: EntitySet::new(),
-            constructions: vec![],
+            constructions: EntitySet::new(),
             conveyor_staged: HashMap::new(),
             conveyor_preview: HashMap::new(),
             calculate_back_image,
@@ -168,7 +168,7 @@ impl AsteroidColoniesGame {
         self.buildings.iter()
     }
 
-    pub fn iter_construction(&self) -> impl Iterator<Item = &Construction> {
+    pub fn iter_construction(&self) -> impl Iterator<Item = RefOption<Construction>> {
         self.constructions.iter()
     }
 
@@ -313,14 +313,17 @@ impl AsteroidColoniesGame {
             .iter()
             .find(|it| it.type_ == ConstructionType::Building(type_))
         {
-            self.constructions.push(Construction::new(build, [ix, iy]));
+            self.constructions
+                .insert(Construction::new(build, [ix, iy]));
             // self.build_building(ix, iy, type_)?;
         }
         Ok(())
     }
 
     pub fn build_plan(&mut self, constructions: &[Construction]) {
-        self.constructions.extend_from_slice(constructions);
+        for c in constructions {
+            self.constructions.insert(c.clone());
+        }
     }
 
     pub fn cancel_build(&mut self, ix: i32, iy: i32) {
@@ -337,7 +340,7 @@ impl AsteroidColoniesGame {
             .ok_or_else(|| String::from("Building not found at given position"))?;
         let decon = Construction::new_deconstruct(b.type_, [ix, iy], &b.inventory)
             .ok_or_else(|| String::from("No build recipe was found to deconstruct"))?;
-        self.constructions.push(decon);
+        self.constructions.insert(decon);
 
         self.buildings.remove(id);
 
@@ -446,7 +449,7 @@ impl AsteroidColoniesGame {
         }
 
         // Clear transports expectation cache
-        for construction in &mut self.constructions {
+        for construction in self.constructions.iter_mut() {
             construction.clear_expected_all();
         }
 
@@ -512,7 +515,7 @@ pub struct SerializeGame {
     global_tasks: Vec<GlobalTask>,
     global_time: usize,
     transports: EntitySet<Transport>,
-    constructions: Vec<Construction>,
+    constructions: EntitySet<Construction>,
     rng: Xor128,
 }
 
