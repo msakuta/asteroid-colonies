@@ -2,14 +2,14 @@
 #[cfg(test)]
 mod tests;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use crate::{
     building::Building,
     conveyor::Conveyor,
     direction::Direction,
     entity::{EntityEntry, EntityId, EntitySet, RefMutOption},
-    items::ItemType,
+    items::{Inventory, ItemType},
     transport::{expected_deliveries, find_multipath_should_expand, CPos, LevelTarget, Transport},
     Pos, Tile, Tiles, WIDTH,
 };
@@ -39,14 +39,14 @@ impl TileSampler for Tiles {
 }
 
 /// Pull inputs over transportation network
-pub(crate) fn pull_inputs(
-    inputs: &HashMap<ItemType, usize>,
+pub(crate) fn pull_inputs<'a>(
+    inputs: impl IntoIterator<Item = (&'a ItemType, &'a usize)>,
     tiles: &impl TileSampler,
     transports: &mut EntitySet<Transport>,
     expected_transports: &mut HashSet<EntityId>,
     this_pos: Pos,
     this_size: [usize; 2],
-    this_inventory: &mut HashMap<ItemType, usize>,
+    this_inventory: &mut Inventory,
     buildings: &EntitySet<Building>,
 ) {
     let intersects_goal = |[ix, iy]: [i32; 2]| {
@@ -163,7 +163,7 @@ pub(crate) fn rect_iter(pos: Pos, size: [usize; 2]) -> impl Iterator<Item = Pos>
 pub(crate) trait HasInventory {
     fn pos(&self) -> Pos;
     fn size(&self) -> [usize; 2];
-    fn inventory(&mut self) -> &mut HashMap<ItemType, usize>;
+    fn inventory(&mut self) -> &mut Inventory;
 }
 
 impl HasInventory for Building {
@@ -175,7 +175,7 @@ impl HasInventory for Building {
         self.type_.size()
     }
 
-    fn inventory(&mut self) -> &mut HashMap<ItemType, usize> {
+    fn inventory(&mut self) -> &mut Inventory {
         &mut self.inventory
     }
 }

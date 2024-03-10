@@ -14,7 +14,7 @@ use crate::{
     crew::expected_crew_pickup_any,
     entity::{EntityId, EntitySet},
     hash_map,
-    items::ItemType,
+    items::{Inventory, ItemType},
     measure_time,
     push_pull::{pull_inputs, push_outputs},
     task::{GlobalTask, Task, RAW_ORE_SMELT_TIME},
@@ -110,7 +110,7 @@ pub struct Building {
     pub pos: [i32; 2],
     pub type_: BuildingType,
     pub task: Task,
-    pub inventory: HashMap<ItemType, usize>,
+    pub inventory: Inventory,
     /// The number of crews attending this building.
     pub crews: usize,
     // TODO: We want to avoid copies of recipes, but deserializing a recipe with static is
@@ -129,7 +129,7 @@ impl Building {
             pos,
             type_,
             task: Task::None,
-            inventory: HashMap::new(),
+            inventory: Inventory::new(),
             crews: type_.max_crews(),
             recipe: None,
             direction: None,
@@ -137,11 +137,7 @@ impl Building {
         }
     }
 
-    pub fn new_inventory(
-        pos: [i32; 2],
-        type_: BuildingType,
-        inventory: HashMap<ItemType, usize>,
-    ) -> Self {
+    pub fn new_inventory(pos: [i32; 2], type_: BuildingType, inventory: Inventory) -> Self {
         Self {
             pos,
             type_,

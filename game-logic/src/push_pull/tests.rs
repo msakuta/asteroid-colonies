@@ -1,5 +1,5 @@
 use super::*;
-use crate::{building::BuildingType, items::Inventory};
+use crate::{btree_map, building::BuildingType, items::Inventory};
 
 struct MockTiles;
 
@@ -32,8 +32,7 @@ impl TileSampler for MockTiles {
 
 #[test]
 fn test_pull_inputs() {
-    let mut inputs = HashMap::new();
-    inputs.insert(ItemType::RawOre, 1);
+    let inputs = btree_map!(ItemType::RawOre => 1);
 
     let storage: EntitySet<_> = [Building::new_inventory(
         [1, -1],
@@ -52,7 +51,7 @@ fn test_pull_inputs() {
         &mut HashSet::new(),
         [1, 3],
         [1, 1],
-        &mut HashMap::new(),
+        &mut Inventory::new(),
         &storage,
     );
 
@@ -206,8 +205,7 @@ fn print_board(tiles: &impl TileSampler) {
 
 #[test]
 fn test_pull_inputs2() {
-    let mut inputs = HashMap::new();
-    inputs.insert(ItemType::RawOre, 1);
+    let inputs = btree_map!(ItemType::RawOre => 1);
 
     let storage = [Building::new_inventory(
         [1, -1],
@@ -226,7 +224,7 @@ fn test_pull_inputs2() {
         &mut HashSet::new(),
         [1, 4],
         [1, 1],
-        &mut HashMap::new(),
+        &mut Inventory::new(),
         &storage,
     );
 

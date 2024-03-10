@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, io::Read};
 
 use crate::{
+    btree_map,
     building::{Building, BuildingType, Recipe},
     console_log,
     construction::{get_build_menu, Construction, ConstructionType},
@@ -9,7 +10,6 @@ use crate::{
     crew::Crew,
     direction::Direction,
     entity::{EntitySet, RefOption},
-    hash_map,
     items::{recipes, ItemType},
     push_pull::send_item,
     task::{GlobalTask, Task, MOVE_TIME},
@@ -65,7 +65,7 @@ impl AsteroidColoniesGame {
             Building::new_inventory(
                 start_ofs([6, 3]),
                 BuildingType::MediumStorage,
-                hash_map!(ItemType::ConveyorComponent => 20, ItemType::PowerGridComponent => 2),
+                btree_map!(ItemType::ConveyorComponent => 20, ItemType::PowerGridComponent => 2),
             ),
             Building::new(start_ofs([1, 10]), BuildingType::Assembler),
             Building::new(start_ofs([1, 4]), BuildingType::Furnace),

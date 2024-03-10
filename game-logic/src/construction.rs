@@ -31,7 +31,7 @@ pub enum ConstructionType {
 pub struct Construction {
     type_: ConstructionType,
     pub pos: Pos,
-    pub ingredients: HashMap<ItemType, usize>,
+    pub ingredients: Inventory,
     pub recipe: BuildMenuItem,
     canceling: bool,
     pub progress: f64,
@@ -45,7 +45,7 @@ impl Construction {
         Self {
             type_,
             pos,
-            ingredients: HashMap::new(),
+            ingredients: Inventory::new(),
             recipe: (*item).clone(),
             canceling: false,
             progress: 0.,
@@ -94,7 +94,7 @@ impl Construction {
     ) -> Option<Self> {
         let con_ty = ConstructionType::Building(building);
         let recipe = get_build_menu().iter().find(|bi| bi.type_ == con_ty)?;
-        let mut ingredients = recipe.ingredients.clone();
+        let mut ingredients: Inventory = recipe.ingredients.iter().map(|(k, v)| (*k, *v)).collect();
         for (item, amount) in inventory {
             ingredients.insert(*item, *amount);
         }
@@ -222,7 +222,7 @@ impl HasInventory for Construction {
         self.size()
     }
 
-    fn inventory(&mut self) -> &mut HashMap<ItemType, usize> {
+    fn inventory(&mut self) -> &mut Inventory {
         &mut self.ingredients
     }
 }

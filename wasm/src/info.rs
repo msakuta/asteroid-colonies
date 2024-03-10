@@ -4,7 +4,7 @@ use crate::{render::TILE_SIZE, AsteroidColonies};
 use asteroid_colonies_logic::{
     building::{BuildingType, Recipe},
     construction::{BuildMenuItem, ConstructionType},
-    ItemType, Pos,
+    Inventory, ItemType, Pos,
 };
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
@@ -14,7 +14,7 @@ struct GetBuildingInfoResult {
     type_: BuildingType,
     recipe: Option<Recipe>,
     task: String,
-    inventory: HashMap<ItemType, usize>,
+    inventory: Inventory,
     crews: usize,
     max_crews: usize,
 }
@@ -23,7 +23,7 @@ struct GetBuildingInfoResult {
 struct GetConstructionInfoResult {
     type_: ConstructionType,
     recipe: BuildMenuItem,
-    ingredients: HashMap<ItemType, usize>,
+    ingredients: Inventory,
 }
 
 #[derive(Serialize)]

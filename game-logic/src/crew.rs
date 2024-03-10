@@ -7,7 +7,7 @@ use crate::{
     construction::Construction,
     entity::{EntityId, EntitySet},
     hash_map,
-    items::ItemType,
+    items::{Inventory, ItemType},
     task::{GlobalTask, EXCAVATE_ORE_AMOUNT, LABOR_EXCAVATE_TIME},
     transport::{find_path, Transport},
     AsteroidColoniesGame, Pos, TileState, Tiles,
@@ -41,8 +41,6 @@ pub struct Crew {
     task: CrewTask,
     inventory: HashMap<ItemType, usize>,
 }
-
-type BuildingSet = EntitySet<Building>;
 
 impl Crew {
     pub fn new_task(
@@ -207,7 +205,7 @@ impl Crew {
         constructions: &mut EntitySet<Construction>,
         transports: &mut EntitySet<Transport>,
     ) {
-        let mut process_inventory = |inventory: &mut HashMap<ItemType, usize>| {
+        let mut process_inventory = |inventory: &mut Inventory| {
             let Some(item) = item.or_else(|| inventory.keys().copied().next()) else {
                 return None;
             };

@@ -5,7 +5,7 @@ pub use crate::{
     crew::Crew,
     direction::Direction,
     game::{AsteroidColoniesGame, SerializeGame},
-    items::ItemType,
+    items::{Inventory, ItemType},
     tile::{new_hasher, Chunk, ImageIdx, Position, Tile, TileState, Tiles, CHUNK_SIZE},
     transport::Transport,
     xor128::Xor128,
@@ -38,6 +38,22 @@ macro_rules! hash_map {
     };
     { } => {
         ::std::collections::HashMap::new()
+    }
+}
+
+#[macro_export]
+macro_rules! btree_map {
+    { $($key:expr => $value:expr),+ } => {
+        {
+            let mut m = ::std::collections::BTreeMap::new();
+            $(
+                m.insert($key, $value);
+            )+
+            m
+        }
+    };
+    { } => {
+        ::std::collections::BTreeMap::new()
     }
 }
 
