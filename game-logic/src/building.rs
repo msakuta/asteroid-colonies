@@ -277,7 +277,7 @@ impl Building {
                     if crews.iter().any(|crew| crew.target() == Some(*goal_pos)) {
                         continue;
                     }
-                    if let Some(crew) = Crew::new_task(id, gtask, tiles, bldgs) {
+                    if let Some(crew) = Crew::new_task(id, this, gtask, tiles) {
                         crews.insert(crew);
                         this.crews -= 1;
                         return Ok(());

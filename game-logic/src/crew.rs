@@ -46,12 +46,11 @@ type BuildingSet = EntitySet<Building>;
 
 impl Crew {
     pub fn new_task(
-        from: EntityId,
+        from_id: EntityId,
+        from_building: &mut Building,
         gtask: &GlobalTask,
         tiles: &Tiles,
-        buildings: &BuildingSet,
     ) -> Option<Self> {
-        let from_building = buildings.get(from)?;
         let (target, task) = match gtask {
             GlobalTask::Excavate(_, pos) => (*pos, CrewTask::Excavate(*pos)),
             GlobalTask::Cleanup(spos) => (
@@ -69,7 +68,7 @@ impl Crew {
         Some(Self {
             pos: from_building.pos,
             path: Some(path),
-            from,
+            from: from_id,
             task,
             inventory: HashMap::new(),
         })
