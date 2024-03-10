@@ -1,6 +1,9 @@
 use crate::{
-    construction::Construction, entity::EntitySet, push_pull::HasInventory,
-    transport::find_multipath, Crew, TileState, Tiles, Transport,
+    construction::Construction,
+    entity::{EntityId, EntitySet},
+    push_pull::HasInventory,
+    transport::find_multipath,
+    Crew, TileState, Tiles, Transport,
 };
 
 use super::Building;
@@ -15,6 +18,7 @@ pub(super) struct Envs<'a> {
 impl Building {
     pub(super) fn try_find_deliver(
         &mut self,
+        from_id: EntityId,
         construction: &Construction,
         envs: &Envs,
     ) -> Option<Crew> {
@@ -38,7 +42,7 @@ impl Building {
                     .and_then(|n| {
                         if 0 < *n {
                             *n -= 1;
-                            Crew::new_deliver(self.pos, construction.pos, ty, &envs.tiles)
+                            Crew::new_deliver(from_id, self.pos, construction.pos, ty, &envs.tiles)
                         } else {
                             None
                         }
@@ -52,7 +56,14 @@ impl Building {
                         path_to_source
                             .and_then(|src| src.first().copied())
                             .and_then(|src| {
-                                Crew::new_pickup(self.pos, src, construction.pos, ty, envs.tiles)
+                                Crew::new_pickup(
+                                    from_id,
+                                    self.pos,
+                                    src,
+                                    construction.pos,
+                                    ty,
+                                    envs.tiles,
+                                )
                             })
                     })
             })
@@ -60,6 +71,7 @@ impl Building {
 
     pub(super) fn try_find_pickup_and_deliver(
         &mut self,
+        from_id: EntityId,
         construction: &Construction,
         envs: &Envs,
     ) -> Option<Crew> {
@@ -76,12 +88,15 @@ impl Building {
 
             path_to_dest
                 .and_then(|dst| dst.first().copied())
-                .and_then(|dst| Crew::new_pickup(self.pos, construction.pos, dst, ty, envs.tiles))
+                .and_then(|dst| {
+                    Crew::new_pickup(from_id, self.pos, construction.pos, dst, ty, envs.tiles)
+                })
         })
     }
 
     pub(super) fn try_send_to_build(
         &mut self,
+        from_id: EntityId,
         construction: &Construction,
         envs: &Envs,
     ) -> Option<Crew> {
@@ -93,7 +108,7 @@ impl Building {
             return None;
         }
         if construction.ingredients_satisfied() {
-            Crew::new_build(self.pos, construction.pos, envs.tiles)
+            Crew::new_build(from_id, self.pos, construction.pos, envs.tiles)
         } else {
             None
         }

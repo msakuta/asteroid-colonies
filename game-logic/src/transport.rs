@@ -74,7 +74,7 @@ impl AsteroidColoniesGame {
             .filter_map(|t| t.path.last().copied())
             .collect();
 
-        for (id, mut t) in self.transports.items_mut() {
+        for (id, t) in self.transports.items_mut() {
             if t.path.len() <= 1 {
                 let delivered = check_construction(id, &mut *t) || check_building(&mut *t);
                 if !delivered {

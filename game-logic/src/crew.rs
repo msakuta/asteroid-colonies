@@ -5,7 +5,7 @@ use crate::{
     building::Building,
     console_log,
     construction::Construction,
-    entity::EntitySet,
+    entity::{EntityId, EntitySet},
     hash_map,
     items::ItemType,
     task::{GlobalTask, EXCAVATE_ORE_AMOUNT, LABOR_EXCAVATE_TIME},
@@ -36,57 +36,66 @@ enum CrewTask {
 pub struct Crew {
     pub pos: Pos,
     pub path: Option<Vec<Pos>>,
-    pub from: Pos,
+    pub from: EntityId,
     task: CrewTask,
     inventory: HashMap<ItemType, usize>,
 }
 
+type BuildingSet = EntitySet<Building>;
+
 impl Crew {
-    pub fn new_task(pos: Pos, gtask: &GlobalTask, tiles: &Tiles) -> Option<Self> {
+    pub fn new_task(
+        from: EntityId,
+        gtask: &GlobalTask,
+        tiles: &Tiles,
+        buildings: &BuildingSet,
+    ) -> Option<Self> {
+        let from_building = buildings.get(from)?;
         let (target, task) = match gtask {
             GlobalTask::Excavate(_, pos) => (*pos, CrewTask::Excavate(*pos)),
             GlobalTask::Cleanup(spos) => (
                 *spos,
                 CrewTask::Pickup {
                     src: *spos,
-                    dest: pos,
+                    dest: from_building.pos,
                     item: None,
                 },
             ),
         };
-        let path = find_path(pos, target, |pos| {
+        let path = find_path(from_building.pos, target, |pos| {
             matches!(tiles[pos].state, TileState::Empty) || pos == target
         })?;
         Some(Self {
-            pos,
+            pos: from_building.pos,
             path: Some(path),
-            from: pos,
+            from,
             task,
             inventory: HashMap::new(),
         })
     }
 
-    pub fn new_build(pos: Pos, dest: Pos, tiles: &Tiles) -> Option<Self> {
-        let path = find_path(pos, dest, |pos| {
+    pub fn new_build(from_id: EntityId, from_pos: Pos, dest: Pos, tiles: &Tiles) -> Option<Self> {
+        let path = find_path(from_pos, dest, |pos| {
             matches!(tiles[pos].state, TileState::Empty) || pos == dest
         })?;
         Some(Self {
-            pos,
+            pos: from_pos,
             path: Some(path),
-            from: pos,
+            from: from_id,
             task: CrewTask::Build(dest),
             inventory: HashMap::new(),
         })
     }
 
     pub fn new_pickup(
-        pos: Pos,
+        from_id: EntityId,
+        from_pos: Pos,
         src: Pos,
         dest: Pos,
         item: ItemType,
         tiles: &Tiles,
     ) -> Option<Self> {
-        let path = find_path(pos, src, |pos| {
+        let path = find_path(from_pos, src, |pos| {
             matches!(tiles[pos].state, TileState::Empty) || pos == src
         })?;
         // Just to make sure if you can reach the destination from pickup
@@ -98,9 +107,9 @@ impl Crew {
             return None;
         }
         Some(Self {
-            pos,
+            pos: from_pos,
             path: Some(path),
-            from: pos,
+            from: from_id,
             task: CrewTask::Pickup {
                 src,
                 dest,
@@ -110,14 +119,20 @@ impl Crew {
         })
     }
 
-    pub fn new_deliver(pos: Pos, dest: Pos, item: ItemType, tiles: &Tiles) -> Option<Self> {
-        let path = find_path(pos, dest, |pos| {
+    pub fn new_deliver(
+        from_id: EntityId,
+        from_pos: Pos,
+        dest: Pos,
+        item: ItemType,
+        tiles: &Tiles,
+    ) -> Option<Self> {
+        let path = find_path(from_pos, dest, |pos| {
             matches!(tiles[pos].state, TileState::Empty) || pos == dest
         })?;
         Some(Self {
-            pos,
+            pos: from_pos,
             path: Some(path),
-            from: pos,
+            from: from_id,
             task: CrewTask::Deliver { dst: dest, item },
             inventory: hash_map!(item => 1),
         })
@@ -281,7 +296,7 @@ impl Crew {
 impl AsteroidColoniesGame {
     pub(super) fn process_crews(&mut self) {
         let try_return = |crew: &mut Crew, buildings: &mut EntitySet<Building>| {
-            if let Some(building) = buildings.iter_mut().find(|b| b.pos == crew.from) {
+            if let Some(building) = buildings.get_mut(crew.from) {
                 building.crews += 1;
                 for (item, amount) in &crew.inventory {
                     *building.inventory.entry(*item).or_default() += *amount;
@@ -328,10 +343,15 @@ impl AsteroidColoniesGame {
                 }
                 _ => {
                     console_log!("Returning home at {:?}", crew.from);
-                    if crew.from == crew.pos {
+                    let Some(from_building) = self.buildings.get(crew.from) else {
+                        return true;
+                    };
+                    if from_building.intersects(crew.pos) {
+                        drop(from_building);
                         return try_return(crew, &mut self.buildings);
-                    } else if let Some(path) = find_path(crew.pos, crew.from, |pos| {
-                        matches!(self.tiles[pos].state, TileState::Empty) || pos == crew.from
+                    } else if let Some(path) = find_path(crew.pos, from_building.pos, |pos| {
+                        matches!(self.tiles[pos].state, TileState::Empty)
+                            || pos == from_building.pos
                     }) {
                         crew.task = CrewTask::Return;
                         crew.path = Some(path);

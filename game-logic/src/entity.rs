@@ -31,6 +31,8 @@ impl<T> EntitySet<T> {
         Self { v: vec![] }
     }
 
+    /// Returns the number of active elements in this EntitySet.
+    /// It does _not_ return the buffer length.
     pub fn len(&self) -> usize {
         // TODO: optimize by caching active elements
         self.v
@@ -39,24 +41,33 @@ impl<T> EntitySet<T> {
             .count()
     }
 
+    /// Return an iterator over Ref<T>.
+    /// It borrows the T immutably.
     pub fn iter(&self) -> impl Iterator<Item = Ref<T>> {
         self.v
             .iter()
             .filter_map(|v| v.payload.as_ref().and_then(|v| v.try_borrow().ok()))
     }
 
+    /// Return an iterator over &mut T. It does not borrow the T with a RefMut,
+    /// because the self is already exclusively referenced.
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut T> {
         self.v
             .iter_mut()
             .filter_map(|v| v.payload.as_mut().map(|v| v.get_mut()))
     }
 
+    /// Return an iterator over RefMut<T>, skipping already borrowed items.
+    /// It borrows the T mutablly.
     pub fn iter_borrow_mut(&self) -> impl Iterator<Item = RefMut<T>> {
         self.v
             .iter()
             .filter_map(|entry| entry.payload.as_ref().and_then(|v| v.try_borrow_mut().ok()))
     }
 
+    /// Return an iterator over (id, Ref<T>)
+    /// It is convenient when you want the EntityId of the iterated items.
+    /// It borrows the T immutably.
     pub fn items(&self) -> impl Iterator<Item = (EntityId, Ref<T>)> {
         self.v.iter().enumerate().filter_map(|(i, v)| {
             Some((
@@ -66,8 +77,23 @@ impl<T> EntitySet<T> {
         })
     }
 
-    pub fn items_mut(&mut self) -> impl Iterator<Item = (EntityId, RefMut<T>)> {
+    /// Return an iterator over (id, &mut T).
+    /// It is convenient when you want the EntityId of the iterated items.
+    /// It does not borrow the T with a RefMut, because the self is already exclusively referenced.
+    pub fn items_mut(&mut self) -> impl Iterator<Item = (EntityId, &mut T)> {
         self.v.iter_mut().enumerate().filter_map(|(i, v)| {
+            Some((
+                EntityId::new(i as u32, v.gen),
+                v.payload.as_mut()?.get_mut(),
+            ))
+        })
+    }
+
+    /// Return an iterator over (id, RefMut<T>), skipping already borrowed items.
+    /// It is convenient when you want the EntityId of the iterated items.
+    /// It borrows the T mutablly.
+    pub fn items_borrow_mut(&self) -> impl Iterator<Item = (EntityId, RefMut<T>)> {
+        self.v.iter().enumerate().filter_map(|(i, v)| {
             Some((
                 EntityId::new(i as u32, v.gen),
                 v.payload.as_ref()?.try_borrow_mut().ok()?,

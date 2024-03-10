@@ -236,10 +236,10 @@ impl AsteroidColoniesGame {
     }
 
     pub fn move_item(&mut self, from: Pos, to: Pos) -> Result<(), String> {
-        let mut src = self
+        let (src_id, mut src) = self
             .buildings
-            .iter_borrow_mut()
-            .find(|b| b.intersects(from))
+            .items_borrow_mut()
+            .find(|(_, b)| b.intersects(from))
             .ok_or_else(|| "Moving an item needs a building at the source")?;
         send_item(
             &mut self.tiles,
@@ -256,10 +256,11 @@ impl AsteroidColoniesGame {
                 .next()
                 .ok_or_else(|| "Moving item source does not have an item")?;
             let crew = if matches!(src.type_, BuildingType::CrewCabin) && 0 < src.crews {
-                Crew::new_deliver(from, to, item, &self.tiles).map(|crew| (crew, src))
+                Crew::new_deliver(src_id, src.pos, to, item, &self.tiles).map(|crew| (crew, src))
             } else {
-                self.buildings.iter_borrow_mut().find_map(|b| {
-                    Crew::new_pickup(b.pos, from, to, item, &self.tiles).map(|crew| (crew, b))
+                self.buildings.items_borrow_mut().find_map(|(from_id, b)| {
+                    Crew::new_pickup(from_id, b.pos, from, to, item, &self.tiles)
+                        .map(|crew| (crew, b))
                 })
             };
             if let Some((crew, mut cabin)) = crew {
@@ -337,7 +338,6 @@ impl AsteroidColoniesGame {
         let decon = Construction::new_deconstruct(b.type_, [ix, iy], &b.inventory)
             .ok_or_else(|| String::from("No build recipe was found to deconstruct"))?;
         self.constructions.push(decon);
-        drop(b);
 
         self.buildings.remove(id);
 

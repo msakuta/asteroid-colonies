@@ -193,8 +193,9 @@ impl Building {
     }
 
     pub fn tick(
+        &mut self,
+        id: EntityId,
         bldgs: &EntitySet<Building>,
-        idx: usize,
         tiles: &Tiles,
         transports: &mut EntitySet<Transport>,
         constructions: &mut [Construction],
@@ -202,17 +203,14 @@ impl Building {
         gtasks: &[GlobalTask],
         rng: &mut Xor128,
     ) -> Result<(), String> {
-        let Some(mut this) = bldgs.borrow_mut_at(idx) else {
-            return Ok(());
-        };
         // Try pushing out products
-        if let Some(ref recipe) = this.recipe {
+        if let Some(ref recipe) = self.recipe {
             let outputs: HashSet<_> = recipe.outputs.keys().copied().collect();
-            push_outputs(tiles, transports, &mut *this, bldgs, &|item| {
+            push_outputs(tiles, transports, self, bldgs, &|item| {
                 outputs.contains(&item)
             });
         }
-        let this = &mut *this;
+        let this = self;
         if matches!(this.task, Task::None) {
             if let Some(recipe) = &this.recipe {
                 pull_inputs(
@@ -279,7 +277,7 @@ impl Building {
                     if crews.iter().any(|crew| crew.target() == Some(*goal_pos)) {
                         continue;
                     }
-                    if let Some(crew) = Crew::new_task(this.pos, gtask, tiles) {
+                    if let Some(crew) = Crew::new_task(id, gtask, tiles, bldgs) {
                         crews.insert(crew);
                         this.crews -= 1;
                         return Ok(());
@@ -305,16 +303,16 @@ impl Building {
                         tiles,
                     };
                     let crew = print_time("try_find_deliver", || {
-                        this.try_find_deliver(construction, &envs)
+                        this.try_find_deliver(id, construction, &envs)
                     })
                     .or_else(|| {
                         print_time("try_find_pickup_and_deliver", || {
-                            this.try_find_pickup_and_deliver(construction, &envs)
+                            this.try_find_pickup_and_deliver(id, construction, &envs)
                         })
                     })
                     .or_else(|| {
                         print_time("try_send_to_build", || {
-                            this.try_send_to_build(construction, &envs)
+                            this.try_send_to_build(id, construction, &envs)
                         })
                     });
                     if let Some(crew) = crew {
@@ -387,10 +385,10 @@ impl AsteroidColoniesGame {
         let power_ratio = (power_supply as f64 / power_demand as f64).min(1.);
         // A buffer to avoid borrow checker
         let mut moving_items = vec![];
-        for i in 0..self.buildings.len() {
-            let res = Building::tick(
-                &mut self.buildings,
-                i,
+        for (id, mut b) in self.buildings.items_borrow_mut() {
+            let res = b.tick(
+                id,
+                &self.buildings,
                 &self.tiles,
                 &mut self.transports,
                 &mut self.constructions,
