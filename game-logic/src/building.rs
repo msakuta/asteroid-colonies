@@ -171,9 +171,9 @@ impl Building {
     pub fn intersects(&self, pos: Pos) -> bool {
         let size = self.type_.size();
         self.pos[0] <= pos[0]
-            && pos[0] <= self.pos[0] + size[0] as i32
+            && pos[0] < self.pos[0] + size[0] as i32
             && self.pos[1] <= pos[1]
-            && pos[1] <= self.pos[1] + size[1] as i32
+            && pos[1] < self.pos[1] + size[1] as i32
     }
 
     pub fn intersects_rect(&self, pos: Pos, other_size: [usize; 2]) -> bool {

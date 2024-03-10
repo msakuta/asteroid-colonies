@@ -16,6 +16,7 @@ use crate::{
 #[derive(Clone, Debug, Serialize, Deserialize)]
 enum CrewTask {
     None,
+    Idle(usize),
     Return,
     Excavate(Pos),
     Build(Pos),
@@ -313,19 +314,25 @@ impl Crew {
             self.task = CrewTask::Build(construction.pos);
             return true;
         }
-        console_log!("Returning home at {:?}", self.from);
         let Some(from_building) = buildings.get(self.from) else {
             return true;
         };
         if from_building.intersects(self.pos) {
             drop(from_building);
             return self.try_return(buildings);
-        } else if let Some(path) = find_path(self.pos, from_building.pos, |pos| {
-            matches!(tiles[pos].state, TileState::Empty) || pos == from_building.pos
+        }
+
+        if let Some(path) = find_path(self.pos, from_building.pos, |pos| {
+            matches!(tiles[pos].state, TileState::Empty) || from_building.intersects(pos)
         }) {
             self.task = CrewTask::Return;
             self.path = Some(path);
+            return true;
         }
+
+        // Nothing useful to do. Check some time later.
+        self.task = CrewTask::Idle(10);
+
         true
     }
 
@@ -344,7 +351,7 @@ impl Crew {
 
 impl AsteroidColoniesGame {
     pub(super) fn process_crews(&mut self) {
-        self.crews.retain_borrow_mut(|crew| {
+        self.crews.retain_borrow_mut(|crew, id| {
             // console_log!("crew has path: {:?}", crew.path.as_ref().map(|p| p.len()));
             if let Some(path) = &mut crew.path {
                 if path.len() <= 1 {
@@ -377,14 +384,31 @@ impl AsteroidColoniesGame {
                 }
                 CrewTask::Deliver { dst, item } => {
                     crew.process_deliver_task(item, dst, &mut self.constructions, &self.buildings);
+                    if matches!(crew.task, CrewTask::None) {
+                        return crew.process_idle(
+                            &self.crews,
+                            &self.tiles,
+                            &mut self.constructions,
+                            &mut self.buildings,
+                        );
+                    }
                 }
                 CrewTask::None => {
-                    crew.process_idle(
+                    return crew.process_idle(
                         &self.crews,
                         &self.tiles,
                         &mut self.constructions,
                         &mut self.buildings,
                     );
+                }
+                CrewTask::Idle(ref mut t) => {
+                    console_log!("Crew {id} CrewTask::Idle {}", t);
+                    if *t == 0 {
+                        crew.task = CrewTask::None;
+                        console_log!("Crew {id} Reset to None");
+                    } else {
+                        *t -= 1;
+                    }
                 }
                 CrewTask::Return => {}
             }

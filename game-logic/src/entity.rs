@@ -159,15 +159,18 @@ impl<T> EntitySet<T> {
         }
     }
 
-    pub fn retain_borrow_mut(&self, mut f: impl FnMut(&mut T) -> bool) {
-        for entry in &self.v {
+    pub fn retain_borrow_mut(&self, mut f: impl FnMut(&mut T, EntityId) -> bool) {
+        for (id, entry) in self.v.iter().enumerate() {
             let Ok(mut payload) = entry.payload.try_borrow_mut() else {
                 continue;
             };
             if payload.is_none() {
                 continue;
             }
-            if !f(payload.as_mut().unwrap()) {
+            if !f(
+                payload.as_mut().unwrap(),
+                EntityId::new(id as u32, entry.gen),
+            ) {
                 *payload = None;
             }
         }
