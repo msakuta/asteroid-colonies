@@ -42,7 +42,7 @@ impl<T> EntitySet<T> {
     pub fn iter(&self) -> impl Iterator<Item = Ref<T>> {
         self.v
             .iter()
-            .filter_map(|v| v.payload.as_ref().map(|v| v.borrow()))
+            .filter_map(|v| v.payload.as_ref().and_then(|v| v.try_borrow().ok()))
     }
 
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut T> {
@@ -59,7 +59,10 @@ impl<T> EntitySet<T> {
 
     pub fn items(&self) -> impl Iterator<Item = (EntityId, Ref<T>)> {
         self.v.iter().enumerate().filter_map(|(i, v)| {
-            Some((EntityId::new(i as u32, v.gen), v.payload.as_ref()?.borrow()))
+            Some((
+                EntityId::new(i as u32, v.gen),
+                v.payload.as_ref()?.try_borrow().ok()?,
+            ))
         })
     }
 
@@ -67,7 +70,7 @@ impl<T> EntitySet<T> {
         self.v.iter_mut().enumerate().filter_map(|(i, v)| {
             Some((
                 EntityId::new(i as u32, v.gen),
-                v.payload.as_ref()?.borrow_mut(),
+                v.payload.as_ref()?.try_borrow_mut().ok()?,
             ))
         })
     }
@@ -78,7 +81,7 @@ impl<T> EntitySet<T> {
         }
         let (first, mid) = self.v.split_at(idx);
         let (center, last) = mid.split_first()?;
-        Some((center.payload.as_ref()?.borrow(), first, last))
+        Some((center.payload.as_ref()?.try_borrow().ok()?, first, last))
     }
 
     // pub fn split_mid_mut(&mut self, idx: usize) -> Option<(&mut T, EntitySliceMut<T>)> {
@@ -138,7 +141,7 @@ impl<T> EntitySet<T> {
     pub fn get(&self, id: EntityId) -> Option<Ref<T>> {
         self.v.get(id.id as usize).and_then(|entry| {
             if id.gen == entry.gen {
-                entry.payload.as_ref().map(|v| v.borrow())
+                entry.payload.as_ref().and_then(|v| v.try_borrow().ok())
             } else {
                 None
             }
@@ -238,7 +241,7 @@ impl<'a, T> IntoIterator for &'a EntitySet<T> {
         Box::new(
             self.v
                 .iter()
-                .filter_map(|v| v.payload.as_ref().map(|v| v.borrow())),
+                .filter_map(|v| v.payload.as_ref().and_then(|v| v.try_borrow().ok())),
         )
     }
 }
@@ -290,7 +293,7 @@ impl<T> EntityIterExt<T> for [EntityEntry<T>] {
         T: 'a,
     {
         self.iter()
-            .filter_map(|b| b.payload.as_ref().map(|b| b.borrow()))
+            .filter_map(|b| b.payload.as_ref().and_then(|b| b.try_borrow().ok()))
     }
 }
 
