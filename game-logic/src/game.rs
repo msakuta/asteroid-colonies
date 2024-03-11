@@ -26,7 +26,7 @@ pub struct AsteroidColoniesGame {
     pub(crate) crews: EntitySet<Crew>,
     pub(crate) global_tasks: Vec<GlobalTask>,
     /// Used power for the last tick, in kW
-    pub(crate) used_power: usize,
+    pub(crate) used_power: f64,
     pub(crate) global_time: usize,
     pub(crate) transports: EntitySet<Transport>,
     pub(crate) constructions: EntitySet<Construction>,
@@ -60,6 +60,8 @@ impl AsteroidColoniesGame {
         let buildings: EntitySet<_> = [
             Building::new(start_ofs([1, 7]), BuildingType::CrewCabin),
             Building::new(start_ofs([3, 4]), BuildingType::Power),
+            Building::new(start_ofs([2, 3]), BuildingType::Battery),
+            Building::new(start_ofs([3, 3]), BuildingType::Battery),
             Building::new(start_ofs([4, 4]), BuildingType::Excavator),
             Building::new(start_ofs([5, 4]), BuildingType::Storage),
             Building::new_inventory(
@@ -133,7 +135,7 @@ impl AsteroidColoniesGame {
             buildings,
             crews: EntitySet::new(),
             global_tasks: vec![],
-            used_power: 0,
+            used_power: 0.,
             global_time: 0,
             transports: EntitySet::new(),
             constructions: EntitySet::new(),

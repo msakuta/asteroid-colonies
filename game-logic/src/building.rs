@@ -26,6 +26,7 @@ use crate::{
 #[non_exhaustive]
 pub enum BuildingType {
     Power,
+    Battery,
     Excavator,
     Storage,
     MediumStorage,
@@ -38,6 +39,7 @@ impl BuildingType {
     pub fn capacity(&self) -> usize {
         match self {
             Self::Power => 5,
+            Self::Battery => 0,
             Self::Excavator => 10,
             Self::Storage => 20,
             Self::MediumStorage => 100,
@@ -62,15 +64,23 @@ impl BuildingType {
     }
 
     /// Return the amount of base generating/consuming power
-    pub fn power(&self) -> isize {
+    pub fn power_gen(&self) -> isize {
         match self {
             Self::Power => 500,
+            Self::Battery => 0,
             Self::CrewCabin => -100,
             Self::Excavator => -10,
             Self::Storage => 0,
             Self::MediumStorage => 0,
             Self::Assembler => -20,
             Self::Furnace => -10,
+        }
+    }
+
+    pub fn energy_capacity(&self) -> Option<usize> {
+        match self {
+            Self::Battery => Some(10000),
+            _ => None,
         }
     }
 
@@ -88,6 +98,7 @@ impl Display for BuildingType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Power => write!(f, "Power"),
+            Self::Battery => write!(f, "Battery"),
             Self::Excavator => write!(f, "Excavator"),
             Self::Storage => write!(f, "Storage"),
             Self::MediumStorage => write!(f, "MediumStorage"),
@@ -118,6 +129,8 @@ pub struct Building {
     pub recipe: Option<Recipe>,
     /// Some buildings have direction.
     pub direction: Option<Direction>,
+    /// Some buildings can store energy, like capacitors and batteries.
+    pub energy: Option<usize>,
     #[serde(skip)]
     /// A cache of expected transports
     pub expected_transports: HashSet<EntityId>,
@@ -133,6 +146,7 @@ impl Building {
             crews: type_.max_crews(),
             recipe: None,
             direction: None,
+            energy: type_.energy_capacity(),
             expected_transports: HashSet::new(),
         }
     }
@@ -146,18 +160,41 @@ impl Building {
             crews: type_.max_crews(),
             recipe: None,
             direction: None,
+            energy: type_.energy_capacity(),
             expected_transports: HashSet::new(),
         }
     }
 
-    pub fn power(&self) -> isize {
-        let base = self.type_.power();
+    /// Generating power. Prioritized to be used.
+    pub fn power_gen(&self) -> isize {
+        let base = self.type_.power_gen();
         let task_power = match self.task {
             Task::Excavate(_, _) => 200,
             Task::Assemble { .. } => 300,
             _ => 0,
         };
         base - task_power
+    }
+
+    /// Power demanded to charge
+    pub fn power_charge(&self) -> isize {
+        if matches!(self.type_, BuildingType::Battery) {
+            let max = self.type_.energy_capacity();
+            return self
+                .energy
+                .zip(max)
+                .map(|(e, max)| (max - e).min(500) as isize)
+                .unwrap_or(0);
+        }
+        0
+    }
+
+    /// Power provided by a battery or a capacitor. Used only if power_gen is not enough
+    pub fn power_discharge(&self) -> isize {
+        if matches!(self.type_, BuildingType::Battery) {
+            return self.energy.map(|e| e.min(500) as isize).unwrap_or(0);
+        }
+        0
     }
 
     pub fn inventory_size(&self) -> usize {
@@ -367,18 +404,20 @@ impl Building {
 
 impl AsteroidColoniesGame {
     pub(super) fn process_buildings(&mut self) {
-        let power_demand = self
+        let (chargeable, dischargeable, power_gen, power_demand) = self
             .buildings
             .iter()
-            .map(|b| b.power().min(0).abs() as usize)
-            .sum::<usize>();
-        let power_supply = self
-            .buildings
-            .iter()
-            .map(|b| b.power().max(0).abs() as usize)
-            .sum::<usize>();
-        // let power_load = (power_demand as f64 / power_supply as f64).min(1.);
-        let power_ratio = (power_supply as f64 / power_demand as f64).min(1.);
+            .map(|b| (b.power_charge(), b.power_discharge(), b.power_gen()))
+            .fold((0, 0, 0, 0), |acc, (charge, discharge, gen)| {
+                (
+                    acc.0 + charge,
+                    acc.1 + discharge,
+                    acc.2 + gen.max(0).abs(),
+                    acc.3 + gen.min(0).abs(),
+                )
+            });
+        // let power_load = (power_demand as f64 / power_gen as f64).min(1.);
+        let power_ratio = ((dischargeable as f64 + power_gen as f64) / power_demand as f64).min(1.);
         // A buffer to avoid borrow checker
         let mut moving_items = vec![];
         for (id, mut b) in self.buildings.items_borrow_mut() {
@@ -406,6 +445,38 @@ impl AsteroidColoniesGame {
                 moving_items.push((item, dest));
             }
         }
+
+        let charging_total = power_gen - power_demand;
+
+        if charging_total < 0 {
+            if 0 < dischargeable {
+                let drain_total = -charging_total;
+                // Drain energy from capacitors proportional to the capacity
+                for building in self.buildings.iter_mut() {
+                    let cap = building.power_discharge();
+                    let Some(ref mut energy) = building.energy else {
+                        continue;
+                    };
+                    let drain = drain_total * cap / dischargeable;
+                    *energy = (*energy as isize - drain).max(0) as usize;
+                }
+            }
+        } else if 0 < chargeable {
+            for building in self.buildings.iter_mut() {
+                let max_charge = building.power_charge();
+                let Some(max_energy) = building.type_.energy_capacity() else {
+                    continue;
+                };
+                let Some(ref mut energy) = building.energy else {
+                    continue;
+                };
+                let charge = charging_total * max_charge / chargeable;
+                *energy = (*energy as isize + charge).clamp(0, max_energy as isize) as usize;
+            }
+        }
+
+        self.used_power = power_ratio * power_demand as f64;
+        // println!("charge: {chargeable}, discharge: {dischargeable}, power_gen: {power_gen}, power_demand: {power_demand}, ratio = {power_ratio}, used: {}", self.used_power);
 
         for (item, item_pos) in moving_items {
             let found = self.buildings.iter_mut().find(|b| b.pos == item_pos);

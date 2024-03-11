@@ -84,6 +84,7 @@ impl Assets {
     pub fn building_to_img(&self, ty: BuildingType) -> &HtmlImageElement {
         match ty {
             BuildingType::Power => &self.img_atomic_battery,
+            BuildingType::Battery => &self.img_battery,
             BuildingType::Excavator => &self.img_excavator,
             BuildingType::Storage => &self.img_storage,
             BuildingType::MediumStorage => &self.img_medium_storage,

@@ -203,9 +203,6 @@ impl AsteroidColoniesGame {
     }
 
     pub(super) fn process_global_tasks(&mut self) {
-        let power_cap: isize = self.buildings.iter().map(|b| b.power()).sum();
-        let power = power_cap;
-
         for task in &self.global_tasks {
             match task {
                 GlobalTask::Excavate(t, pos) if *t <= 0. => {
@@ -222,8 +219,6 @@ impl AsteroidColoniesGame {
             GlobalTask::Excavate(ref mut t, _) => !(*t <= 0.),
             GlobalTask::Cleanup(pos) => self.transports.iter().any(|t| t.path.last() == Some(pos)),
         });
-
-        self.used_power = (power_cap - power) as usize;
     }
 }
 
