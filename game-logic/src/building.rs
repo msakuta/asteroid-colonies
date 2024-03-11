@@ -66,7 +66,7 @@ impl BuildingType {
     /// Return the amount of base generating/consuming power
     pub fn power_gen(&self) -> isize {
         match self {
-            Self::Power => 500,
+            Self::Power => 250,
             Self::Battery => 0,
             Self::CrewCabin => -100,
             Self::Excavator => -10,
