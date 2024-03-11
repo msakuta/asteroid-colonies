@@ -28,6 +28,7 @@ struct GetConstructionInfoResult {
 struct GetInfoResult {
     building: Option<GetBuildingInfoResult>,
     construction: Option<GetConstructionInfoResult>,
+    energy: usize,
     power_demand: isize,
     power_supply: isize,
     power_capacity: isize,
@@ -71,24 +72,26 @@ impl AsteroidColonies {
             })
         });
         // We want to count power generation and consumption separately
-        let (power_capacity, power_supply, power_demand) = self
+        let (energy, dischargeable, power_supply, power_demand) = self
             .game
             .iter_building()
-            .map(|b| (b.power_discharge(), b.power_gen()))
-            .fold((0, 0, 0), |acc, (cap, gen)| {
+            .map(|b| (b.energy.unwrap_or(0), b.power_discharge(), b.power_gen()))
+            .fold((0, 0, 0, 0), |acc, (energy, discharge, gen)| {
                 (
-                    acc.0 + cap,
-                    acc.1 + gen.max(0).abs(),
-                    acc.2 + gen.min(0).abs(),
+                    acc.0 + energy,
+                    acc.1 + discharge,
+                    acc.2 + gen.max(0).abs(),
+                    acc.3 + gen.min(0).abs(),
                 )
             });
 
         let result = GetInfoResult {
             building: bldg_result,
             construction,
+            energy,
             power_demand,
             power_supply,
-            power_capacity,
+            power_capacity: dischargeable + power_supply,
             transports: self.game.num_transports(),
         };
 
