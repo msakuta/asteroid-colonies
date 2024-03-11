@@ -26,11 +26,6 @@ pub enum Task {
     None,
     Excavate(f64, Direction),
     Move(f64, Vec<Pos>),
-    MoveItem {
-        t: f64,
-        item_type: ItemType,
-        dest: [i32; 2],
-    },
     Assemble {
         t: f64,
         max_t: f64,
@@ -45,7 +40,6 @@ impl Display for Task {
             Self::None => write!(f, "None"),
             Self::Excavate(_, _) => write!(f, "Excavate"),
             Self::Move(_, _) => write!(f, "Move"),
-            Self::MoveItem { .. } => write!(f, "MoveItem"),
             Self::Assemble { .. } => write!(f, "BuildItem"),
         }
     }
@@ -158,22 +152,6 @@ impl AsteroidColoniesGame {
                         *t = MOVE_TIME;
                     } else {
                         building.task = Task::None;
-                    }
-                } else {
-                    *t = (*t - power_ratio).max(0.);
-                }
-            }
-            Task::MoveItem {
-                ref mut t,
-                item_type,
-                dest,
-            } => {
-                if *t <= 0. {
-                    building.task = Task::None;
-                    let entry = building.inventory.entry(item_type).or_default();
-                    if 0 < *entry {
-                        *entry -= 1;
-                        return Some((item_type, dest));
                     }
                 } else {
                     *t = (*t - power_ratio).max(0.);

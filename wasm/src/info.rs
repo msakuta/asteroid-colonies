@@ -1,10 +1,8 @@
-use std::collections::HashMap;
-
 use crate::{render::TILE_SIZE, AsteroidColonies};
 use asteroid_colonies_logic::{
     building::{BuildingType, Recipe},
     construction::{BuildMenuItem, ConstructionType},
-    Inventory, ItemType, Pos,
+    Inventory, Pos,
 };
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
