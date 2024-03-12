@@ -264,6 +264,12 @@ impl AsteroidColonies {
             .serialize_chunks_digest()
             .map_err(|e| JsValue::from(e.to_string()))
     }
+
+    pub fn serialize_buildings_digest(&self) -> Result<Vec<u8>, JsValue> {
+        self.game
+            .serialize_buildings_digest()
+            .map_err(|e| JsValue::from(e.to_string()))
+    }
 }
 
 impl AsteroidColonies {

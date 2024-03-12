@@ -13,7 +13,7 @@ use ::serde::{Deserialize, Serialize};
 use actix_web_actors::ws;
 use asteroid_colonies_logic::{
     construction::{Construction, ConstructionType},
-    Pos, Position,
+    DigestMessage, EntityId, Pos, Position,
 };
 
 /// Open a WebSocket instance and give it to the client.
@@ -32,6 +32,7 @@ pub(crate) async fn websocket_index(
         session_id,
         addr: data.srv.clone(),
         chunks_digest: HashMap::new(),
+        buildings_digest: HashMap::new(),
     };
 
     // let srv = data.srv.clone();
@@ -51,6 +52,7 @@ struct SessionWs {
     pub session_id: SessionId,
     pub addr: Addr<ChatServer>,
     pub chunks_digest: HashMap<Position, u64>,
+    pub buildings_digest: HashMap<EntityId, u64>,
 }
 
 impl Actor for SessionWs {
@@ -98,7 +100,7 @@ impl Handler<Message> for SessionWs {
             Message::Bin(bin) => ctx.binary(bin),
             Message::StateWithDiff => {
                 let game = self.data.game.lock().unwrap();
-                match game.serialize_with_diffs(&self.chunks_digest) {
+                match game.serialize_with_diffs(&self.chunks_digest, &self.buildings_digest) {
                     Ok(bytes) => ctx.binary(bytes),
                     Err(e) => ctx.text(format!("Error: {e}")),
                 }
@@ -217,11 +219,19 @@ impl StreamHandler<WsResult> for SessionWs {
                     ));
                 }
             }
-            Ok(ws::Message::Binary(bin)) => {
-                if let Ok(chunks_digest) = bincode::deserialize(&bin) {
+            Ok(ws::Message::Binary(bin)) => match bincode::deserialize::<DigestMessage>(&bin) {
+                Ok(DigestMessage::Chunks(chunks_digest)) => {
+                    println!("chunks_digest received via binary: {}", chunks_digest.len());
                     self.chunks_digest = chunks_digest;
                 }
-            }
+                Ok(DigestMessage::Buildings(buildings)) => {
+                    println!("buildings_digest received via binary: {:?}", buildings);
+                    self.buildings_digest = buildings;
+                }
+                Err(e) => {
+                    println!("DigestMessage receive error: {e}");
+                }
+            },
             _ => (),
         }
     }

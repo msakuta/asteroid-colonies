@@ -22,7 +22,7 @@ use crate::{
     AsteroidColoniesGame, Crew, Direction, Pos, TileState, Transport, Xor128,
 };
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize, Hash)]
 #[non_exhaustive]
 pub enum BuildingType {
     Power,

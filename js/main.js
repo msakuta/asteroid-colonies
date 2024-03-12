@@ -497,6 +497,8 @@ heartbeatDiv.appendChild(heartbeatElem);
         const chunksDigest = game.serialize_chunks_digest();
         // websocket.send(JSON.stringify({type: "ChunksDigest", payload: {chunks_digest: chunksDigest}}));
         websocket.send(chunksDigest);
+        const buildingsDigest = game.serialize_buildings_digest();
+        websocket.send(buildingsDigest);
     }
 })()
 

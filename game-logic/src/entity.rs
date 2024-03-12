@@ -13,6 +13,15 @@ pub struct EntityEntry<T> {
     pub payload: RefCell<Option<T>>,
 }
 
+impl<T> Default for EntityEntry<T> {
+    fn default() -> Self {
+        Self {
+            gen: 0,
+            payload: RefCell::new(None),
+        }
+    }
+}
+
 impl<T> EntityEntry<T> {
     pub(crate) fn new(payload: T) -> Self {
         Self {
@@ -207,6 +216,20 @@ impl<T> EntitySet<T> {
         self.v
             .get(idx)
             .and_then(|entry| RefMutOption::new(&entry.payload))
+    }
+
+    pub fn update_with_id(&mut self, id: EntityId, val: T)
+    where
+        T: Clone,
+    {
+        let new_id = id.id as usize;
+        if self.v.len() <= new_id {
+            self.v.resize(new_id, EntityEntry::default());
+        }
+        if let Some(entry) = self.v.get_mut(new_id) {
+            entry.gen = id.gen;
+            *entry.payload.get_mut() = Some(val);
+        }
     }
 }
 
