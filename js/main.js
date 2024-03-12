@@ -98,13 +98,22 @@ heartbeatDiv.appendChild(heartbeatElem);
     document.body.appendChild(debugButton);
 
     if(serverSync && !sessionId){
-        const sessionRes = await fetch(`http://${location.hostname}:${port}/api/session`, {
-            method: "POST"
-        });
-        sessionId = await sessionRes.text();
-        const dataRes = await fetch(`${baseUrl}/api/load`);
-        const dataText = await dataRes.text();
-        game.deserialize(dataText);
+        let loaded = false;
+        for (let i = 0; i < 20; i++) {
+            try {
+                const sessionRes = await fetch(`http://${location.hostname}:${port}/api/session`, {
+                    method: "POST"
+                });
+                sessionId = await sessionRes.text();
+                const dataRes = await fetch(`${baseUrl}/api/load`);
+                const dataText = await dataRes.text();
+                game.deserialize(dataText);
+                loaded = true;
+            } catch (e) {
+                console.log(`session api returned an error: ${e}`);
+            }
+            if (loaded) break;
+        }
     }
 
     if(!websocket){
