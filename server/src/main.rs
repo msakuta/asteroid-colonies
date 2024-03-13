@@ -4,8 +4,8 @@ mod websocket;
 
 use crate::{
     // api::set_timescale::set_timescale,
-    server::ChatServer,
-    // websocket::{websocket_index, NotifyBodyState, SetRocketStateWs},
+    server::{ChatServer, NotifyState, NotifyStateEnum},
+    websocket::websocket_index,
 };
 use ::actix::prelude::*;
 use ::actix_cors::Cors;
@@ -26,7 +26,6 @@ use std::{
     },
     time::Instant,
 };
-use websocket::{websocket_index, NotifyState, NotifyStateEnum};
 
 type Game = AsteroidColoniesGame;
 
@@ -53,12 +52,14 @@ struct Args {
     asset_path: PathBuf,
     #[clap(long, default_value = "save.json")]
     autosave_file: PathBuf,
-    #[clap(long, default_value = "5")]
+    #[clap(long, default_value = "10")]
     autosave_period_s: f64,
     #[clap(long)]
     autosave_pretty: bool,
     #[clap(long, default_value = "10")]
     push_period_s: f64,
+    #[clap(long, default_value = "60")]
+    cleanup_period_s: f64,
     #[clap(long, default_value = "0.1", help = "Tick frequency in Hz")]
     tick_freq: f64,
     #[cfg(not(debug_assertions))]
@@ -79,7 +80,12 @@ struct ServerData {
     js_path: PathBuf,
     last_saved: Mutex<Instant>,
     last_pushed: Mutex<Instant>,
+    last_cleanup: Mutex<Instant>,
     autosave_file: PathBuf,
+    /// A signal from the websocket sessions to send synchronization data,
+    /// when it invoked a command to change game state.
+    ///
+    /// There will be one tick delay, but it's ok.
     signal_push: AtomicBool,
     srv: Addr<ChatServer>,
     sessions: RwLock<HashSet<SessionId>>,
@@ -220,6 +226,7 @@ async fn main() -> std::io::Result<()> {
         js_path: args.js_path,
         last_saved: Mutex::new(Instant::now()),
         last_pushed: Mutex::new(Instant::now()),
+        last_cleanup: Mutex::new(Instant::now()),
         autosave_file: args.autosave_file,
         signal_push: AtomicBool::new(false),
         srv: ChatServer::new().start(),
@@ -231,6 +238,7 @@ async fn main() -> std::io::Result<()> {
     let autosave_period_s = args.autosave_period_s;
     let autosave_pretty = args.autosave_pretty;
     let push_period_s = args.push_period_s;
+    let cleanup_period_s = args.cleanup_period_s;
 
     actix_web::rt::spawn(async move {
         let mut interval =
@@ -280,6 +288,15 @@ async fn main() -> std::io::Result<()> {
                 });
                 data_copy.set_signal_push(false);
                 *last_pushed = Instant::now();
+            }
+
+            let mut last_cleanup = data_copy.last_cleanup.lock().unwrap();
+            if cleanup_period_s < last_cleanup.elapsed().as_secs_f64() {
+                data_copy.srv.do_send(NotifyState {
+                    session_id: None,
+                    set_state: NotifyStateEnum::Cleanup,
+                });
+                *last_cleanup = Instant::now();
             }
 
             if game.get_global_time() % 100 == 0 {

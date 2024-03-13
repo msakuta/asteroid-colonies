@@ -1,7 +1,6 @@
 use crate::{
     // humanhash::human_hash,
     session::SessionId,
-    websocket::{NotifyState, NotifyStateEnum},
 };
 use ::actix::prelude::*;
 // use ::orbiter_logic::SessionId;
@@ -105,6 +104,11 @@ impl ChatServer {
             }
         }
     }
+
+    fn cleanup(&mut self) {
+        println!("Cleaning up sessions!");
+        self.sessions.retain(|_, s| s.connected());
+    }
 }
 
 /// Make actor from `ChatServer`
@@ -127,12 +131,52 @@ impl Handler<Connect> for ChatServer {
             msg.session_id.to_string()
         );
 
+        println!(
+            "Session {} is connected, now we have {} sessions",
+            msg.session_id,
+            self.sessions.len()
+        );
         println!("res_msg: {}", res_msg);
         println!("sending to {:?}", self.sessions);
 
         // notify all users in same room
         self.send_message(&res_msg, None);
     }
+}
+
+#[derive(Deserialize, Serialize)]
+pub(crate) struct SetStateWs(pub String);
+
+impl std::fmt::Debug for SetStateWs {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<SetStateWs>")
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+pub(crate) struct SetStateBinWs(pub Vec<u8>);
+
+impl std::fmt::Debug for SetStateBinWs {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<SetStateBinWs>")
+    }
+}
+
+/// A message from server timer thread to the server actor.
+#[derive(Deserialize, Serialize, Debug)]
+pub(crate) enum NotifyStateEnum {
+    SetState(SetStateWs),
+    SetStateBin(SetStateBinWs),
+    SetStateWithDiff,
+    Cleanup,
+}
+
+#[derive(Deserialize, Serialize, Debug, Message)]
+#[rtype(result = "()")]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct NotifyState {
+    pub session_id: Option<SessionId>,
+    pub set_state: NotifyStateEnum,
 }
 
 #[derive(Serialize)]
@@ -159,6 +203,7 @@ impl Handler<NotifyState> for ChatServer {
             }
             NotifyStateEnum::SetStateBin(msg) => self.send_message_bin(&msg.0, session_id),
             NotifyStateEnum::SetStateWithDiff => self.send_message_with_diff(session_id),
+            NotifyStateEnum::Cleanup => self.cleanup(),
         }
     }
 }

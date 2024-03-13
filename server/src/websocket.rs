@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Instant};
 
 use crate::{
     server::ChatServer,
@@ -32,6 +32,7 @@ pub(crate) async fn websocket_index(
         session_id,
         addr: data.srv.clone(),
         chunks_digest: HashMap::new(),
+        last_updated: Instant::now(),
     };
 
     // let srv = data.srv.clone();
@@ -39,7 +40,7 @@ pub(crate) async fn websocket_index(
 
     let resp = ws::start(session_ws, &req, stream);
     println!(
-        "websocket received for session {:?}: {:?}",
+        "websocket connection established for session {}: {:?}",
         session_id, resp
     );
     resp
@@ -51,6 +52,7 @@ struct SessionWs {
     pub session_id: SessionId,
     pub addr: Addr<ChatServer>,
     pub chunks_digest: HashMap<Position, u64>,
+    pub last_updated: Instant,
 }
 
 impl Actor for SessionWs {
@@ -103,41 +105,9 @@ impl Handler<Message> for SessionWs {
                     Err(e) => ctx.text(format!("Error: {e}")),
                 }
             }
-        }
+        };
+        self.last_updated = Instant::now();
     }
-}
-
-#[derive(Deserialize, Serialize)]
-pub(crate) struct SetStateWs(pub String);
-
-impl std::fmt::Debug for SetStateWs {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "<SetStateWs>")
-    }
-}
-
-#[derive(Deserialize, Serialize)]
-pub(crate) struct SetStateBinWs(pub Vec<u8>);
-
-impl std::fmt::Debug for SetStateBinWs {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "<SetStateBinWs>")
-    }
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-pub(crate) enum NotifyStateEnum {
-    SetState(SetStateWs),
-    SetStateBin(SetStateBinWs),
-    SetStateWithDiff,
-}
-
-#[derive(Deserialize, Serialize, Debug, Message)]
-#[rtype(result = "()")]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct NotifyState {
-    pub session_id: Option<SessionId>,
-    pub set_state: NotifyStateEnum,
 }
 
 #[derive(Deserialize, Serialize, Debug, Message, Clone)]
@@ -221,6 +191,13 @@ impl StreamHandler<WsResult> for SessionWs {
                 if let Ok(chunks_digest) = bincode::deserialize(&bin) {
                     self.chunks_digest = chunks_digest;
                 }
+            }
+            Ok(ws::Message::Close(_op)) => {
+                // Once WebSocket session is closed, we drop this actor and forget about client state.
+                // If the client is still lingering and can attempt reconnection, it may be a bit of waste,
+                // but it should be pretty rare occasion, and we would need to implement cache retention
+                // mechanism that expires after some amount of time. It's probably an optimization for later.
+                ctx.stop();
             }
             _ => (),
         }

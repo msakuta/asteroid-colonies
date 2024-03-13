@@ -13,11 +13,15 @@ impl SessionId {
     }
 }
 
-impl ToString for SessionId {
-    fn to_string(&self) -> String {
-        self.0
-            .iter()
-            .fold("".to_string(), |acc, cur| acc + &format!("{:02x}", cur))
+impl std::fmt::Display for SessionId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.0
+                .iter()
+                .fold("".to_string(), |acc, cur| acc + &format!("{:02x}", cur))
+        )
     }
 }
 
