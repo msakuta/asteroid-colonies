@@ -39,4 +39,13 @@
         margin-right: -50%;
         transform: translate(-50%, -50%);
     }
+
+    .recipe {
+      position: relative;
+      margin: 4px;
+      padding: 4px;
+      border: 1px solid #7f7f3f;
+      background-color: #ffff7f;
+      white-space: normal;
+    }
 </style>

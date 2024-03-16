@@ -8,6 +8,7 @@
     import { websocket, fetchSessionId, reconnectWebSocket } from './session';
     import BuildMenu from './BuildMenu.svelte';
     import RecipeMenu from './RecipeMenu.svelte';
+    import ErrorMessage from './ErrorMessage.svelte';
 
     export let baseUrl = BASE_URL;
     export let port = 3883;
@@ -20,6 +21,10 @@
     let messageOverlayText = "";
     let messageShowOk = false;
     let messageShowCancel = false;
+
+    let showErrorMessage = false;
+    let errorMessage = "";
+    let errorMessageTimeout = 0;
 
     let heartBroken;
     let heartbeatOpacity = 0;
@@ -147,6 +152,12 @@
                 reconnectTime = Math.floor(Math.random() * 50) + 10;
             }
         }
+        if (showErrorMessage) {
+            errorMessageTimeout = errorMessageTimeout - 1;
+            if(errorMessageTimeout < 0) {
+                showErrorMessage = false;
+            }
+        }
     }, 100);
 
     function updateHeartbeatOpacity() {
@@ -177,7 +188,7 @@
         showRecipeMenu = false;
     }
 
-    function pointerUp(evt) {
+    function pointerUpInt(evt) {
         const [x, y] = toLogicalCoords(evt.clientX, evt.clientY);
         if (dragStart) {
             dragStart = null;
@@ -188,16 +199,15 @@
             }
         }
         if (moving) {
+            const to = game.transform_coords(x, y);
             try {
-                const to = game.transform_coords(x, y);
                 const from = game.move_building(x, y);
                 requestWs("Move", {from: [from[0], from[1]], to: [to[0], to[1]]});
             }
-            catch (e) {
-                console.error(`move_building: ${e}`);
+            finally {
+                messageOverlayVisible = false;
+                moving = false;
             }
-            messageOverlayVisible = false;
-            moving = false;
             return;
         }
         if (movingItem) {
@@ -206,11 +216,10 @@
                 const from = game.move_item(x, y);
                 requestWs("MoveItem", {from: [from[0], from[1]], to: [to[0], to[1]]});
             }
-            catch (e) {
-                console.error(`move_item: ${e}`);
+            finally {
+                messageOverlayVisible = false;
+                movingItem = false;
             }
-            messageOverlayVisible = false;
-            movingItem = false;
             return;
         }
 
@@ -271,15 +280,9 @@
         }
         else if (name === "recipe") {
             showBuildMenu = false;
-            try {
-                recipeItems = game.get_recipes(x, y);
-                showRecipeMenu = true;
-                recipePos = game.transform_coords(x, y);
-            }
-            catch (e) {
-                console.error(e);
-                showRecipeMenu = false;
-            }
+            recipeItems = game.get_recipes(x, y);
+            showRecipeMenu = true;
+            recipePos = game.transform_coords(x, y);
         }
         else if (name === "cancel") {
             const pos = game.transform_coords(x, y);
@@ -311,6 +314,17 @@
                 const ctx = canvas.getContext('2d');
                 requestAnimationFrame(() => game.render(ctx));
             }
+        }
+    }
+
+    function pointerUp(evt) {
+        try {
+            pointerUpInt(evt);
+        }
+        catch (e) {
+            errorMessage = e;
+            showErrorMessage = true;
+            errorMessageTimeout = 30;
         }
     }
 
@@ -356,11 +370,18 @@
     }
 
     function build(evt) {
-        const [x, y] = buildPos;
-        const type = evt.detail.type;
-        requestWs("Build", {pos: [x, y], type: {Building: type}});
-        game.build(x, y, type);
-        showBuildMenu = false;
+        try {
+            const [x, y] = buildPos;
+            const type = evt.detail.type;
+            requestWs("Build", {pos: [x, y], type: {Building: type}});
+            game.build(x, y, type);
+            showBuildMenu = false;
+        }
+        catch (e) {
+            showErrorMessage = true;
+            errorMessage = e;
+            errorMessageTimeout = 30;
+        }
     }
 
     let debugDrawChunks = false;
@@ -392,6 +413,9 @@
             on:click={setRecipe}
             on:clear={clearRecipe}
             on:close={() => showRecipeMenu = false}/>
+    {/if}
+    {#if showErrorMessage}
+        <ErrorMessage text={errorMessage} timeout={errorMessageTimeout} on:click={() => showErrorMessage = false}/>
     {/if}
     <DebugButton on:click={debugClick}/>
 </div>

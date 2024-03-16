@@ -12,8 +12,8 @@
 <style>
     img {
         position: absolute;
-        right: 0;
-        bottom: 0;
+        right: 5px;
+        bottom: 10px;
         width: 64px;
         height: 32px;
     }
