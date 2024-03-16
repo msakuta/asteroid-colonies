@@ -9,6 +9,7 @@
     import BuildMenu from './BuildMenu.svelte';
     import RecipeMenu from './RecipeMenu.svelte';
     import ErrorMessage from './ErrorMessage.svelte';
+    import RadialMenu from './RadialMenu.svelte';
 
     export let baseUrl = BASE_URL;
     export let port = 3883;
@@ -36,6 +37,10 @@
     let showRecipeMenu = false;
     let recipeItems = [];
     let recipePos = null;
+
+    let showRadialMenu = false;
+    let radialScreenPos = null;
+    let radialPos = null;
 
     let mousePos = null;
     let moving = false;
@@ -236,6 +241,7 @@
 
         const name = modeName;
         if (name === "move") {
+            const [ix, iy] = game.transform_coords(x, y);
             if (game.start_move_building(x, y)) {
                 showBuildMenu = false;
                 showRecipeMenu = false;
@@ -310,6 +316,12 @@
                 const [ix, iy] = game.transform_coords(x, y);
                 requestWs("Build", {type: "PowerGrid", pos: [ix, iy]});
             }
+            else {
+                showRadialMenu = true;
+                radialScreenPos = [x, y];
+                radialPos = game.transform_coords(x, y);
+                return;
+            }
             if (game.command(name, x, y)) {
                 const ctx = canvas.getContext('2d');
                 requestAnimationFrame(() => game.render(ctx));
@@ -369,6 +381,33 @@
         }));
     }
 
+    function excavate() {
+        showRadialMenu = false;
+        try {
+            const [x, y] = radialPos;
+            game.excavate(x, y);
+            const [ix, iy] = game.transform_coords(x, y);
+            requestWs("Excavate", {x: ix, y: iy});
+        }
+        catch (e) {
+            errorMessage = e;
+            showErrorMessage = true;
+            errorMessageTimeout = 30;
+        }
+    }
+
+    function moveBuilding(evt) {
+        const [x, y] = radialPos;
+        if (game.start_move_building(x, y)) {
+            showRadialMenu = false;
+            showBuildMenu = false;
+            showRecipeMenu = false;
+            messageOverlayText = "Choose move building destination";
+            messageOverlayVisible = "block";
+            moving = true;
+        }
+    }
+
     function build(evt) {
         try {
             const [x, y] = buildPos;
@@ -413,6 +452,9 @@
             on:click={setRecipe}
             on:clear={clearRecipe}
             on:close={() => showRecipeMenu = false}/>
+    {/if}
+    {#if showRadialMenu}
+        <RadialMenu pos={radialScreenPos} on:close={() => showRadialMenu = false} on:excavate={excavate} on:moveBuilding={moveBuilding}/>
     {/if}
     {#if showErrorMessage}
         <ErrorMessage text={errorMessage} timeout={errorMessageTimeout} on:click={() => showErrorMessage = false}/>

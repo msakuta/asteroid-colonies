@@ -118,6 +118,10 @@ impl AsteroidColonies {
         res.map(|r| JsValue::from(r)).map_err(|e| JsValue::from(e))
     }
 
+    pub fn excavate(&mut self, ix: i32, iy: i32) -> Result<bool, JsValue> {
+        self.game.excavate(ix, iy).map_err(JsValue::from)
+    }
+
     pub fn start_move_item(&mut self, x: f64, y: f64) -> bool {
         let pos = self.transform_pos(x, y);
         if self.game.iter_building().any(|b| b.intersects(pos)) {
@@ -138,8 +142,8 @@ impl AsteroidColonies {
         Ok(serde_wasm_bindgen::to_value(&src)?)
     }
 
-    pub fn start_move_building(&mut self, x: f64, y: f64) -> bool {
-        let pos = self.transform_pos(x, y);
+    pub fn start_move_building(&mut self, ix: i32, iy: i32) -> bool {
+        let pos = [ix, iy];
         if self
             .game
             .iter_building()
