@@ -53,6 +53,8 @@
     };
 
     if(serverSync){
+        heartBroken = true;
+        heartbeatOpacity = 1;
         fetchSessionId({
             port,
             baseUrl,
@@ -135,7 +137,9 @@
             infoResult = info;
         }
         if (websocket) {
-            heartbeatOpacity = Math.max(0, heartbeatOpacity - 0.2);
+            if (websocket.readyState === 1) {
+                heartbeatOpacity = Math.max(0, heartbeatOpacity - 0.2);
+            }
             updateHeartbeatOpacity();
             if (websocket.readyState === 3 && reconnectTime-- <= 0) {
                 reconnectWebSocket(websocketOptions);
