@@ -5,7 +5,7 @@
     import SidePanel from './SidePanel.svelte';
     import DebugButton from './DebugButton.svelte';
     import InfoPanel from './InfoPanel.svelte';
-    import { websocket, getSessionId, reconnectWebSocket } from './session';
+    import { websocket, fetchSessionId, reconnectWebSocket } from './session';
     import BuildMenu from './BuildMenu.svelte';
     import RecipeMenu from './RecipeMenu.svelte';
 
@@ -16,7 +16,6 @@
     export let game = null;
 
     let infoResult = null;
-    let sessionId = null;
 
     let messageOverlayVisible = false;
     let messageOverlayText = "";
@@ -44,13 +43,23 @@
     let time = 0;
     let modeName = "";
 
-    if(serverSync && !sessionId){
-        getSessionId({
+    let reconnectTime = 0;
+    let websocketOptions = {
+        port,
+        game,
+        onupdate: () => {
+            heartbeatOpacity = 1;
+            updateHeartbeatOpacity();
+        },
+    };
+
+    if(serverSync){
+        fetchSessionId({
             port,
             baseUrl,
             game,
-            setSessionId: id => sessionId = id,
-        });
+        })
+        .then(() => reconnectWebSocket(websocketOptions));
     }
 
     function toLogicalCoords(clientX, clientY) {
@@ -133,7 +142,7 @@
             heartbeatOpacity = Math.max(0, heartbeatOpacity - 0.2);
             updateHeartbeatOpacity();
             if (websocket.readyState === 3 && reconnectTime-- <= 0) {
-                reconnectWebSocket();
+                reconnectWebSocket(websocketOptions);
                 // Randomize retry time in attempt to avoid contention
                 reconnectTime = Math.floor(Math.random() * 50) + 10;
             }
@@ -148,7 +157,7 @@
                 break;
             case 3:
                 heartBroken = true;
-                heartbeatDiv.style.opacity = 1;
+                heartbeatOpacity = 1;
                 break;
         }
     }
@@ -351,13 +360,6 @@
         requestWs("Build", {pos: buildPos, type});
         game.build(buildPos[0], buildPos[1], type);
         showBuildMenu = false;
-    }
-
-    function postChunksDigest() {
-        game.uniformify_tiles();
-        const chunksDigest = game.serialize_chunks_digest();
-        // websocket.send(JSON.stringify({type: "ChunksDigest", payload: {chunks_digest: chunksDigest}}));
-        websocket.send(chunksDigest);
     }
 
     let debugDrawChunks = false;
