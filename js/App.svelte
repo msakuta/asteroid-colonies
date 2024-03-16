@@ -317,8 +317,14 @@
                 requestWs("Build", {type: "PowerGrid", pos: [ix, iy]});
             }
             else {
+                const bodyRect = document.body.getBoundingClientRect();
+                const [max, min] = [Math.max, Math.min];
+                const margin = 128;
                 showRadialMenu = true;
-                radialScreenPos = [x, y];
+                radialScreenPos = [
+                    max(margin, min(bodyRect.width - margin, x)),
+                    max(margin, min(bodyRect.height - margin, y))
+                ];
                 radialPos = game.transform_coords(x, y);
                 return;
             }

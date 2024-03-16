@@ -6,7 +6,7 @@
 
     const dispatch = createEventDispatcher();
 
-    const menuWidth = 512;
+    const menuWidth = 256;
 
     export let pos = [0, 0];
 </script>
@@ -20,7 +20,7 @@
         <div class="itemContainer" style="left: 20%; top: 50%"
             on:pointerup|stopPropagation={() => dispatch('moveBuilding')}>
             <div class="icon" style="background-image: url({moveBuilding})"></div>
-            Move Building
+            Move Bldg.
         </div>
     </div>
 </div>
@@ -40,11 +40,9 @@
         left: 0;
         top: 0;
         transform: translate(-50%, -50%);
-        max-width: 75%;
-        max-height: 75%;
-        width: 512px;
-        height: 512px;
-        background-size: 512px 512px;
+        width: 256px;
+        height: 256px;
+        background-size: 256px 256px;
     }
 
     .itemContainer {
@@ -54,12 +52,13 @@
         transform: translate(-50%, -50%);
         color: #fff;
         text-align: center;
+        font-size: 10pt;
     }
 
     .icon {
         margin: auto;
-        width: 64px;
-        height: 64px;
-        background-size: 64px 64px;
+        width: 32px;
+        height: 32px;
+        background-size: 32px 32px;
     }
 </style>
