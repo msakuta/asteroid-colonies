@@ -7,6 +7,10 @@
     const dispatch = createEventDispatcher();
 
     export let items = [];
+    $: itemMapped = items.map(item => ({
+        type: item.outputs.keys().next().value,
+        ...item
+    }));
 </script>
 
 <div class="recipes">
@@ -15,9 +19,9 @@
     <div>
         <div class="recipe" on:click={() => dispatch('clear')}>No Recipe</div>
     </div>
-    {#each items as item}
-    <div class="recipe" on:click={() => dispatch('click', {type: item.outputs.keys().next().value})}>
-        <IconWithCount itemUrl={itemToIcon(item.type_)} />
+    {#each itemMapped as item}
+    <div class="recipe" on:click={() => dispatch('click', {type: item.type})}>
+        <IconWithCount itemUrl={itemToIcon(item.type)} />
         &lt;=
         {#each item.inputs as [input, count]}
             <IconWithCount itemUrl={itemToIcon(input)} {count}/>

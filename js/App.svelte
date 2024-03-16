@@ -160,14 +160,16 @@
 
     function setRecipe(evt) {
         const recipeName = evt.detail.type;
-        requestWs("SetRecipe", {pos: recipePos, name: recipeName});
-        game.set_recipe(recipePos[0], recipePos[1], recipeName);
+        const [x, y] = recipePos;
+        requestWs("SetRecipe", {pos: [x, y], name: recipeName});
+        game.set_recipe(x, y, recipeName);
         showRecipeMenu = false;
     }
 
     function clearRecipe() {
-        requestWs("SetRecipe", {pos: recipePos});
-        game.clear_recipe(recipePos[0], recipePos[1]);
+        const [x, y] = recipePos;
+        requestWs("SetRecipe", {pos: [x, y]});
+        game.clear_recipe(x, y);
         showRecipeMenu = false;
     }
 
@@ -331,9 +333,8 @@
     }
 
     function enterConveyorEdit() {
-        // const recipesElem = document.getElementById("recipes");
         showBuildMenu = false;
-        // recipesElem.style.display = "none";
+        showRecipesMenu = false;
         messageOverlayText = "Drag to make build plan and click Ok";
         messageOverlayVisible = true;
         messageShowOk = true;
