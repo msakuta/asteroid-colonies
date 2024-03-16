@@ -4,7 +4,6 @@ import { loadAllIcons } from './graphics.js';
 
 const serverSync = SERVER_SYNC;
 const baseUrl = BASE_URL;
-const syncPeriod = SYNC_PERIOD;
 const port = 3883;
 
 (async () => {
@@ -20,7 +19,6 @@ const port = 3883;
         target: document.body,
         props: {
             baseUrl,
-            syncPeriod,
             port,
             serverSync,
             game,

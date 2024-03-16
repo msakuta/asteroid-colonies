@@ -10,7 +10,6 @@
     import RecipeMenu from './RecipeMenu.svelte';
 
     export let baseUrl = BASE_URL;
-    export let syncPeriod = SYNC_PERIOD;
     export let port = 3883;
     export let serverSync = false;
     export let game = null;
