@@ -1,14 +1,37 @@
-<div id="sidePanel">
-    <div><label><input type="radio" name="command" id="excavate" value="excavate">Excavate</label></div>
-    <div><label><input type="radio" name="command" id="move" value="move">Move</label></div>
-    <div><label><input type="radio" name="command" id="power" value="power">Install power grid</label></div>
-    <div><label><input type="radio" name="command" id="conveyor" value="conveyor">Install conveyor</label></div>
-    <div><label><input type="radio" name="command" id="splitter" value="splitter">Install splitter</label></div>
-    <div><label><input type="radio" name="command" id="merger" value="merger">Install merger</label></div>
-    <div><label><input type="radio" name="command" id="moveItem" value="moveItem">Move item</label></div>
-    <div><label><input type="radio" name="command" id="build" value="build">Build</label></div>
-    <div><label><input type="radio" name="command" id="cancel" value="cancel">Cancel Build</label></div>
-    <div><label><input type="radio" name="command" id="deconstruct" value="deconstruct">Deconstruct</label></div>
-    <div><label><input type="radio" name="command" id="recipe" value="recipe">Set a recipe</label></div>
-    <div><label><input type="radio" name="command" id="cleanup" value="cleanup">Cleanup items</label></div>
+<script>
+	import Radio from './Radio.svelte'
+	
+	export let radioValue;
+	
+	const options = [
+        {value: "excavate", label: "Excavate"},
+        {value: "move", label: "Move Building"},
+        {value: "power", label: "Install Battery"},
+        {value: "conveyor", label: "Install Conveyor"},
+        {value: "splitter", label: "Install Splitter"},
+        {value: "merger", label: "Install Merger"},
+        {value: "moveItem", label: "Move Item"},
+        {value: "build", label: "Build"},
+        {value: "cancel", label: "Cancel"},
+        {value: "deconstruct", label: "Deconstruct"},
+        {value: "recipe", label: "Set"},
+        {value: "cleanup", label: "Cleanup"},
+    ]
+</script>
+
+<div class="sidePanel">
+    <Radio {options} fontSize={16} legend='Click Mode' bind:userSelected={radioValue}/>
+    <div>
+        {radioValue} is selected
+    </div>
 </div>
+
+<style>
+    .sidePanel {
+        position: absolute;
+        right: 10px;
+        top: 10px;
+        border: 1px solid black;
+        background-color: #afffaf;
+    }
+</style>
