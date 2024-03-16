@@ -334,7 +334,7 @@
 
     function enterConveyorEdit() {
         showBuildMenu = false;
-        showRecipesMenu = false;
+        showRecipeMenu = false;
         messageOverlayText = "Drag to make build plan and click Ok";
         messageOverlayVisible = true;
         messageShowOk = true;
@@ -367,7 +367,7 @@
     }
 </script>
 
-<div class="container" id="container">
+<div class="container">
     {#if messageOverlayVisible}
         <MessageOverlay
             text={messageOverlayText}

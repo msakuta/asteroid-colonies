@@ -8,7 +8,7 @@
     export let showCancelButton = false;
 </script>
 
-<div id="messageOverlay" class="messageOverlay" style="display: block">
+<div class="messageOverlay" style="display: block">
     {text}
     {#if showOkButton || showCancelButton}
     <div>
@@ -21,3 +21,20 @@
     </div>
     {/if}
 </div>
+
+<style>
+    .messageOverlay{
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 0px;
+        height: auto;
+        color: rgb(255,255,255);
+        background-color: rgba(0, 0, 0, 0.75);
+        font-weight: bold;
+        text-shadow: 1px 1px #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+        text-align: center;
+        /* pointer-events:none; */
+        z-index: 100;
+    }
+</style>
