@@ -1,6 +1,7 @@
+
 export let websocket = null;
 
-export async function getSessionId(setSessionId) {
+export async function getSessionId({port, baseUrl, game, setSessionId}) {
     let loaded = false;
     for (let i = 0; i < 20; i++) {
         try {

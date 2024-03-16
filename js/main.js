@@ -1,40 +1,6 @@
-import closeButton from '../images/close.png';
-import bg from '../images/back32.png';
-import cursor from '../images/cursor.png';
-import moveCursor from '../images/moveCursor.png';
-import crew from '../images/crew.png';
-import rawOre from '../images/rawOre.png';
-import ironIngot from '../images/ironIngot.png';
-import copperIngot from '../images/copperIngot.png';
-import lithiumIngot from '../images/lithiumIngot.png';
-import cilicate from '../images/cilicate.png';
-import gear from '../images/gear.png';
-import wire from '../images/wire.png';
-import circuit from '../images/circuit.png';
-import batteryItem from '../images/batteryItem.png';
-import power_grid from '../images/power_grid.png';
-import conveyor from '../images/conveyor.png';
-import conveyorItem from '../images/conveyor-item.png';
-import atomicBattery from '../images/atomicBattery.png';
-import battery from '../images/battery.png';
-import batteryBuilding from '../images/batteryBuilding.png';
-import excavator from '../images/excavator.png';
-import excavatorItem from '../images/excavatorItem.png';
-import storage from '../images/storage.png';
-import mediumStorage from '../images/mediumStorage.png';
-import crewCabin from '../images/crewCabin.png';
-import assembler from '../images/assembler.png';
-import assemblerComponent from '../images/assemblerComponent.png';
-import furnace from '../images/furnace.png';
-import furnaceItem from '../images/furnaceItem.png';
-import construction from '../images/construction.png';
-import deconstruction from '../images/deconstruction.png';
-import cleanup from '../images/cleanup.png';
-import heart from '../images/heart.png';
-import brokenHeart from '../images/brokenHeart.png';
-import debug from '../images/debug.png';
 
 import App from './App.svelte';
+import { loadAllIcons } from './graphics.js';
 
 const canvas = document.getElementById('canvas');
 const serverSync = SERVER_SYNC;
@@ -46,49 +12,13 @@ let sessionId = null;
 let reconnectTime = 10;
 let debugDrawChunks = false;
 
-const heartbeatDiv = document.getElementById("heartbeat");
-const heartbeatElem = document.createElement("img");
-let heartbeatOpacity = 0;
-heartbeatElem.setAttribute("src", heart);
-heartbeatDiv.appendChild(heartbeatElem);
-
 (async () => {
     const wasm = await import("../wasm/Cargo.toml");
     const {AsteroidColonies, set_panic_hook} = await wasm.default();
 
     set_panic_hook();
 
-    const loadImages = [
-        ["bg32", bg],
-        ["cursor", cursor],
-        ["move_cursor", moveCursor],
-        ["crew", crew],
-        ["power_grid", power_grid],
-        ["conveyor", conveyor],
-        ["atomic_battery", atomicBattery],
-        ["battery", battery],
-        ["excavator", excavator],
-        ["storage", storage],
-        ["medium_storage", mediumStorage],
-        ["crew_cabin", crewCabin],
-        ["assembler", assembler],
-        ["furnace", furnace],
-        ["raw_ore", rawOre],
-        ["iron_ingot", ironIngot],
-        ["copper_ingot", copperIngot],
-        ["lithium_ingot", lithiumIngot],
-        ["cilicate", cilicate],
-        ["gear", gear],
-        ["wire", wire],
-        ["circuit", circuit],
-        ["battery_item", batteryItem],
-        ["construction", construction],
-        ["deconstruction", deconstruction],
-        ["cleanup", cleanup],
-    ].map(async ([name, src]) => {
-        return [name, src, await loadImage(src)];
-    });
-    const loadedImages = await Promise.all(loadImages);
+    const loadedImages = await loadAllIcons();
 
     const canvasRect = canvas.getBoundingClientRect();
     const game = new AsteroidColonies(loadedImages, canvasRect.width, canvasRect.height);
@@ -127,39 +57,6 @@ heartbeatDiv.appendChild(heartbeatElem);
         evt.stopPropagation();
     });
 
-    function pointerMove(evt) {
-        const [x, y] = mousePos = toLogicalCoords(evt.clientX, evt.clientY);
-        game.set_cursor(x, y);
-        const info = game.get_info(x, y);
-        document.getElementById('info').innerHTML = formatInfo(info);
-        if (buildingConveyor) {
-            const elem = document.getElementById("conveyor");
-            if (elem?.checked) {
-                try {
-                    game.preview_build_conveyor(buildingConveyor[0], buildingConveyor[1], x, y, true);
-                }
-                catch (e) {
-                    console.error(`build_conveyor: ${e}`);
-                }
-            }
-        }
-        if (dragStart) {
-            if (dragLast) {
-                game.pan(x - dragLast[0], y - dragLast[1]);
-                dragLast = [x, y];
-            }
-            else {
-                const dragDX = Math.abs(x - dragStart[0]);
-                const dragDY = Math.abs(y - dragStart[1]);
-                // Determine mouse drag (or panning with a touch panel) or a click (or a tap) by checking moved distance
-                if (10 < Math.max(dragDX, dragDY)) {
-                    dragLast = dragStart;
-                }
-            }
-        }
-    }
-
-    canvas.addEventListener('pointermove', pointerMove);
 
     canvas.addEventListener('pointerleave', _ => mousePos = dragStart = null);
 
@@ -387,22 +284,6 @@ heartbeatDiv.appendChild(heartbeatElem);
         messageOverlayElem.appendChild(buttonContainer);
     }
 
-    function updateHeartbeatOpacity() {
-        if(!websocket) return;
-        switch (websocket.readyState) {
-            case 1:
-                heartbeatElem.setAttribute("src", heart);
-                heartbeatDiv.style.opacity = heartbeatOpacity;
-                heartbeatDiv.style.display = 0 < heartbeatOpacity ? "block" : "none";
-                break;
-            case 3:
-                heartbeatElem.setAttribute("src", brokenHeart);
-                heartbeatDiv.style.opacity = 1;
-                heartbeatDiv.style.display = "block";
-                break;
-        }
-    }
-
     function requestWs(type, payload) {
         if (!websocket) {
             return;
@@ -420,14 +301,6 @@ heartbeatDiv.appendChild(heartbeatElem);
         websocket.send(chunksDigest);
     }
 })()
-
-async function loadImage(url) {
-    return new Promise((r) => {
-        const i = new Image();
-        i.onload = (() => r(i));
-        i.src = url;
-    });
-}
 
 function itemToIcon(item) {
     switch(item){
@@ -499,36 +372,6 @@ function formatBuildItem(buildItem) {
     const {Building: output} = buildItem.type_;
     const icon = iconWithoutCount(buildingToIcon(output));
     return `<div class="recipe">${icon} <= ${inputs}</div>`;
-}
-
-function formatRecipe(recipe) {
-    let inputs = "";
-    for (let [input, count] of recipe.inputs.entries()) {
-        const icon = iconWithCount(itemToIcon(input), count);
-        if (inputs) inputs += " " + icon;
-        else inputs += icon;
-    }
-    let outputs = "";
-    for (let [output, count] of recipe.outputs.entries()) {
-        const icon = iconWithCount(itemToIcon(output), count);
-        if (outputs) outputs += " " + icon;
-        else outputs += icon;
-    }
-    return `<div class="recipe">${outputs} <= ${inputs}</div>`;
-}
-
-function formatInventory(inventory) {
-    let result = "";
-    for (let [input, count] of inventory.entries()) {
-        const icon = iconWithCount(itemToIcon(input), count);
-        if (result) result += " " + icon;
-        else result += icon;
-    }
-    return result;
-}
-
-function formatCrews(building) {
-    return `${building.crews} / ${building.max_crews}`;
 }
 
 function formatConstruction(construction) {
