@@ -239,8 +239,8 @@ pub fn get_build_menu() -> &'static [BuildMenuItem] {
     &*BUILD_MENU.get_or_init(|| {
         vec![
             BuildMenuItem {
-                type_: ConstructionType::Building(BuildingType::Power),
-                ingredients: hash_map!(ItemType::PowerGridComponent => 3),
+                type_: ConstructionType::Building(BuildingType::Battery),
+                ingredients: hash_map!(ItemType::Battery => 2, ItemType::IronIngot => 1),
                 time: 120.,
             },
             BuildMenuItem {

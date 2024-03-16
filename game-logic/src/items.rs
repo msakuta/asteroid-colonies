@@ -10,10 +10,12 @@ pub enum ItemType {
     RawOre,
     IronIngot,
     CopperIngot,
+    LithiumIngot,
     Cilicate,
     Gear,
     Wire,
     Circuit,
+    Battery,
     PowerGridComponent,
     ConveyorComponent,
     AssemblerComponent,
@@ -52,6 +54,11 @@ pub(crate) fn recipes() -> &'static [Recipe] {
                 inputs: hash_map!(ItemType::Gear => 2, ItemType::Circuit => 2),
                 outputs: hash_map!(ItemType::AssemblerComponent => 1),
                 time: 200.,
+            },
+            Recipe {
+                inputs: hash_map!(ItemType::Wire => 1, ItemType::LithiumIngot => 1),
+                outputs: hash_map!(ItemType::Battery => 1),
+                time: 150.,
             },
         ]
     })

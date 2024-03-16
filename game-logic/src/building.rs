@@ -383,11 +383,12 @@ impl Building {
                         return Ok(());
                     };
                     *source -= 1;
-                    let dice = rng.nexti() % 7;
+                    let dice = rng.nexti() % 8;
                     let outputs = hash_map!(match dice {
                         0..=3 => ItemType::Cilicate,
                         4..=5 => ItemType::IronIngot,
-                        _ => ItemType::CopperIngot,
+                        6 => ItemType::CopperIngot,
+                        _ => ItemType::LithiumIngot,
                     } => 1);
                     this.task = Task::Assemble {
                         t: RAW_ORE_SMELT_TIME,

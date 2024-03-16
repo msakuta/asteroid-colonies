@@ -6,15 +6,18 @@ import crew from '../images/crew.png';
 import rawOre from '../images/rawOre.png';
 import ironIngot from '../images/ironIngot.png';
 import copperIngot from '../images/copperIngot.png';
+import lithiumIngot from '../images/lithiumIngot.png';
 import cilicate from '../images/cilicate.png';
 import gear from '../images/gear.png';
 import wire from '../images/wire.png';
 import circuit from '../images/circuit.png';
+import batteryItem from '../images/batteryItem.png';
 import power_grid from '../images/power_grid.png';
 import conveyor from '../images/conveyor.png';
 import conveyorItem from '../images/conveyor-item.png';
 import atomicBattery from '../images/atomicBattery.png';
 import battery from '../images/battery.png';
+import batteryBuilding from '../images/batteryBuilding.png';
 import excavator from '../images/excavator.png';
 import excavatorItem from '../images/excavatorItem.png';
 import storage from '../images/storage.png';
@@ -71,10 +74,12 @@ heartbeatDiv.appendChild(heartbeatElem);
         ["raw_ore", rawOre],
         ["iron_ingot", ironIngot],
         ["copper_ingot", copperIngot],
+        ["lithium_ingot", lithiumIngot],
         ["cilicate", cilicate],
         ["gear", gear],
         ["wire", wire],
         ["circuit", circuit],
+        ["battery_item", batteryItem],
         ["construction", construction],
         ["deconstruction", deconstruction],
         ["cleanup", cleanup],
@@ -515,10 +520,12 @@ function itemToIcon(item) {
         case "RawOre": return rawOre;
         case "IronIngot": return ironIngot;
         case "CopperIngot": return copperIngot;
+        case "LithiumIngot": return lithiumIngot;
         case "Cilicate": return cilicate;
         case "Gear": return gear;
         case "Wire": return wire;
         case "Circuit": return circuit;
+        case "Battery": return batteryItem;
         case "PowerGridComponent": return power_grid;
         case "ConveyorComponent": return conveyorItem;
         case "AssemblerComponent": return assemblerComponent;
@@ -527,6 +534,7 @@ function itemToIcon(item) {
 
 function buildingToIcon(building) {
     switch(building){
+        case "Battery": return batteryBuilding;
         case "Power": return power;
         case "Excavator": return excavatorItem;
         case "Storage": return storage;
