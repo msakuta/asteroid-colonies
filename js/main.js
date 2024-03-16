@@ -16,12 +16,14 @@ import conveyorItem from '../images/conveyor-item.png';
 import atomicBattery from '../images/atomicBattery.png';
 import battery from '../images/battery.png';
 import excavator from '../images/excavator.png';
+import excavatorItem from '../images/excavatorItem.png';
 import storage from '../images/storage.png';
 import mediumStorage from '../images/mediumStorage.png';
 import crewCabin from '../images/crewCabin.png';
 import assembler from '../images/assembler.png';
 import assemblerComponent from '../images/assemblerComponent.png';
 import furnace from '../images/furnace.png';
+import furnaceItem from '../images/furnaceItem.png';
 import construction from '../images/construction.png';
 import deconstruction from '../images/deconstruction.png';
 import cleanup from '../images/cleanup.png';
@@ -526,12 +528,12 @@ function itemToIcon(item) {
 function buildingToIcon(building) {
     switch(building){
         case "Power": return power;
-        case "Excavator": return excavator;
+        case "Excavator": return excavatorItem;
         case "Storage": return storage;
         case "MediumStorage": return mediumStorage;
         case "CrewCabin": return crewCabin;
         case "Assembler": return assemblerComponent;
-        case "Furnace": return furnace;
+        case "Furnace": return furnaceItem;
     }
 }
 
