@@ -352,10 +352,10 @@
     }
 
     function build(evt) {
-        const [ix, iy] = buildPos;
+        const [x, y] = buildPos;
         const type = evt.detail.type;
-        requestWs("Build", {pos: buildPos, type});
-        game.build(buildPos[0], buildPos[1], type);
+        requestWs("Build", {pos: [x, y], type: {Building: type}});
+        game.build(x, y, type);
         showBuildMenu = false;
     }
 
