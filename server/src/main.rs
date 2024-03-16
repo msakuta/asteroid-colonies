@@ -159,6 +159,13 @@ async fn get_index() -> HttpResponse {
         .body(include_str!("../../dist/index.html"))
 }
 
+#[cfg(not(debug_assertions))]
+async fn get_css() -> HttpResponse {
+    HttpResponse::Ok()
+        .content_type("text/css")
+        .body(include_str!("../../dist/js/bundle.css"))
+}
+
 async fn get_js_file(
     data: web::Data<ServerData>,
     req: HttpRequest,
@@ -329,6 +336,7 @@ async fn main() -> std::io::Result<()> {
         {
             app.route("/", web::get().to(get_index))
                 .route("/js/main.js", web::get().to(get_main_js))
+                .route("/js/bundle.css", web::get().to(get_css))
                 .route("/js/{filename:.*}", web::get().to(get_js_file))
         }
         #[cfg(debug_assertions)]

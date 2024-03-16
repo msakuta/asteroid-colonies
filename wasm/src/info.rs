@@ -55,7 +55,7 @@ impl AsteroidColonies {
                 GetBuildingInfoResult {
                     type_: building.type_,
                     recipe,
-                    task: format!("{:?}", building.task),
+                    task: format!("{}", building.task),
                     inventory: building.inventory.clone(),
                     crews: building.crews,
                     max_crews: building.type_.max_crews(),
