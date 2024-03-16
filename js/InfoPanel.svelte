@@ -20,9 +20,7 @@
 </script>
 
 <div class="bottomPanel">
-    <pre class="infoPanel" bind:this={elem}>
-        Info panel
-    </pre>
+    <pre class="infoPanel" bind:this={elem}></pre>
 </div>
 
 <style>

@@ -10,7 +10,7 @@
 <img on:click={() => dispatch('click')} src={debug}>
 
 <style>
-    div {
+    img {
         position: absolute;
         right: 0;
         bottom: 0;

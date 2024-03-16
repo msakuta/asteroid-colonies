@@ -27,15 +27,3 @@ const port = 3883;
         }
     });
 })()
-
-function addCloseButton(onclose) {
-    const closeButtonElem = document.createElement("span");
-    closeButtonElem.style.position = "absolute";
-    closeButtonElem.style.right = '5px';
-    closeButtonElem.style.top = '5px';
-    closeButtonElem.style.width = '16px';
-    closeButtonElem.style.height = '16px';
-    closeButtonElem.style.backgroundImage = `url(${closeButton})`;
-    closeButtonElem.addEventListener('click', onclose);
-    return closeButtonElem;
-}

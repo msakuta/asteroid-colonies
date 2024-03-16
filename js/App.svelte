@@ -19,6 +19,8 @@
 
     let messageOverlayVisible = false;
     let messageOverlayText = "";
+    let messageShowOk = false;
+    let messageShowCancel = false;
 
     let heartBroken;
     let heartbeatOpacity = 0;
@@ -98,6 +100,7 @@
         canvas.addEventListener('pointerleave', _ => mousePos = dragStart = null);
 
         canvas.addEventListener('pointerup', pointerUp);
+        window.addEventListener("resize", resizeHandler);
     });
 
     function resizeHandler() {
@@ -106,7 +109,6 @@
         canvas.setAttribute("height", bodyRect.height);
         game.set_size(bodyRect.width, bodyRect.height);
     }
-    window.addEventListener("resize", resizeHandler);
 
     setInterval(() => {
         // Increment time before any await. Otherwise, this async function runs 2-4 times every tick for some reason.
@@ -186,8 +188,6 @@
         }
 
         if (buildingConveyor) {
-            const elem = document.getElementById("conveyor");
-            if (!elem?.checked) return;
             try {
                 game.preview_build_conveyor(buildingConveyor[0], buildingConveyor[1], x, y, false);
                 buildingConveyor = [x, y];
@@ -199,7 +199,6 @@
         }
 
         const name = modeName;
-        const buildMenuElem = document.getElementById("buildMenu");
         const recipesElem = document.getElementById("recipes");
         if (name === "move") {
             if (game.start_move_building(x, y)) {
@@ -243,7 +242,7 @@
             }
         }
         else if (name === "recipe") {
-            buildMenuElem.style.display = "none";
+            showBuildMenu = false;
             try {
                 const recipes = game.get_recipes(x, y);
                 while (recipesElem.firstChild) recipesElem.removeChild(recipesElem.firstChild);
@@ -322,34 +321,27 @@
         }
     });
 
+    function conveyorOk() {
+        buildingConveyor = null;
+        messageOverlayVisible = false;
+        const buildPlan = game.commit_build_conveyor(false);
+        requestWs("BuildPlan", {build_plan: buildPlan});
+    }
+
+    function conveyorCancel() {
+        buildingConveyor = null;
+        messageOverlayVisible = false;
+        game.cancel_build_conveyor(false);
+    }
+
     function enterConveyorEdit() {
-        const buildMenuElem = document.getElementById("buildMenu");
-        const recipesElem = document.getElementById("recipes");
-        buildMenuElem.style.display = "none";
-        recipesElem.style.display = "none";
+        // const recipesElem = document.getElementById("recipes");
+        showBuildMenu = false;
+        // recipesElem.style.display = "none";
         messageOverlayText = "Drag to make build plan and click Ok";
         messageOverlayVisible = true;
-        const okButton = document.createElement("button");
-        okButton.value = "Ok";
-        okButton.innerHTML = "Ok";
-        okButton.addEventListener('click', _ => {
-            buildingConveyor = null;
-            messageOverlayVisible = false;
-            const buildPlan = game.commit_build_conveyor(false);
-            requestWs("BuildPlan", {build_plan: buildPlan});
-        });
-        const cancelButton = document.createElement("button");
-        cancelButton.value = "Cancel";
-        cancelButton.innerHTML = "Cancel";
-        cancelButton.addEventListener('click', _ => {
-            buildingConveyor = null;
-            messageOverlayElem.style.display = "none";
-            game.cancel_build_conveyor(false);
-        });
-        const buttonContainer = document.createElement("div");
-        buttonContainer.appendChild(okButton);
-        buttonContainer.appendChild(cancelButton);
-        messageOverlayElem.appendChild(buttonContainer);
+        messageShowOk = true;
+        messageShowCancel = true;
     }
 
     function requestWs(type, payload) {
@@ -387,7 +379,12 @@
 
 <div class="container" id="container">
     {#if messageOverlayVisible}
-        <MessageOverlay text={messageOverlayText} />
+        <MessageOverlay
+            text={messageOverlayText}
+            showOkButton={messageShowOk}
+            showCancelButton={messageShowCancel}
+            on:ok={conveyorOk}
+            on:cancel={conveyorCancel}/>
     {/if}
     <HeartBeat broken={heartBroken} opacity={heartbeatOpacity}/>
     <canvas bind:this={canvas} id="canvas" width="640" height="480"></canvas>
@@ -398,3 +395,11 @@
     {/if}
     <DebugButton on:click={debugClick}/>
 </div>
+
+<style>
+.container {
+    position: relative;
+    margin: 0;
+    padding: 0;
+}
+</style>
