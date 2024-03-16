@@ -34,6 +34,8 @@ import heart from '../images/heart.png';
 import brokenHeart from '../images/brokenHeart.png';
 import debug from '../images/debug.png';
 
+import App from './App.svelte';
+
 const canvas = document.getElementById('canvas');
 const serverSync = SERVER_SYNC;
 const baseUrl = BASE_URL;
@@ -90,19 +92,13 @@ heartbeatDiv.appendChild(heartbeatElem);
 
     const canvasRect = canvas.getBoundingClientRect();
     const game = new AsteroidColonies(loadedImages, canvasRect.width, canvasRect.height);
+    let app = new App({
+        target: document.body,
+        props: {
+            game,
+        }
+    });
 
-    const debugButton = document.createElement("div");
-    debugButton.style.position = "absolute";
-    debugButton.style.right = "0";
-    debugButton.style.bottom = "0";
-    debugButton.style.width = "64px";
-    debugButton.style.height = "32px";
-    debugButton.style.backgroundImage = `url(${debug})`;
-    debugButton.addEventListener("click", () => {
-        debugDrawChunks = !debugDrawChunks;
-        game.set_debug_draw_chunks(debugDrawChunks);
-    })
-    document.body.appendChild(debugButton);
 
     if(serverSync && !sessionId){
         let loaded = false;
