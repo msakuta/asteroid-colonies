@@ -1,16 +1,11 @@
 <script>
     import { createEventDispatcher } from 'svelte';
-    import IconWithCount from "./IconWithCount.svelte";
     import CloseButton from './CloseButton.svelte';
-    import { itemToIcon } from "./graphics";
+    import RecipeItem from './RecipeItem.svelte';
 
     const dispatch = createEventDispatcher();
 
     export let items = [];
-    $: itemMapped = items.map(item => ({
-        type: item.outputs.keys().next().value,
-        ...item
-    }));
 </script>
 
 <div class="recipes">
@@ -19,14 +14,8 @@
     <div>
         <div class="recipe" on:pointerup={() => dispatch('clear')}>No Recipe</div>
     </div>
-    {#each itemMapped as item}
-    <div class="recipe" on:pointerup={() => dispatch('click', {type: item.type})}>
-        <IconWithCount itemUrl={itemToIcon(item.type)} />
-        &lt;=
-        {#each item.inputs as [input, count]}
-            <IconWithCount itemUrl={itemToIcon(input)} {count}/>
-        {/each}
-    </div>
+    {#each items as item}
+    <RecipeItem {item} on:click={evt => dispatch('click', evt.detail)}/>
     {/each}
 </div>
 

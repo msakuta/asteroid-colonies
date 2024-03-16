@@ -94,74 +94,8 @@ async function loadImage(url) {
     });
 }
 
-export function formatRecipe(recipe) {
-    let inputs = "";
-    for (let [input, count] of recipe.inputs.entries()) {
-        const icon = iconWithCount(itemToIcon(input), count);
-        if (inputs) inputs += " " + icon;
-        else inputs += icon;
-    }
-    let outputs = "";
-    for (let [output, count] of recipe.outputs.entries()) {
-        const icon = iconWithCount(itemToIcon(output), count);
-        if (outputs) outputs += " " + icon;
-        else outputs += icon;
-    }
-    return `<div class="recipe">${outputs} <= ${inputs}</div>`;
-}
-
-export function iconWithCount(itemUrl, count) {
-    const widthFactor = 1;
-    const heightFactor = 1;
-    return `<div class="item" style="
-        display: inline-block;
-        position: relative;
-        background-image: url(${itemUrl});
-        background-size: ${32 * widthFactor}px ${32 * heightFactor}px;
-        width: 32px;
-        height: 32px;
-    ">
-        <div class="overlay noselect">
-        ${count}
-        </div>
-    </div>`;
-}
-
-export function iconWithoutCount(itemUrl) {
-    const widthFactor = 1;
-    const heightFactor = 1;
-    return `<div class="item" style="
-        display: inline-block;
-        position: relative;
-        background-image: url(${itemUrl});
-        background-size: ${32 * widthFactor}px ${32 * heightFactor}px;
-        width: 32px;
-        height: 32px;
-      "></div>`;
-}
-
-export function formatInventory(inventory) {
-    let result = "";
-    for (let [input, count] of inventory.entries()) {
-        const icon = iconWithCount(itemToIcon(input), count);
-        if (result) result += " " + icon;
-        else result += icon;
-    }
-    return result;
-}
-
 export function formatCrews(building) {
     return `${building.crews} / ${building.max_crews}`;
-}
-
-export function formatConstruction(construction) {
-    let result = `Type: ${construction.type_}`;
-    for (let [input, count] of construction.ingredients.entries()) {
-        const icon = iconWithCount(itemToIcon(input), count);
-        if (result) result += " " + icon;
-        else result += icon;
-    }
-    return result;
 }
 
 export function buildingToIcon(building) {
