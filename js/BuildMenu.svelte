@@ -17,7 +17,7 @@
     <CloseButton on:close={() => dispatch('close')}/>
     <div>Select a building</div>
     {#each items as item}
-    <div class="recipe" on:click={() => dispatch('click', {type: item.type_.Building})}>
+    <div class="recipe" on:pointerup={() => dispatch('click', {type: item.type_.Building})}>
         <IconWithCount itemUrl={constructionToItem(item.type_)} />
         &lt;=
         {#each item.ingredients as [input, count]}

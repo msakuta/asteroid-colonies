@@ -17,10 +17,10 @@
     <CloseButton on:close={() => dispatch('close')}/>
     <div>Select a recipe</div>
     <div>
-        <div class="recipe" on:click={() => dispatch('clear')}>No Recipe</div>
+        <div class="recipe" on:pointerup={() => dispatch('clear')}>No Recipe</div>
     </div>
     {#each itemMapped as item}
-    <div class="recipe" on:click={() => dispatch('click', {type: item.type})}>
+    <div class="recipe" on:pointerup={() => dispatch('click', {type: item.type})}>
         <IconWithCount itemUrl={itemToIcon(item.type)} />
         &lt;=
         {#each item.inputs as [input, count]}

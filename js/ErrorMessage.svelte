@@ -10,7 +10,7 @@
     $: opacity = Math.min(timeout / 10, 1);
 </script>
 
-<div class="messageOverlay noselect" style="display: block; opacity: {opacity}" on:click={() => dispatch('click')}>
+<div class="messageOverlay noselect" style="display: block; opacity: {opacity}" on:pointerup={() => dispatch('click')}>
     <img src={errorIcon} alt="error">
     {text}
     <div class="timeoutBar" style="width: {timeout / maxTimeout * 100}%"/>
