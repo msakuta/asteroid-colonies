@@ -14,16 +14,13 @@
         {value: "build", label: "Build"},
         {value: "cancel", label: "Cancel"},
         {value: "deconstruct", label: "Deconstruct"},
-        {value: "recipe", label: "Set"},
+        {value: "recipe", label: "Set Recipe"},
         {value: "cleanup", label: "Cleanup"},
     ]
 </script>
 
 <div class="sidePanel">
     <Radio {options} fontSize={16} legend='Click Mode' bind:userSelected={radioValue}/>
-    <div>
-        {radioValue} is selected
-    </div>
 </div>
 
 <style>

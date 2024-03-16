@@ -203,15 +203,13 @@ impl AsteroidColonies {
             .map_err(JsValue::from)
     }
 
-    pub fn set_recipe(&mut self, x: f64, y: f64, name: &str) -> Result<(), JsValue> {
-        let [ix, iy] = self.transform_pos(x, y);
+    pub fn set_recipe(&mut self, ix: i32, iy: i32, name: &str) -> Result<(), JsValue> {
         self.game
             .set_recipe(ix, iy, Some(name))
             .map_err(JsValue::from)
     }
 
-    pub fn clear_recipe(&mut self, x: f64, y: f64) -> Result<(), JsValue> {
-        let [ix, iy] = self.transform_pos(x, y);
+    pub fn clear_recipe(&mut self, ix: i32, iy: i32) -> Result<(), JsValue> {
         self.game.set_recipe(ix, iy, None).map_err(JsValue::from)
     }
 

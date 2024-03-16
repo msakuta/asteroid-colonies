@@ -7,6 +7,7 @@
     import InfoPanel from './InfoPanel.svelte';
     import { websocket, getSessionId, reconnectWebSocket } from './session';
     import BuildMenu from './BuildMenu.svelte';
+    import RecipeMenu from './RecipeMenu.svelte';
 
     export let baseUrl = BASE_URL;
     export let syncPeriod = SYNC_PERIOD;
@@ -30,6 +31,8 @@
     let buildPos = null;
 
     let showRecipeMenu = false;
+    let recipeItems = [];
+    let recipePos = null;
 
     let mousePos = null;
     let moving = false;
@@ -150,6 +153,19 @@
         }
     }
 
+    function setRecipe(evt) {
+        const recipeName = evt.detail.type;
+        requestWs("SetRecipe", {pos: recipePos, name: recipeName});
+        game.set_recipe(recipePos[0], recipePos[1], recipeName);
+        showRecipeMenu = false;
+    }
+
+    function clearRecipe() {
+        requestWs("SetRecipe", {pos: recipePos});
+        game.clear_recipe(recipePos[0], recipePos[1]);
+        showRecipeMenu = false;
+    }
+
     function pointerUp(evt) {
         const [x, y] = toLogicalCoords(evt.clientX, evt.clientY);
         if (dragStart) {
@@ -199,10 +215,10 @@
         }
 
         const name = modeName;
-        const recipesElem = document.getElementById("recipes");
         if (name === "move") {
             if (game.start_move_building(x, y)) {
-                recipesElem.style.display = "none";
+                showBuildMenu = false;
+                showRecipeMenu = false;
                 messageOverlayText = "Choose move building destination";
                 messageOverlayVisible = "block";
                 moving = true;
@@ -210,7 +226,8 @@
         }
         else if (name === "moveItem") {
             if (game.start_move_item(x, y)) {
-                recipesElem.style.display = "none";
+                showBuildMenu = false;
+                showRecipeMenu = false;
                 messageOverlayText = "Choose move item destination";
                 messageOverlayVisible = "block";
                 movingItem = true;
@@ -244,39 +261,13 @@
         else if (name === "recipe") {
             showBuildMenu = false;
             try {
-                const recipes = game.get_recipes(x, y);
-                while (recipesElem.firstChild) recipesElem.removeChild(recipesElem.firstChild);
-                recipesElem.style.display = "block";
-                const headerElem = document.createElement("div");
-                headerElem.innerHTML = "Select a recipe";
-                headerElem.style.fontWeight = "bold";
-                recipesElem.appendChild(addCloseButton(() => recipesElem.style.display = "none"));
-                recipesElem.appendChild(headerElem);
-                const noRecipeElem = document.createElement("div");
-                noRecipeElem.innerHTML = `<div class="recipe">No Recipe</div>`;
-                noRecipeElem.addEventListener("pointerup", _ => {
-                    const [ix, iy] = game.transform_coords(x, y);
-                    requestWs("SetRecipe", {pos: [ix, iy]});
-                    game.clear_recipe(x, y);
-                    recipesElem.style.display = "none";
-                });
-                recipesElem.appendChild(noRecipeElem);
-                for (let recipe of recipes) {
-                    const recipeElem = document.createElement("div");
-                    const recipeName = recipe.outputs.keys().next().value;
-                    recipeElem.innerHTML = formatRecipe(recipe);
-                    recipeElem.addEventListener("pointerup", _ => {
-                        const [ix, iy] = game.transform_coords(x, y);
-                        requestWs("SetRecipe", {pos: [ix, iy], name: recipeName});
-                        game.set_recipe(x, y, recipeName);
-                        recipesElem.style.display = "none";
-                    })
-                    recipesElem.appendChild(recipeElem);
-                }
+                recipeItems = game.get_recipes(x, y);
+                showRecipeMenu = true;
+                recipePos = game.transform_coords(x, y);
             }
             catch (e) {
                 console.error(e);
-                recipesElem.style.display = "none";
+                showRecipeMenu = false;
             }
         }
         else if (name === "cancel") {
@@ -392,6 +383,12 @@
     <InfoPanel result={infoResult} />
     {#if showBuildMenu}
         <BuildMenu items={buildItems} on:click={build} on:close={() => showBuildMenu = false}/>
+    {/if}
+    {#if showRecipeMenu}
+        <RecipeMenu items={recipeItems}
+            on:click={setRecipe}
+            on:clear={clearRecipe}
+            on:close={() => showRecipeMenu = false}/>
     {/if}
     <DebugButton on:click={debugClick}/>
 </div>
