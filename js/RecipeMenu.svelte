@@ -2,7 +2,7 @@
     import { createEventDispatcher } from 'svelte';
     import IconWithCount from "./IconWithCount.svelte";
     import CloseButton from './CloseButton.svelte';
-    import { itemToIcon, buildingToIcon } from "./graphics";
+    import { itemToIcon } from "./graphics";
 
     const dispatch = createEventDispatcher();
 
@@ -37,12 +37,5 @@
         left: 50%;
         margin-right: -50%;
         transform: translate(-50%, -50%);
-    }
-
-    .item {
-        display: inline-block;
-        position: relative;
-        width: 32px;
-        height: 32px;
     }
 </style>

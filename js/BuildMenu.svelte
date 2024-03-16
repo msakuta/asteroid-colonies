@@ -39,11 +39,4 @@
         margin-right: -50%;
         transform: translate(-50%, -50%);
     }
-
-    .item {
-        display: inline-block;
-        position: relative;
-        width: 32px;
-        height: 32px;
-    }
 </style>
