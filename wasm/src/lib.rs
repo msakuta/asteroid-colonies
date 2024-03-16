@@ -164,9 +164,7 @@ impl AsteroidColonies {
         }
     }
 
-    pub fn build(&mut self, x: f64, y: f64, type_: JsValue) -> Result<(), JsValue> {
-        let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
-        let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
+    pub fn build(&mut self, ix: i32, iy: i32, type_: JsValue) -> Result<(), JsValue> {
         let type_: BuildingType = serde_wasm_bindgen::from_value(type_)?;
         self.game.build(ix, iy, type_).map_err(|e| JsValue::from(e))
     }

@@ -6,7 +6,7 @@
 	const options = [
         {value: "excavate", label: "Excavate"},
         {value: "move", label: "Move Building"},
-        {value: "power", label: "Install Battery"},
+        {value: "power", label: "Install PowerGrid"},
         {value: "conveyor", label: "Install Conveyor"},
         {value: "splitter", label: "Install Splitter"},
         {value: "merger", label: "Install Merger"},

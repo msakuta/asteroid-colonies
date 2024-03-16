@@ -60,21 +60,6 @@
       white-space: normal;
     }
 
-    .overlay{
-      position: absolute;
-      left: 0px;
-      bottom: 0px;
-      width: 100%;
-      height: auto;
-      color: rgb(0,0,0);
-      font-family: Monospace;
-      font-weight: bold;
-      text-shadow: 1px 1px #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff;
-      text-align: right;
-      pointer-events:none;
-      z-index: 100;
-    }
-
     .messageOverlay{
       position: absolute;
       left: 0;
@@ -113,11 +98,8 @@
 </head>
 <body>
   <div class="container" id="container">
-    <canvas id="canvas" width="640" height="480"></canvas>
     <div id="heartbeat" style="display: none"></div>
-    <div id="messageOverlay" class="messageOverlay" style="display: block"></div>
     <div id="recipes" class="recipes" style="display: none"></div>
-    <div id="buildMenu" class="recipes" style="display: none"></div>
     <div id="bottomPanel">
       <pre id="info"></pre>
     </div>

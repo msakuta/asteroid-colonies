@@ -127,6 +127,19 @@ export function iconWithCount(itemUrl, count) {
     </div>`;
 }
 
+export function iconWithoutCount(itemUrl) {
+    const widthFactor = 1;
+    const heightFactor = 1;
+    return `<div class="item" style="
+        display: inline-block;
+        position: relative;
+        background-image: url(${itemUrl});
+        background-size: ${32 * widthFactor}px ${32 * heightFactor}px;
+        width: 32px;
+        height: 32px;
+      "></div>`;
+}
+
 export function formatInventory(inventory) {
     let result = "";
     for (let [input, count] of inventory.entries()) {
@@ -149,4 +162,17 @@ export function formatConstruction(construction) {
         else result += icon;
     }
     return result;
+}
+
+export function buildingToIcon(building) {
+    switch(building){
+        case "Battery": return batteryBuilding;
+        case "Power": return power;
+        case "Excavator": return excavatorItem;
+        case "Storage": return storage;
+        case "MediumStorage": return mediumStorage;
+        case "CrewCabin": return crewCabin;
+        case "Assembler": return assemblerComponent;
+        case "Furnace": return furnaceItem;
+    }
 }

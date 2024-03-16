@@ -6,6 +6,7 @@
     import DebugButton from './DebugButton.svelte';
     import InfoPanel from './InfoPanel.svelte';
     import { websocket, getSessionId, reconnectWebSocket } from './session';
+    import BuildMenu from './BuildMenu.svelte';
 
     export let baseUrl = BASE_URL;
     export let syncPeriod = SYNC_PERIOD;
@@ -21,6 +22,12 @@
 
     let heartBroken;
     let heartbeatOpacity = 0;
+
+    let showBuildMenu = false;
+    let buildItems = [];
+    let buildPos = null;
+
+    let showRecipeMenu = false;
 
     let mousePos = null;
     let moving = false;
@@ -115,7 +122,6 @@
         game.render(ctx);
         if (mousePos !== null) {
             const info = game.get_info(mousePos[0], mousePos[1]);
-            console.log(`${info}`);
             infoResult = info;
         }
         if (websocket) {
@@ -224,32 +230,16 @@
             game.build_merger(x, y);
         }
         else if (name === "build") {
-            recipesElem.style.display = "none";
+            showRecipeMenu = false;
             try {
                 const buildMenu = game.get_build_menu(x, y);
-                while (buildMenuElem.firstChild) buildMenuElem.removeChild(buildMenuElem.firstChild);
-                buildMenuElem.style.display = "block";
-                const headerElem = document.createElement("div");
-                headerElem.innerHTML = "Select a building";
-                buildMenuElem.appendChild(addCloseButton(() => buildMenuElem.style.display = "none"));
-                headerElem.style.fontWeight = "bold";
-                buildMenuElem.appendChild(headerElem);
-                for (let buildItem of buildMenu) {
-                    const buildItemElem = document.createElement("div");
-                    const buildingType = buildItem.type_;
-                    buildItemElem.innerHTML = formatBuildItem(buildItem);
-                    buildItemElem.addEventListener("pointerup", _ => {
-                        const [ix, iy] = game.transform_coords(x, y);
-                        requestWs("Build", {pos: [ix, iy], type: {Building: buildingType.Building}});
-                        game.build(x, y, buildingType.Building);
-                        buildMenuElem.style.display = "none";
-                    })
-                    buildMenuElem.appendChild(buildItemElem);
-                }
+                buildItems = buildMenu;
+                showBuildMenu = true;
+                buildPos = game.transform_coords(x, y);
             }
             catch (e) {
                 console.error(e);
-                buildMenuElem.style.display = "none";
+                showBuildMenu = false;
             }
         }
         else if (name === "recipe") {
@@ -306,8 +296,8 @@
             game.cleanup_item(x, y);
         }
         else {
-            buildMenuElem.style.display = "none";
-            recipesElem.style.display = "none";
+            showBuildMenu = false;
+            showRecipeMenu = false;
             if (name === "excavate") {
                 const [ix, iy] = game.transform_coords(x, y);
                 requestWs("Excavate", {x: ix, y: iy});
@@ -372,6 +362,14 @@
         }));
     }
 
+    function build(evt) {
+        const [ix, iy] = buildPos;
+        const type = evt.detail.type;
+        requestWs("Build", {pos: buildPos, type});
+        game.build(buildPos[0], buildPos[1], type);
+        showBuildMenu = false;
+    }
+
     function postChunksDigest() {
         game.uniformify_tiles();
         const chunksDigest = game.serialize_chunks_digest();
@@ -394,6 +392,9 @@
     <HeartBeat broken={heartBroken} opacity={heartbeatOpacity}/>
     <canvas bind:this={canvas} id="canvas" width="640" height="480"></canvas>
     <SidePanel bind:radioValue={modeName}/>
-    <InfoPanel result={infoResult}/>
+    <InfoPanel result={infoResult} />
+    {#if showBuildMenu}
+        <BuildMenu items={buildItems} on:click={build}/>
+    {/if}
     <DebugButton on:click={debugClick}/>
 </div>

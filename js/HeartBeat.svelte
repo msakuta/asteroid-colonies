@@ -12,3 +12,11 @@
     <img src={heart} alt="heart" style="opacity: {opacity}">
     {/if}
 </div>
+
+<style>
+    img {
+        position: absolute;
+        left: 0;
+        top: 0;
+    }
+</style>
