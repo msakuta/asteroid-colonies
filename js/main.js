@@ -95,33 +95,13 @@ heartbeatDiv.appendChild(heartbeatElem);
     let app = new App({
         target: document.body,
         props: {
+            baseUrl,
+            syncPeriod,
+            port,
+            serverSync,
             game,
         }
     });
-
-
-    if(serverSync && !sessionId){
-        let loaded = false;
-        for (let i = 0; i < 20; i++) {
-            try {
-                const sessionRes = await fetch(`http://${location.hostname}:${port}/api/session`, {
-                    method: "POST"
-                });
-                sessionId = await sessionRes.text();
-                const dataRes = await fetch(`${baseUrl}/api/load`);
-                const dataText = await dataRes.text();
-                game.deserialize(dataText);
-                loaded = true;
-            } catch (e) {
-                console.log(`session api returned an error: ${e}`);
-            }
-            if (loaded) break;
-        }
-    }
-
-    if(!websocket){
-        reconnectWebSocket();
-    }
 
     function resizeHandler(evt) {
         const bodyRect = document.body.getBoundingClientRect();
@@ -405,68 +385,6 @@ heartbeatDiv.appendChild(heartbeatElem);
         buttonContainer.appendChild(okButton);
         buttonContainer.appendChild(cancelButton);
         messageOverlayElem.appendChild(buttonContainer);
-    }
-
-    let time = 0;
-
-    setInterval(async () => {
-        // Increment time before any await. Otherwise, this async function runs 2-4 times every tick for some reason.
-        time++;
-        // if (serverSync && time % syncPeriod === 0) {
-        //     console.log(`serverSync period: ${time}`);
-        //     const dataRes = await fetch(`${baseUrl}/api/load`);
-        //     const dataText = await dataRes.text();
-        //     game.deserialize(dataText);
-        // }
-        game.tick();
-        game.render(ctx);
-        if (mousePos !== null) {
-            const info = game.get_info(mousePos[0], mousePos[1]);
-            document.getElementById('info').innerHTML = formatInfo(info);
-        }
-        if (websocket) {
-            heartbeatOpacity = Math.max(0, heartbeatOpacity - 0.2);
-            updateHeartbeatOpacity();
-            if (websocket.readyState === 3 && reconnectTime-- <= 0) {
-                reconnectWebSocket();
-                // Randomize retry time in attempt to avoid contention
-                reconnectTime = Math.floor(Math.random() * 50) + 10;
-            }
-        }
-    }, 100);
-
-    function reconnectWebSocket(){
-        if(sessionId){
-            websocket = new WebSocket(`ws://${location.hostname}:${port}/ws/${sessionId}`);
-            websocket.binaryType = "arraybuffer";
-            websocket.addEventListener("message", (event) => {
-                if (event.data instanceof ArrayBuffer) {
-                    const byteArray = new Uint8Array(event.data);
-                    game.deserialize_bin(byteArray);
-                    postChunksDigest();
-                    heartbeatOpacity = 1;
-                    updateHeartbeatOpacity();
-                }
-                else {
-                // console.log(`Event through WebSocket: ${event.data}`);
-                    const data = JSON.parse(event.data);
-                    if(data.type === "clientUpdate"){
-                        if(game){
-                            game.deserialize(data.payload);
-                            postChunksDigest();
-                            heartbeatOpacity = 1;
-                            updateHeartbeatOpacity();
-                        }
-                        // const payload = data.payload;
-                        // const body = CelestialBody.celestialBodies.get(payload.bodyState.name);
-                        // if(body){
-                        //     body.clientUpdate(payload.bodyState);
-                        // }
-                    }
-                }
-            });
-            websocket.addEventListener("open", postChunksDigest);
-        }
     }
 
     function updateHeartbeatOpacity() {
