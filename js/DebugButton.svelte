@@ -7,7 +7,7 @@
 </script>
 
 
-<img on:click={() => dispatch('click')} src={debug}>
+<img on:click={() => dispatch('click')} src={debug} alt="debug">
 
 <style>
     img {

@@ -34,6 +34,7 @@ export default {
                 switch (warning.code) {
                     case 'a11y-click-events-have-key-events':
                     case 'a11y-no-static-element-interactions':
+                    case 'a11y-no-noninteractive-element-interactions':
                         return;
                 }
 
