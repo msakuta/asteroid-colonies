@@ -73,14 +73,11 @@
         game.set_cursor(x, y);
         infoResult = game.get_info(x, y);
         if (buildingConveyor) {
-            const elem = document.getElementById("conveyor");
-            if (elem?.checked) {
-                try {
-                    game.preview_build_conveyor(buildingConveyor[0], buildingConveyor[1], x, y, true);
-                }
-                catch (e) {
-                    console.error(`build_conveyor: ${e}`);
-                }
+            try {
+                game.preview_build_conveyor(buildingConveyor[0], buildingConveyor[1], x, y, true);
+            }
+            catch (e) {
+                console.error(`build_conveyor: ${e}`);
             }
         }
         if (dragStart) {
