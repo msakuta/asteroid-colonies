@@ -1,6 +1,7 @@
 <script>
     import { createEventDispatcher } from 'svelte';
     import IconWithCount from "./IconWithCount.svelte";
+    import CloseButton from './CloseButton.svelte';
     import { itemToIcon, buildingToIcon } from "./graphics";
 
     const dispatch = createEventDispatcher();
@@ -13,6 +14,7 @@
 </script>
 
 <div class="recipes">
+    <CloseButton on:close={() => dispatch('close')}/>
     <div>Select a building</div>
     {#each items as item}
     <div class="recipe" on:click={() => dispatch('click', {type: item.type_.Building})}>

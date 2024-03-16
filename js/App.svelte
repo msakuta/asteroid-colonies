@@ -394,7 +394,7 @@
     <SidePanel bind:radioValue={modeName}/>
     <InfoPanel result={infoResult} />
     {#if showBuildMenu}
-        <BuildMenu items={buildItems} on:click={build}/>
+        <BuildMenu items={buildItems} on:click={build} on:close={() => showBuildMenu = false}/>
     {/if}
     <DebugButton on:click={debugClick}/>
 </div>
