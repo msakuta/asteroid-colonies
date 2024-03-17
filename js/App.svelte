@@ -21,6 +21,8 @@
     import buildMergerIcon from '../images/buildMerger.png';
     import moveItemIcon from '../images/moveItem.png';
     import buildBuildingIcon from '../images/buildBuilding.png';
+    import deconstructIcon from '../images/deconstruct.png';
+    import cleanup from '../images/cleanup.png';
 
     export let baseUrl = BASE_URL;
     export let port = 3883;
@@ -59,6 +61,8 @@
         {mode: 'moveItem', icon: moveItemIcon},
         {mode: 'build', icon: buildBuildingIcon},
         {mode: 'recipe', icon: recipeIcon},
+        {mode: 'deconstruct', icon: deconstructIcon},
+        {mode: 'cleanup', icon: cleanup},
     ];
 
     const RADIAL_MENU_MAIN = [
@@ -71,6 +75,7 @@
         {caption: "Power Grid", event: 'buildPowerGrid', icon: buildPowerGridIcon},
         {caption: "Conveyor", event: 'buildConveyor', icon: buildConveyorIcon},
         {caption: "Building", event: 'buildBuilding', icon: buildBuildingIcon},
+        {caption: "Deconstruct", event: 'deconstruct', icon: deconstructIcon},
     ];
     let showRadialMenu = false;
     let radialScreenPos = null;
@@ -318,7 +323,7 @@
         else if (name === "deconstruct") {
             const pos = game.transform_coords(x, y);
             requestWs("Deconstruct", {pos: [pos[0], pos[1]]});
-            game.deconstruct(x, y);
+            game.deconstruct(pos[0], pos[1]);
         }
         else if (name === "cleanup") {
             const pos = game.transform_coords(x, y);
@@ -472,20 +477,20 @@
         showBuildBuildingMenu(radialPos);
     }
 
-    function commandBuild(evt) {
-        try {
-            const [x, y] = buildPos;
-            const type = evt.detail.type;
-            requestWs("Build", {pos: [x, y], type: {Building: type}});
-            game.build(x, y, type);
-            showBuildMenu = false;
-        }
-        catch (e) {
-            showErrorMessage = true;
-            errorMessage = e;
-            errorMessageTimeout = 30;
-        }
-    }
+    let commandDeconstruct = wrapErrorMessage(() => {
+        showRadialMenu = false;
+        const [x, y] = radialPos;
+        requestWs("Deconstruct", {pos: [x, y]});
+        game.deconstruct(x, y);
+    });
+
+    let commandBuild = wrapErrorMessage((evt) => {
+        const [x, y] = buildPos;
+        const type = evt.detail.type;
+        requestWs("Build", {pos: [x, y], type: {Building: type}});
+        game.build(x, y, type);
+        showBuildMenu = false;
+    });
 
     function setShowRecipeMenu(x, y) {
         showRadialMenu = false;
@@ -549,7 +554,8 @@
             on:close={() => showRadialMenu = false}
             on:buildPowerGrid={buildPowerGrid}
             on:buildConveyor={buildConveyor}
-            on:buildBuilding={commandBuildBuildingMenu}/>
+            on:buildBuilding={commandBuildBuildingMenu}
+            on:deconstruct={commandDeconstruct}/>
     {/if}
     {#if showErrorMessage}
         <ErrorMessage text={errorMessage} timeout={errorMessageTimeout} on:click={() => showErrorMessage = false}/>

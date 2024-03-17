@@ -192,10 +192,8 @@ impl AsteroidColonies {
     }
 
     /// Puts a task to deconstruct a building. It is different from `cancel_build` in that it destroys already built ones.
-    pub fn deconstruct(&mut self, x: f64, y: f64) -> Result<(), JsValue> {
-        let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
-        let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
-        self.game.deconstruct(ix, iy).map_err(|e| JsValue::from(e))
+    pub fn deconstruct(&mut self, ix: i32, iy: i32) -> Result<(), JsValue> {
+        self.game.deconstruct(ix, iy).map_err(JsValue::from)
     }
 
     pub fn get_recipes(&self, x: f64, y: f64) -> Result<Vec<JsValue>, JsValue> {
