@@ -2,7 +2,7 @@
     import { onMount } from 'svelte';
     import MessageOverlay from './MessageOverlay.svelte';
     import HeartBeat from './HeartBeat.svelte';
-    import SidePanel from './SidePanel.svelte';
+    // import SidePanel from './SidePanel.svelte';
     import ButtonFrames from './ButtonFrames.svelte';
     import DebugButton from './DebugButton.svelte';
     import InfoPanel from './InfoPanel.svelte';
@@ -21,6 +21,7 @@
     import buildMergerIcon from '../images/buildMerger.png';
     import moveItemIcon from '../images/moveItem.png';
     import buildBuildingIcon from '../images/buildBuilding.png';
+    import cancelBuildIcon from '../images/cancelBuild.png';
     import deconstructIcon from '../images/deconstruct.png';
     import cleanup from '../images/cleanup.png';
 
@@ -61,6 +62,7 @@
         {mode: 'moveItem', icon: moveItemIcon},
         {mode: 'build', icon: buildBuildingIcon},
         {mode: 'recipe', icon: recipeIcon},
+        {mode: 'cancel', icon: cancelBuildIcon},
         {mode: 'deconstruct', icon: deconstructIcon},
         {mode: 'cleanup', icon: cleanup},
     ];
@@ -333,16 +335,18 @@
         else {
             showBuildMenu = false;
             showRecipeMenu = false;
+            const [ix, iy] = game.transform_coords(x, y);
             if (name === "excavate") {
-                const [ix, iy] = game.transform_coords(x, y);
                 requestWs("Excavate", {x: ix, y: iy});
             }
             else if (name === "power") {
-                const [ix, iy] = game.transform_coords(x, y);
                 requestWs("Build", {type: "PowerGrid", pos: [ix, iy]});
             }
             else {
                 positionRadialMenu(x, y);
+                RADIAL_MENU_MAIN[0].grayed = !game.is_excavatable_at(ix, iy);
+                RADIAL_MENU_MAIN[1].grayed =
+                RADIAL_MENU_MAIN[3].grayed = !game.find_building(ix, iy);
                 showRadialMenu = RADIAL_MENU_MAIN;
                 radialPos = game.transform_coords(x, y);
                 return;
@@ -440,6 +444,18 @@
 
     function buildMenu(evt) {
         let [x, y] = radialScreenPos;
+        if (game.find_construction(radialPos[0], radialPos[1])) {
+            RADIAL_MENU_BUILD[3].grayed = false;
+            RADIAL_MENU_BUILD[3].caption = "Cancel Build";
+            RADIAL_MENU_BUILD[3].event = "cancelBuild";
+            RADIAL_MENU_BUILD[3].icon = cancelBuildIcon;
+        }
+        else {
+            RADIAL_MENU_BUILD[3].grayed = !game.find_building(radialPos[0], radialPos[1]);
+            RADIAL_MENU_BUILD[3].caption = "Deconstruct";
+            RADIAL_MENU_BUILD[3].event = "deconstruct";
+            RADIAL_MENU_BUILD[3].icon = deconstructIcon;
+        }
         showRadialMenu = RADIAL_MENU_BUILD;
         positionRadialMenu(x + 64, y);
     }
@@ -482,6 +498,13 @@
         const [x, y] = radialPos;
         requestWs("Deconstruct", {pos: [x, y]});
         game.deconstruct(x, y);
+    });
+
+    let commandCancelBuild = wrapErrorMessage(() => {
+        showRadialMenu = false;
+        const [x, y] = radialPos;
+        requestWs("CancelBuild", {pos: [x, y]});
+        game.cancel_build(x, y);
     });
 
     let commandBuild = wrapErrorMessage((evt) => {
@@ -555,7 +578,8 @@
             on:buildPowerGrid={buildPowerGrid}
             on:buildConveyor={buildConveyor}
             on:buildBuilding={commandBuildBuildingMenu}
-            on:deconstruct={commandDeconstruct}/>
+            on:deconstruct={commandDeconstruct}
+            on:cancelBuild={commandCancelBuild}/>
     {/if}
     {#if showErrorMessage}
         <ErrorMessage text={errorMessage} timeout={errorMessageTimeout} on:click={() => showErrorMessage = false}/>

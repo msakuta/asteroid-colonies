@@ -8,7 +8,8 @@ use wasm_bindgen::prelude::*;
 use web_sys::js_sys;
 
 use asteroid_colonies_logic::{
-    building::BuildingType, get_build_menu, AsteroidColoniesGame, Pos, HEIGHT, TILE_SIZE, WIDTH,
+    building::BuildingType, get_build_menu, AsteroidColoniesGame, Pos, TileState, HEIGHT,
+    TILE_SIZE, WIDTH,
 };
 
 use crate::{assets::Assets, render::calculate_back_image};
@@ -105,6 +106,10 @@ impl AsteroidColonies {
         self.transform_pos(x, y).to_vec()
     }
 
+    pub fn is_excavatable_at(&self, x: i32, y: i32) -> Result<bool, JsValue> {
+        Ok(matches!(self.game.tiles()[[x, y]].state, TileState::Solid))
+    }
+
     pub fn command(&mut self, com: &str, x: f64, y: f64) -> Result<JsValue, JsValue> {
         let [ix, iy] = self.transform_pos(x, y);
         if ix < 0 || WIDTH as i32 <= ix || iy < 0 || HEIGHT as i32 <= iy {
@@ -180,6 +185,14 @@ impl AsteroidColonies {
         let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
         let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
         self.game.cancel_build(ix, iy)
+    }
+
+    pub fn find_building(&self, x: i32, y: i32) -> Result<bool, JsValue> {
+        Ok(self.game.iter_building().any(|c| c.intersects([x, y])))
+    }
+
+    pub fn find_construction(&self, x: i32, y: i32) -> Result<bool, JsValue> {
+        Ok(self.game.iter_construction().any(|c| c.intersects([x, y])))
     }
 
     pub fn build_plan(&mut self, constructions: Vec<JsValue>) -> Result<(), JsValue> {

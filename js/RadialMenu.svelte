@@ -22,6 +22,21 @@
         ["80%", "50%"],
         ["50%", "80%"],
     ];
+
+    function itemFilter(item) {
+        if (item.grayed) {
+            return `filter: brightness(0.5)`;
+        }
+        else{
+            return "";
+        }
+    }
+
+    function dispatchFilter(item) {
+        if (!item.grayed) {
+            dispatch(item.event);
+        }
+    }
 </script>
 
 <div class="background" on:pointerup={() => dispatch('close')}>
@@ -30,8 +45,8 @@
         <div class="icon centerIcon" style="background-image: url({centerIcon})"/>
         {/if}
         {#each items.map((e, i) => [e, itemPositions[i]]) as [item, pos]}
-        <div class="itemContainer" style="left: {pos[0]}; top: {pos[1]}" on:pointerup|stopPropagation={() => dispatch(item.event)}>
-            <div class="icon" style="background-image: url({item.icon});"></div>
+        <div class="itemContainer" style="left: {pos[0]}; top: {pos[1]}; {itemFilter(item)}" on:pointerup|stopPropagation={() => dispatchFilter(item)}>
+            <div class="icon" style="background-image: url({item.icon})"></div>
             {item.caption}
         </div>
         {/each}
