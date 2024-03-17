@@ -40,16 +40,18 @@
 </script>
 
 <div class="background" on:pointerup={() => dispatch('close')}>
-    <div class="radialMenu noselect" style="background-image: url({radialMenu}); transform: translate({pos[0] - menuWidth / 2}px, {pos[1] - menuWidth / 2}px)">
-        {#if centerIcon}
-        <div class="icon centerIcon" style="background-image: url({centerIcon})"/>
-        {/if}
-        {#each items.map((e, i) => [e, itemPositions[i]]) as [item, pos]}
-        <div class="itemContainer" style="left: {pos[0]}; top: {pos[1]}; {itemFilter(item)}" on:pointerup|stopPropagation={() => dispatchFilter(item)}>
-            <div class="icon" style="background-image: url({item.icon})"></div>
-            {item.caption}
+    <div class="radialMenu noselect" style="transform: translate({pos[0] - menuWidth / 2}px, {pos[1] - menuWidth / 2}px)">
+        <div class="animContainer" style="background-image: url({radialMenu})">
+            {#if centerIcon}
+            <div class="icon centerIcon" style="background-image: url({centerIcon})"/>
+            {/if}
+            {#each items.map((e, i) => [e, itemPositions[i]]) as [item, pos]}
+            <div class="itemContainer" style="left: {pos[0]}; top: {pos[1]}; {itemFilter(item)}" on:pointerup|stopPropagation={() => dispatchFilter(item)}>
+                <div class="icon" style="background-image: url({item.icon})"></div>
+                {item.caption}
+            </div>
+            {/each}
         </div>
-        {/each}
     </div>
 </div>
 
@@ -70,7 +72,25 @@
         transform: translate(-50%, -50%);
         width: 256px;
         height: 256px;
+    }
+
+    .animContainer {
+        position: absolute;
+        left: 0;
+        top: 0;
+        right: 0;
+        bottom: 0;
         background-size: 256px 256px;
+        animation: 0.25s ease-out 0.125s 1 both running scaleup;
+    }
+
+    @keyframes scaleup {
+        from {
+            transform: scale(0);
+        }
+        to {
+            transform: scale(1);
+        }
     }
 
     .itemContainer {
