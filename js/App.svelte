@@ -280,6 +280,12 @@
             return;
         }
 
+        // Make sure to set cursor for touch panels.
+        // Mouse doesn't need to set cursor here, because it always has
+        // the current position updated by pointermove event, but
+        // touch devices do not.
+        game.set_cursor(x, y);
+
         const name = modeName;
         if (name === "move") {
             const [ix, iy] = game.transform_coords(x, y);
