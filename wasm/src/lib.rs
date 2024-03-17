@@ -131,8 +131,8 @@ impl AsteroidColonies {
         self.game.build_power_grid(ix, iy).map_err(JsValue::from)
     }
 
-    pub fn start_move_item(&mut self, x: f64, y: f64) -> bool {
-        let pos = self.transform_pos(x, y);
+    pub fn start_move_item(&mut self, x: i32, y: i32) -> bool {
+        let pos = [x, y];
         if self.game.iter_building().any(|b| b.intersects(pos)) {
             self.move_item_cursor = Some(pos);
             true

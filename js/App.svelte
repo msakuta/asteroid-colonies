@@ -72,6 +72,8 @@
         {caption: "Move Bldg.", event: 'moveBuilding', icon: moveBuildingIcon},
         {caption: "Build", event: 'buildMenu', icon: buildIcon},
         {caption: "Set Recipe", event: 'setRecipe', icon: recipeIcon},
+        {caption: "Move Item", event: 'moveItem', icon: moveItemIcon},
+        {caption: "Cleanup", event: 'cleanup', icon: cleanup},
     ];
     const RADIAL_MENU_BUILD = [
         {caption: "Power Grid", event: 'buildPowerGrid', icon: buildPowerGridIcon},
@@ -296,13 +298,8 @@
             moving = true;
         }
         else if (name === "moveItem") {
-            if (game.start_move_item(x, y)) {
-                showBuildMenu = false;
-                showRecipeMenu = false;
-                messageOverlayText = "Choose move item destination";
-                messageOverlayVisible = "block";
-                movingItem = true;
-            }
+            const [ix, iy] = game.transform_coords(x, y);
+            startMoveItem(ix, iy);
         }
         else if (name === "conveyor") {
             enterConveyorEdit();
@@ -548,7 +545,30 @@
         showRadialMenu = false;
         const [x, y] = radialScreenPos;
         setShowRecipeMenu(x, y);
-    })
+    });
+
+    function startMoveItem(x, y) {
+        if (game.start_move_item(x, y)) {
+            showBuildMenu = false;
+            showRecipeMenu = false;
+            messageOverlayText = "Choose move item destination";
+            messageOverlayVisible = "block";
+            movingItem = true;
+        }
+    }
+
+    let commandMoveItem = wrapErrorMessage(() => {
+        showRadialMenu = false;
+        const [x, y] = radialPos;
+        startMoveItem(x, y);
+    });
+
+    let commandCleanup = wrapErrorMessage(() => {
+        showRadialMenu = false;
+        const [x, y] = radialPos;
+        requestWs("Cleanup", {pos: [x, y]});
+        game.cleanup_item(x, y);
+    });
 
     let debugDrawChunks = false;
 
@@ -589,7 +609,9 @@
             on:excavate={commandExcavate}
             on:moveBuilding={commandMoveBuilding}
             on:buildMenu={buildMenu}
-            on:setRecipe={commandRecipeShow}/>
+            on:setRecipe={commandRecipeShow}
+            on:moveItem={commandMoveItem}
+            on:cleanup={commandCleanup}/>
     {:else if showRadialMenu === RADIAL_MENU_BUILD}
         <RadialMenu
             centerIcon={buildIcon}
