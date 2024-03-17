@@ -146,19 +146,18 @@ impl AsteroidColonies {
         Ok(serde_wasm_bindgen::to_value(&src)?)
     }
 
-    pub fn start_move_building(&mut self, ix: i32, iy: i32) -> bool {
+    pub fn start_move_building(&mut self, ix: i32, iy: i32) -> Result<(), JsValue> {
         let pos = [ix, iy];
-        if self
+        let bldg = self
             .game
             .iter_building()
             .find(|b| b.intersects(pos))
-            .is_some_and(|b| b.type_.is_mobile())
-        {
-            self.move_cursor = Some(pos);
-            true
-        } else {
-            false
+            .ok_or_else(|| JsValue::from("Building to move does not exist"))?;
+        if !bldg.type_.is_mobile() {
+            return Err(JsValue::from("The building is not mobile"));
         }
+        self.move_cursor = Some(pos);
+        Ok(())
     }
 
     pub fn move_building(&mut self, dst_x: f64, dst_y: f64) -> Result<JsValue, JsValue> {

@@ -405,21 +405,19 @@
         showRadialMenu = false;
         const [x, y] = radialPos;
         game.excavate(x, y);
-        const [ix, iy] = game.transform_coords(x, y);
-        requestWs("Excavate", {x: ix, y: iy});
+        requestWs("Excavate", {x: x, y: y});
     });
 
-    function commandMoveBuilding(evt) {
+    let commandMoveBuilding = wrapErrorMessage(evt => {
         const [x, y] = radialPos;
-        if (game.start_move_building(x, y)) {
-            showRadialMenu = false;
-            showBuildMenu = false;
-            showRecipeMenu = false;
-            messageOverlayText = "Choose move building destination";
-            messageOverlayVisible = "block";
-            moving = true;
-        }
-    }
+        showRadialMenu = false;
+        showBuildMenu = false;
+        showRecipeMenu = false;
+        game.start_move_building(x, y);
+        messageOverlayText = "Choose move building destination";
+        messageOverlayVisible = "block";
+        moving = true;
+    });
 
     function buildMenu(evt) {
         let [x, y] = radialScreenPos;
@@ -431,6 +429,7 @@
         showRadialMenu = false;
         let [x, y] = radialPos;
         game.build_power_grid(x, y);
+        requestWs("Build", {type: "PowerGrid", pos: [x, y]});
     });
 
     function buildConveyor() {
