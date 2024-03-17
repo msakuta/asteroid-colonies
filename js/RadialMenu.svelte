@@ -25,15 +25,6 @@
         ["50%", "85%"],
     ];
 
-    function itemFilter(item) {
-        if (item.grayed) {
-            return `filter: brightness(0.5)`;
-        }
-        else{
-            return "";
-        }
-    }
-
     function dispatchFilter(item) {
         if (!item.grayed) {
             dispatch(item.event);
@@ -48,7 +39,11 @@
             <div class="icon centerIcon" style="background-image: url({centerIcon})"/>
             {/if}
             {#each items.map((e, i) => [e, itemPositions[i]]) as [item, pos]}
-            <div class="itemContainer" style="left: {pos[0]}; top: {pos[1]}; {itemFilter(item)}" on:pointerup|stopPropagation={() => dispatchFilter(item)}>
+            <div class="itemContainer"
+                class:grayed={item.grayed}
+                style="left: {pos[0]}; top: {pos[1]}"
+                on:pointerup|stopPropagation={() => dispatchFilter(item)}
+            >
                 <div class="icon" style="background-image: url({item.icon})"></div>
                 {item.caption}
             </div>
@@ -99,10 +94,19 @@
         position: absolute;
         left: 50%;
         top: 20%;
+        width: 64px;
         transform: translate(-50%, -50%);
         color: #fff;
         text-align: center;
         font-size: 10pt;
+    }
+
+    .grayed {
+        filter: brightness(0.5)
+    }
+
+    .itemContainer:not(.grayed):hover {
+        background-color: rgba(191, 191, 63, 0.5);
     }
 
     .icon {
