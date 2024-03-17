@@ -10,6 +10,12 @@
     import RecipeMenu from './RecipeMenu.svelte';
     import ErrorMessage from './ErrorMessage.svelte';
     import RadialMenu from './RadialMenu.svelte';
+    import excavateIcon from '../images/excavate.png';
+    import moveBuilding from '../images/moveBuilding.png';
+    import buildIcon from '../images/build.png';
+    import buildPowerGridIcon from '../images/buildPowerGrid.png';
+    import buildConveyorIcon from '../images/buildConveyor.png';
+    import buildBuildingIcon from '../images/buildBuilding.png';
 
     export let baseUrl = BASE_URL;
     export let port = 3883;
@@ -38,6 +44,16 @@
     let recipeItems = [];
     let recipePos = null;
 
+    const RADIAL_MENU_MAIN = [
+        {caption: "Excavate", event: 'excavate', icon: excavateIcon},
+        {caption: "Move Bldg.", event: 'moveBuilding', icon: moveBuilding},
+        {caption: "Build", event: 'buildMenu', icon: buildIcon},
+    ];
+    const RADIAL_MENU_BUILD = [
+        {caption: "Power Grid", event: 'buildPowerGrid', icon: buildPowerGridIcon},
+        {caption: "Conveyor", event: 'buildConveyor', icon: buildConveyorIcon},
+        {caption: "Building", event: 'buildBuilding', icon: buildBuildingIcon},
+    ];
     let showRadialMenu = false;
     let radialScreenPos = null;
     let radialPos = null;
@@ -272,17 +288,7 @@
             game.build_merger(x, y);
         }
         else if (name === "build") {
-            showRecipeMenu = false;
-            try {
-                const buildMenu = game.get_build_menu(x, y);
-                buildItems = buildMenu;
-                showBuildMenu = true;
-                buildPos = game.transform_coords(x, y);
-            }
-            catch (e) {
-                console.error(e);
-                showBuildMenu = false;
-            }
+            showBuildBuildingMenu(game.transform_coords(x, y));
         }
         else if (name === "recipe") {
             showBuildMenu = false;
@@ -317,14 +323,8 @@
                 requestWs("Build", {type: "PowerGrid", pos: [ix, iy]});
             }
             else {
-                const bodyRect = document.body.getBoundingClientRect();
-                const [max, min] = [Math.max, Math.min];
-                const margin = 128;
-                showRadialMenu = true;
-                radialScreenPos = [
-                    max(margin, min(bodyRect.width - margin, x)),
-                    max(margin, min(bodyRect.height - margin, y))
-                ];
+                positionRadialMenu(x, y);
+                showRadialMenu = RADIAL_MENU_MAIN;
                 radialPos = game.transform_coords(x, y);
                 return;
             }
@@ -335,15 +335,19 @@
         }
     }
 
-    function pointerUp(evt) {
-        try {
-            pointerUpInt(evt);
-        }
-        catch (e) {
-            errorMessage = e;
-            showErrorMessage = true;
-            errorMessageTimeout = 30;
-        }
+    let pointerUp = wrapErrorMessage(evt => pointerUpInt(evt));
+
+    function wrapErrorMessage(f) {
+        return evt => {
+            try {
+                f(evt);
+            }
+            catch (e) {
+                errorMessage = e;
+                showErrorMessage = true;
+                errorMessageTimeout = 30;
+            }
+        };
     }
 
     document.body.addEventListener("keydown", evt => {
@@ -387,22 +391,25 @@
         }));
     }
 
-    function excavate() {
-        showRadialMenu = false;
-        try {
-            const [x, y] = radialPos;
-            game.excavate(x, y);
-            const [ix, iy] = game.transform_coords(x, y);
-            requestWs("Excavate", {x: ix, y: iy});
-        }
-        catch (e) {
-            errorMessage = e;
-            showErrorMessage = true;
-            errorMessageTimeout = 30;
-        }
+    function positionRadialMenu(x, y) {
+        const bodyRect = document.body.getBoundingClientRect();
+        const [max, min] = [Math.max, Math.min];
+        const margin = 128;
+        radialScreenPos = [
+            max(margin, min(bodyRect.width - margin, x)),
+            max(margin, min(bodyRect.height - margin, y))
+        ];
     }
 
-    function moveBuilding(evt) {
+    let commandExcavate = wrapErrorMessage(() => {
+        showRadialMenu = false;
+        const [x, y] = radialPos;
+        game.excavate(x, y);
+        const [ix, iy] = game.transform_coords(x, y);
+        requestWs("Excavate", {x: ix, y: iy});
+    });
+
+    function commandMoveBuilding(evt) {
         const [x, y] = radialPos;
         if (game.start_move_building(x, y)) {
             showRadialMenu = false;
@@ -414,7 +421,45 @@
         }
     }
 
-    function build(evt) {
+    function buildMenu(evt) {
+        let [x, y] = radialScreenPos;
+        showRadialMenu = RADIAL_MENU_BUILD;
+        positionRadialMenu(x + 64, y);
+    }
+
+    let buildPowerGrid = wrapErrorMessage(() => {
+        showRadialMenu = false;
+        let [x, y] = radialPos;
+        game.build_power_grid(x, y);
+    });
+
+    function buildConveyor() {
+        showRadialMenu = false;
+        let [x, y] = radialScreenPos;
+        enterConveyorEdit();
+        buildingConveyor = [x, y];
+    }
+
+    function showBuildBuildingMenu(pos) {
+        showRadialMenu = false;
+        showRecipeMenu = false;
+        try {
+            const buildMenu = game.get_build_menu();
+            buildItems = buildMenu;
+            showBuildMenu = true;
+            buildPos = pos;
+        }
+        catch (e) {
+            console.error(e);
+            showBuildMenu = false;
+        }
+    }
+
+    function commandBuildBuildingMenu(evt) {
+        showBuildBuildingMenu(radialPos);
+    }
+
+    function commandBuild(evt) {
         try {
             const [x, y] = buildPos;
             const type = evt.detail.type;
@@ -451,7 +496,7 @@
     <SidePanel bind:radioValue={modeName}/>
     <InfoPanel result={infoResult} />
     {#if showBuildMenu}
-        <BuildMenu items={buildItems} on:click={build} on:close={() => showBuildMenu = false}/>
+        <BuildMenu items={buildItems} on:click={commandBuild} on:close={() => showBuildMenu = false}/>
     {/if}
     {#if showRecipeMenu}
         <RecipeMenu items={recipeItems}
@@ -459,8 +504,23 @@
             on:clear={clearRecipe}
             on:close={() => showRecipeMenu = false}/>
     {/if}
-    {#if showRadialMenu}
-        <RadialMenu pos={radialScreenPos} on:close={() => showRadialMenu = false} on:excavate={excavate} on:moveBuilding={moveBuilding}/>
+    {#if showRadialMenu === RADIAL_MENU_MAIN}
+        <RadialMenu
+            pos={radialScreenPos}
+            items={showRadialMenu}
+            on:close={() => showRadialMenu = false}
+            on:excavate={commandExcavate}
+            on:moveBuilding={commandMoveBuilding}
+            on:buildMenu={buildMenu}/>
+    {:else if showRadialMenu === RADIAL_MENU_BUILD}
+        <RadialMenu
+            centerIcon={buildIcon}
+            pos={radialScreenPos}
+            items={showRadialMenu}
+            on:close={() => showRadialMenu = false}
+            on:buildPowerGrid={buildPowerGrid}
+            on:buildConveyor={buildConveyor}
+            on:buildBuilding={commandBuildBuildingMenu}/>
     {/if}
     {#if showErrorMessage}
         <ErrorMessage text={errorMessage} timeout={errorMessageTimeout} on:click={() => showErrorMessage = false}/>

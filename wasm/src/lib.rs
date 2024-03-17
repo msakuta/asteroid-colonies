@@ -122,6 +122,10 @@ impl AsteroidColonies {
         self.game.excavate(ix, iy).map_err(JsValue::from)
     }
 
+    pub fn build_power_grid(&mut self, ix: i32, iy: i32) -> Result<bool, JsValue> {
+        self.game.build_power_grid(ix, iy).map_err(JsValue::from)
+    }
+
     pub fn start_move_item(&mut self, x: f64, y: f64) -> bool {
         let pos = self.transform_pos(x, y);
         if self.game.iter_building().any(|b| b.intersects(pos)) {

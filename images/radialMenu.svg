@@ -57,8 +57,12 @@
        inkscape:collect="always">
       <stop
          style="stop-color:#000000;stop-opacity:1;"
-         offset="0.26556018"
+         offset="0.5252952"
          id="stop1" />
+      <stop
+         style="stop-color:#1b0909;stop-opacity:0.7584098;"
+         offset="0.76617956"
+         id="stop3" />
       <stop
          style="stop-color:#361212;stop-opacity:0;"
          offset="1"
