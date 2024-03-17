@@ -3,6 +3,7 @@
     import MessageOverlay from './MessageOverlay.svelte';
     import HeartBeat from './HeartBeat.svelte';
     import SidePanel from './SidePanel.svelte';
+    import ButtonFrames from './ButtonFrames.svelte';
     import DebugButton from './DebugButton.svelte';
     import InfoPanel from './InfoPanel.svelte';
     import { websocket, fetchSessionId, reconnectWebSocket } from './session';
@@ -11,11 +12,14 @@
     import ErrorMessage from './ErrorMessage.svelte';
     import RadialMenu from './RadialMenu.svelte';
     import excavateIcon from '../images/excavate.png';
-    import moveBuilding from '../images/moveBuilding.png';
+    import moveBuildingIcon from '../images/moveBuilding.png';
     import recipeIcon from '../images/recipe.png';
     import buildIcon from '../images/build.png';
     import buildPowerGridIcon from '../images/buildPowerGrid.png';
     import buildConveyorIcon from '../images/buildConveyor.png';
+    import buildSplitterIcon from '../images/buildSplitter.png';
+    import buildMergerIcon from '../images/buildMerger.png';
+    import moveItemIcon from '../images/moveItem.png';
     import buildBuildingIcon from '../images/buildBuilding.png';
 
     export let baseUrl = BASE_URL;
@@ -45,9 +49,21 @@
     let recipeItems = [];
     let recipePos = null;
 
+    let buttons = [
+        {mode: 'excavate', icon: excavateIcon},
+        {mode: 'move', icon: moveBuildingIcon},
+        {mode: 'power', icon: buildPowerGridIcon},
+        {mode: 'conveyor', icon: buildConveyorIcon},
+        {mode: 'splitter', icon: buildSplitterIcon},
+        {mode: 'merger', icon: buildMergerIcon},
+        {mode: 'moveItem', icon: moveItemIcon},
+        {mode: 'build', icon: buildBuildingIcon},
+        {mode: 'recipe', icon: recipeIcon},
+    ];
+
     const RADIAL_MENU_MAIN = [
         {caption: "Excavate", event: 'excavate', icon: excavateIcon},
-        {caption: "Move Bldg.", event: 'moveBuilding', icon: moveBuilding},
+        {caption: "Move Bldg.", event: 'moveBuilding', icon: moveBuildingIcon},
         {caption: "Build", event: 'buildMenu', icon: buildIcon},
         {caption: "Set Recipe", event: 'setRecipe', icon: recipeIcon},
     ];
@@ -260,13 +276,12 @@
         const name = modeName;
         if (name === "move") {
             const [ix, iy] = game.transform_coords(x, y);
-            if (game.start_move_building(x, y)) {
-                showBuildMenu = false;
-                showRecipeMenu = false;
-                messageOverlayText = "Choose move building destination";
-                messageOverlayVisible = "block";
-                moving = true;
-            }
+            game.start_move_building(ix, iy);
+            showBuildMenu = false;
+            showRecipeMenu = false;
+            messageOverlayText = "Choose move building destination";
+            messageOverlayVisible = "block";
+            moving = true;
         }
         else if (name === "moveItem") {
             if (game.start_move_item(x, y)) {
@@ -407,7 +422,7 @@
         requestWs("Excavate", {x: x, y: y});
     });
 
-    let commandMoveBuilding = wrapErrorMessage(evt => {
+    let commandMoveBuilding = wrapErrorMessage(() => {
         const [x, y] = radialPos;
         showRadialMenu = false;
         showBuildMenu = false;
@@ -505,7 +520,8 @@
     {/if}
     <HeartBeat broken={heartBroken} opacity={heartbeatOpacity}/>
     <canvas bind:this={canvas} id="canvas" width="640" height="480"></canvas>
-    <SidePanel bind:radioValue={modeName}/>
+    <!-- <SidePanel bind:radioValue={modeName}/> -->
+    <ButtonFrames bind:modeName={modeName} buttons={buttons}/>
     <InfoPanel result={infoResult} />
     {#if showBuildMenu}
         <BuildMenu items={buildItems} on:click={commandBuild} on:close={() => showBuildMenu = false}/>
