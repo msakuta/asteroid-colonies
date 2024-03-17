@@ -12,6 +12,7 @@
     import RadialMenu from './RadialMenu.svelte';
     import excavateIcon from '../images/excavate.png';
     import moveBuilding from '../images/moveBuilding.png';
+    import recipeIcon from '../images/recipe.png';
     import buildIcon from '../images/build.png';
     import buildPowerGridIcon from '../images/buildPowerGrid.png';
     import buildConveyorIcon from '../images/buildConveyor.png';
@@ -48,6 +49,7 @@
         {caption: "Excavate", event: 'excavate', icon: excavateIcon},
         {caption: "Move Bldg.", event: 'moveBuilding', icon: moveBuilding},
         {caption: "Build", event: 'buildMenu', icon: buildIcon},
+        {caption: "Set Recipe", event: 'setRecipe', icon: recipeIcon},
     ];
     const RADIAL_MENU_BUILD = [
         {caption: "Power Grid", event: 'buildPowerGrid', icon: buildPowerGridIcon},
@@ -291,10 +293,7 @@
             showBuildBuildingMenu(game.transform_coords(x, y));
         }
         else if (name === "recipe") {
-            showBuildMenu = false;
-            recipeItems = game.get_recipes(x, y);
-            showRecipeMenu = true;
-            recipePos = game.transform_coords(x, y);
+            setShowRecipeMenu(x, y);
         }
         else if (name === "cancel") {
             const pos = game.transform_coords(x, y);
@@ -473,6 +472,20 @@
         }
     }
 
+    function setShowRecipeMenu(x, y) {
+        showRadialMenu = false;
+        showBuildMenu = false;
+        recipeItems = game.get_recipes(x, y);
+        showRecipeMenu = true;
+        recipePos = game.transform_coords(x, y);
+    }
+
+    let commandRecipeShow = wrapErrorMessage(() => {
+        showRadialMenu = false;
+        const [x, y] = radialScreenPos;
+        setShowRecipeMenu(x, y);
+    })
+
     let debugDrawChunks = false;
 
     function debugClick() {
@@ -510,7 +523,8 @@
             on:close={() => showRadialMenu = false}
             on:excavate={commandExcavate}
             on:moveBuilding={commandMoveBuilding}
-            on:buildMenu={buildMenu}/>
+            on:buildMenu={buildMenu}
+            on:setRecipe={commandRecipeShow}/>
     {:else if showRadialMenu === RADIAL_MENU_BUILD}
         <RadialMenu
             centerIcon={buildIcon}
