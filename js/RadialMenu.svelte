@@ -17,10 +17,12 @@
         {caption: "Build", event: 'build', icon: build},
     ];
     export let itemPositions = [
-        ["50%", "20%"],
-        ["20%", "50%"],
-        ["80%", "50%"],
-        ["50%", "80%"],
+        ["50%", "15%"],
+        ["20%", "35%"],
+        ["80%", "35%"],
+        ["20%", "65%"],
+        ["80%", "65%"],
+        ["50%", "85%"],
     ];
 
     function itemFilter(item) {
@@ -81,7 +83,7 @@
         right: 0;
         bottom: 0;
         background-size: 256px 256px;
-        animation: 0.25s ease-out 0.125s 1 both running scaleup;
+        animation: 0.15s ease-out 0.075s 1 both running scaleup;
     }
 
     @keyframes scaleup {

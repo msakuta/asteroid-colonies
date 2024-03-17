@@ -76,6 +76,8 @@
     const RADIAL_MENU_BUILD = [
         {caption: "Power Grid", event: 'buildPowerGrid', icon: buildPowerGridIcon},
         {caption: "Conveyor", event: 'buildConveyor', icon: buildConveyorIcon},
+        {caption: "Splitter", event: 'buildSplitter', icon: buildSplitterIcon},
+        {caption: "Merger", event: 'buildMerger', icon: buildMergerIcon},
         {caption: "Building", event: 'buildBuilding', icon: buildBuildingIcon},
         {caption: "Deconstruct", event: 'deconstruct', icon: deconstructIcon},
     ];
@@ -127,7 +129,8 @@
         infoResult = game.get_info(x, y);
         if (buildingConveyor) {
             try {
-                game.preview_build_conveyor(buildingConveyor[0], buildingConveyor[1], x, y, true);
+                const [ix, iy] = game.transform_coords(x, y);
+                game.preview_build_conveyor(buildingConveyor[0], buildingConveyor[1], ix, iy, true);
             }
             catch (e) {
                 console.error(`build_conveyor: ${e}`);
@@ -270,13 +273,9 @@
         }
 
         if (buildingConveyor) {
-            try {
-                game.preview_build_conveyor(buildingConveyor[0], buildingConveyor[1], x, y, false);
-                buildingConveyor = [x, y];
-            }
-            catch (e) {
-                console.error(`build_conveyor: ${e}`);
-            }
+            const [ix, iy] = game.transform_coords(x, y);
+            game.preview_build_conveyor(buildingConveyor[0], buildingConveyor[1], ix, iy, false);
+            buildingConveyor = [ix, iy];
             return;
         }
 
@@ -311,11 +310,13 @@
         }
         else if (name === "splitter") {
             enterConveyorEdit();
-            game.build_splitter(x, y);
+            const [ix, iy] = game.transform_coords(x, y);
+            game.build_splitter(ix, iy);
         }
         else if (name === "merger") {
             enterConveyorEdit();
-            game.build_merger(x, y);
+            const [ix, iy] = game.transform_coords(x, y);
+            game.build_merger(ix, iy);
         }
         else if (name === "build") {
             showBuildBuildingMenu(game.transform_coords(x, y));
@@ -451,16 +452,16 @@
     function buildMenu(evt) {
         let [x, y] = radialScreenPos;
         if (game.find_construction(radialPos[0], radialPos[1])) {
-            RADIAL_MENU_BUILD[3].grayed = false;
-            RADIAL_MENU_BUILD[3].caption = "Cancel Build";
-            RADIAL_MENU_BUILD[3].event = "cancelBuild";
-            RADIAL_MENU_BUILD[3].icon = cancelBuildIcon;
+            RADIAL_MENU_BUILD[5].grayed = false;
+            RADIAL_MENU_BUILD[5].caption = "Cancel Build";
+            RADIAL_MENU_BUILD[5].event = "cancelBuild";
+            RADIAL_MENU_BUILD[5].icon = cancelBuildIcon;
         }
         else {
-            RADIAL_MENU_BUILD[3].grayed = !game.find_building(radialPos[0], radialPos[1]);
-            RADIAL_MENU_BUILD[3].caption = "Deconstruct";
-            RADIAL_MENU_BUILD[3].event = "deconstruct";
-            RADIAL_MENU_BUILD[3].icon = deconstructIcon;
+            RADIAL_MENU_BUILD[5].grayed = !game.find_building(radialPos[0], radialPos[1]);
+            RADIAL_MENU_BUILD[5].caption = "Deconstruct";
+            RADIAL_MENU_BUILD[5].event = "deconstruct";
+            RADIAL_MENU_BUILD[5].icon = deconstructIcon;
         }
         showRadialMenu = RADIAL_MENU_BUILD;
         positionRadialMenu(x + 64, y);
@@ -475,9 +476,23 @@
 
     function buildConveyor() {
         showRadialMenu = false;
-        let [x, y] = radialScreenPos;
+        let [x, y] = radialPos;
         enterConveyorEdit();
         buildingConveyor = [x, y];
+    }
+
+    function buildSplitter() {
+        showRadialMenu = false;
+        let [x, y] = radialPos;
+        enterConveyorEdit();
+        game.build_splitter(x, y);
+    }
+
+    function buildMerger() {
+        showRadialMenu = false;
+        let [x, y] = radialPos;
+        enterConveyorEdit();
+        game.build_merger(x, y);
     }
 
     function showBuildBuildingMenu(pos) {
@@ -584,6 +599,8 @@
             on:buildPowerGrid={buildPowerGrid}
             on:buildConveyor={buildConveyor}
             on:buildBuilding={commandBuildBuildingMenu}
+            on:buildSplitter={buildSplitter}
+            on:buildMerger={buildMerger}
             on:deconstruct={commandDeconstruct}
             on:cancelBuild={commandCancelBuild}/>
     {/if}
