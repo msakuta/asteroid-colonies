@@ -46,7 +46,9 @@ export default {
         rust({
             serverPath: deploy ? "/asteroid-colonies/js/" : "./js/",
         }),
-		url(),
+		url({
+            publicPath: "js/"
+        }),
         resolve({
 			browser: true,
 			dedupe: ['svelte']

@@ -2,13 +2,28 @@
     import { onMount } from 'svelte';
     import MessageOverlay from './MessageOverlay.svelte';
     import HeartBeat from './HeartBeat.svelte';
-    import SidePanel from './SidePanel.svelte';
+    // import SidePanel from './SidePanel.svelte';
+    import ButtonFrames from './ButtonFrames.svelte';
     import DebugButton from './DebugButton.svelte';
     import InfoPanel from './InfoPanel.svelte';
     import { websocket, fetchSessionId, reconnectWebSocket } from './session';
     import BuildMenu from './BuildMenu.svelte';
     import RecipeMenu from './RecipeMenu.svelte';
     import ErrorMessage from './ErrorMessage.svelte';
+    import RadialMenu from './RadialMenu.svelte';
+    import excavateIcon from '../images/excavate.png';
+    import moveBuildingIcon from '../images/moveBuilding.png';
+    import recipeIcon from '../images/recipe.png';
+    import buildIcon from '../images/build.png';
+    import buildPowerGridIcon from '../images/buildPowerGrid.png';
+    import buildConveyorIcon from '../images/buildConveyor.png';
+    import buildSplitterIcon from '../images/buildSplitter.png';
+    import buildMergerIcon from '../images/buildMerger.png';
+    import moveItemIcon from '../images/moveItem.png';
+    import buildBuildingIcon from '../images/buildBuilding.png';
+    import cancelBuildIcon from '../images/cancelBuild.png';
+    import deconstructIcon from '../images/deconstruct.png';
+    import cleanup from '../images/cleanup.png';
 
     export let baseUrl = BASE_URL;
     export let port = 3883;
@@ -36,6 +51,41 @@
     let showRecipeMenu = false;
     let recipeItems = [];
     let recipePos = null;
+
+    let buttons = [
+        {mode: 'excavate', icon: excavateIcon},
+        {mode: 'move', icon: moveBuildingIcon},
+        {mode: 'power', icon: buildPowerGridIcon},
+        {mode: 'conveyor', icon: buildConveyorIcon},
+        {mode: 'splitter', icon: buildSplitterIcon},
+        {mode: 'merger', icon: buildMergerIcon},
+        {mode: 'moveItem', icon: moveItemIcon},
+        {mode: 'build', icon: buildBuildingIcon},
+        {mode: 'recipe', icon: recipeIcon},
+        {mode: 'cancel', icon: cancelBuildIcon},
+        {mode: 'deconstruct', icon: deconstructIcon},
+        {mode: 'cleanup', icon: cleanup},
+    ];
+
+    const RADIAL_MENU_MAIN = [
+        {caption: "Excavate", event: 'excavate', icon: excavateIcon},
+        {caption: "Move Bldg.", event: 'moveBuilding', icon: moveBuildingIcon},
+        {caption: "Build", event: 'buildMenu', icon: buildIcon},
+        {caption: "Set Recipe", event: 'setRecipe', icon: recipeIcon},
+        {caption: "Move Item", event: 'moveItem', icon: moveItemIcon},
+        {caption: "Cleanup", event: 'cleanup', icon: cleanup},
+    ];
+    const RADIAL_MENU_BUILD = [
+        {caption: "Power Grid", event: 'buildPowerGrid', icon: buildPowerGridIcon},
+        {caption: "Conveyor", event: 'buildConveyor', icon: buildConveyorIcon},
+        {caption: "Splitter", event: 'buildSplitter', icon: buildSplitterIcon},
+        {caption: "Merger", event: 'buildMerger', icon: buildMergerIcon},
+        {caption: "Building", event: 'buildBuilding', icon: buildBuildingIcon},
+        {caption: "Deconstruct", event: 'deconstruct', icon: deconstructIcon},
+    ];
+    let showRadialMenu = false;
+    let radialScreenPos = null;
+    let radialPos = null;
 
     let mousePos = null;
     let moving = false;
@@ -81,7 +131,8 @@
         infoResult = game.get_info(x, y);
         if (buildingConveyor) {
             try {
-                game.preview_build_conveyor(buildingConveyor[0], buildingConveyor[1], x, y, true);
+                const [ix, iy] = game.transform_coords(x, y);
+                game.preview_build_conveyor(buildingConveyor[0], buildingConveyor[1], ix, iy, true);
             }
             catch (e) {
                 console.error(`build_conveyor: ${e}`);
@@ -224,34 +275,31 @@
         }
 
         if (buildingConveyor) {
-            try {
-                game.preview_build_conveyor(buildingConveyor[0], buildingConveyor[1], x, y, false);
-                buildingConveyor = [x, y];
-            }
-            catch (e) {
-                console.error(`build_conveyor: ${e}`);
-            }
+            const [ix, iy] = game.transform_coords(x, y);
+            game.preview_build_conveyor(buildingConveyor[0], buildingConveyor[1], ix, iy, false);
+            buildingConveyor = [ix, iy];
             return;
         }
 
+        // Make sure to set cursor for touch panels.
+        // Mouse doesn't need to set cursor here, because it always has
+        // the current position updated by pointermove event, but
+        // touch devices do not.
+        game.set_cursor(x, y);
+
         const name = modeName;
         if (name === "move") {
-            if (game.start_move_building(x, y)) {
-                showBuildMenu = false;
-                showRecipeMenu = false;
-                messageOverlayText = "Choose move building destination";
-                messageOverlayVisible = "block";
-                moving = true;
-            }
+            const [ix, iy] = game.transform_coords(x, y);
+            game.start_move_building(ix, iy);
+            showBuildMenu = false;
+            showRecipeMenu = false;
+            messageOverlayText = "Choose move building destination";
+            messageOverlayVisible = "block";
+            moving = true;
         }
         else if (name === "moveItem") {
-            if (game.start_move_item(x, y)) {
-                showBuildMenu = false;
-                showRecipeMenu = false;
-                messageOverlayText = "Choose move item destination";
-                messageOverlayVisible = "block";
-                movingItem = true;
-            }
+            const [ix, iy] = game.transform_coords(x, y);
+            startMoveItem(ix, iy);
         }
         else if (name === "conveyor") {
             enterConveyorEdit();
@@ -259,30 +307,19 @@
         }
         else if (name === "splitter") {
             enterConveyorEdit();
-            game.build_splitter(x, y);
+            const [ix, iy] = game.transform_coords(x, y);
+            game.build_splitter(ix, iy);
         }
         else if (name === "merger") {
             enterConveyorEdit();
-            game.build_merger(x, y);
+            const [ix, iy] = game.transform_coords(x, y);
+            game.build_merger(ix, iy);
         }
         else if (name === "build") {
-            showRecipeMenu = false;
-            try {
-                const buildMenu = game.get_build_menu(x, y);
-                buildItems = buildMenu;
-                showBuildMenu = true;
-                buildPos = game.transform_coords(x, y);
-            }
-            catch (e) {
-                console.error(e);
-                showBuildMenu = false;
-            }
+            showBuildBuildingMenu(game.transform_coords(x, y));
         }
         else if (name === "recipe") {
-            showBuildMenu = false;
-            recipeItems = game.get_recipes(x, y);
-            showRecipeMenu = true;
-            recipePos = game.transform_coords(x, y);
+            setShowRecipeMenu(x, y);
         }
         else if (name === "cancel") {
             const pos = game.transform_coords(x, y);
@@ -292,7 +329,7 @@
         else if (name === "deconstruct") {
             const pos = game.transform_coords(x, y);
             requestWs("Deconstruct", {pos: [pos[0], pos[1]]});
-            game.deconstruct(x, y);
+            game.deconstruct(pos[0], pos[1]);
         }
         else if (name === "cleanup") {
             const pos = game.transform_coords(x, y);
@@ -302,13 +339,21 @@
         else {
             showBuildMenu = false;
             showRecipeMenu = false;
+            const [ix, iy] = game.transform_coords(x, y);
             if (name === "excavate") {
-                const [ix, iy] = game.transform_coords(x, y);
                 requestWs("Excavate", {x: ix, y: iy});
             }
             else if (name === "power") {
-                const [ix, iy] = game.transform_coords(x, y);
                 requestWs("Build", {type: "PowerGrid", pos: [ix, iy]});
+            }
+            else {
+                positionRadialMenu(x, y);
+                RADIAL_MENU_MAIN[0].grayed = !game.is_excavatable_at(ix, iy);
+                RADIAL_MENU_MAIN[1].grayed =
+                RADIAL_MENU_MAIN[3].grayed = !game.find_building(ix, iy);
+                showRadialMenu = RADIAL_MENU_MAIN;
+                radialPos = game.transform_coords(x, y);
+                return;
             }
             if (game.command(name, x, y)) {
                 const ctx = canvas.getContext('2d');
@@ -317,15 +362,19 @@
         }
     }
 
-    function pointerUp(evt) {
-        try {
-            pointerUpInt(evt);
-        }
-        catch (e) {
-            errorMessage = e;
-            showErrorMessage = true;
-            errorMessageTimeout = 30;
-        }
+    let pointerUp = wrapErrorMessage(evt => pointerUpInt(evt));
+
+    function wrapErrorMessage(f) {
+        return evt => {
+            try {
+                f(evt);
+            }
+            catch (e) {
+                errorMessage = e;
+                showErrorMessage = true;
+                errorMessageTimeout = 30;
+            }
+        };
     }
 
     document.body.addEventListener("keydown", evt => {
@@ -369,20 +418,157 @@
         }));
     }
 
-    function build(evt) {
+    function positionRadialMenu(x, y) {
+        const bodyRect = document.body.getBoundingClientRect();
+        const [max, min] = [Math.max, Math.min];
+        const margin = 128;
+        radialScreenPos = [
+            max(margin, min(bodyRect.width - margin, x)),
+            max(margin, min(bodyRect.height - margin, y))
+        ];
+    }
+
+    let commandExcavate = wrapErrorMessage(() => {
+        showRadialMenu = false;
+        const [x, y] = radialPos;
+        game.excavate(x, y);
+        requestWs("Excavate", {x: x, y: y});
+    });
+
+    let commandMoveBuilding = wrapErrorMessage(() => {
+        const [x, y] = radialPos;
+        showRadialMenu = false;
+        showBuildMenu = false;
+        showRecipeMenu = false;
+        game.start_move_building(x, y);
+        messageOverlayText = "Choose move building destination";
+        messageOverlayVisible = "block";
+        moving = true;
+    });
+
+    function buildMenu(evt) {
+        let [x, y] = radialScreenPos;
+        if (game.find_construction(radialPos[0], radialPos[1])) {
+            RADIAL_MENU_BUILD[5].grayed = false;
+            RADIAL_MENU_BUILD[5].caption = "Cancel Build";
+            RADIAL_MENU_BUILD[5].event = "cancelBuild";
+            RADIAL_MENU_BUILD[5].icon = cancelBuildIcon;
+        }
+        else {
+            RADIAL_MENU_BUILD[5].grayed = !game.find_building(radialPos[0], radialPos[1]);
+            RADIAL_MENU_BUILD[5].caption = "Deconstruct";
+            RADIAL_MENU_BUILD[5].event = "deconstruct";
+            RADIAL_MENU_BUILD[5].icon = deconstructIcon;
+        }
+        showRadialMenu = RADIAL_MENU_BUILD;
+        positionRadialMenu(x + 64, y);
+    }
+
+    let buildPowerGrid = wrapErrorMessage(() => {
+        showRadialMenu = false;
+        let [x, y] = radialPos;
+        game.build_power_grid(x, y);
+        requestWs("Build", {type: "PowerGrid", pos: [x, y]});
+    });
+
+    function buildConveyor() {
+        showRadialMenu = false;
+        let [x, y] = radialPos;
+        enterConveyorEdit();
+        buildingConveyor = [x, y];
+    }
+
+    function buildSplitter() {
+        showRadialMenu = false;
+        let [x, y] = radialPos;
+        enterConveyorEdit();
+        game.build_splitter(x, y);
+    }
+
+    function buildMerger() {
+        showRadialMenu = false;
+        let [x, y] = radialPos;
+        enterConveyorEdit();
+        game.build_merger(x, y);
+    }
+
+    function showBuildBuildingMenu(pos) {
+        showRadialMenu = false;
+        showRecipeMenu = false;
         try {
-            const [x, y] = buildPos;
-            const type = evt.detail.type;
-            requestWs("Build", {pos: [x, y], type: {Building: type}});
-            game.build(x, y, type);
-            showBuildMenu = false;
+            const buildMenu = game.get_build_menu();
+            buildItems = buildMenu;
+            showBuildMenu = true;
+            buildPos = pos;
         }
         catch (e) {
-            showErrorMessage = true;
-            errorMessage = e;
-            errorMessageTimeout = 30;
+            console.error(e);
+            showBuildMenu = false;
         }
     }
+
+    function commandBuildBuildingMenu(evt) {
+        showBuildBuildingMenu(radialPos);
+    }
+
+    let commandDeconstruct = wrapErrorMessage(() => {
+        showRadialMenu = false;
+        const [x, y] = radialPos;
+        requestWs("Deconstruct", {pos: [x, y]});
+        game.deconstruct(x, y);
+    });
+
+    let commandCancelBuild = wrapErrorMessage(() => {
+        showRadialMenu = false;
+        const [x, y] = radialPos;
+        requestWs("CancelBuild", {pos: [x, y]});
+        game.cancel_build(x, y);
+    });
+
+    let commandBuild = wrapErrorMessage((evt) => {
+        const [x, y] = buildPos;
+        const type = evt.detail.type;
+        requestWs("Build", {pos: [x, y], type: {Building: type}});
+        game.build(x, y, type);
+        showBuildMenu = false;
+    });
+
+    function setShowRecipeMenu(x, y) {
+        showRadialMenu = false;
+        showBuildMenu = false;
+        recipeItems = game.get_recipes(x, y);
+        showRecipeMenu = true;
+        recipePos = game.transform_coords(x, y);
+    }
+
+    let commandRecipeShow = wrapErrorMessage(() => {
+        showRadialMenu = false;
+        const [x, y] = radialScreenPos;
+        setShowRecipeMenu(x, y);
+    });
+
+    function startMoveItem(x, y) {
+        if (game.start_move_item(x, y)) {
+            showBuildMenu = false;
+            showRecipeMenu = false;
+            messageOverlayText = "Choose move item destination";
+            messageOverlayVisible = "block";
+            movingItem = true;
+        }
+    }
+
+    let commandMoveItem = wrapErrorMessage(() => {
+        showRadialMenu = false;
+        const [x, y] = radialPos;
+        startMoveItem(x, y);
+    });
+
+    let commandCleanup = wrapErrorMessage(() => {
+        showRadialMenu = false;
+        const [x, y] = radialPos;
+        requestWs("Cleanup", {pos: [x, y]});
+        game.cleanup_item(x, y);
+    });
 
     let debugDrawChunks = false;
 
@@ -403,16 +589,42 @@
     {/if}
     <HeartBeat broken={heartBroken} opacity={heartbeatOpacity}/>
     <canvas bind:this={canvas} id="canvas" width="640" height="480"></canvas>
-    <SidePanel bind:radioValue={modeName}/>
+    <!-- <SidePanel bind:radioValue={modeName}/> -->
+    <ButtonFrames bind:modeName={modeName} buttons={buttons}/>
     <InfoPanel result={infoResult} />
     {#if showBuildMenu}
-        <BuildMenu items={buildItems} on:click={build} on:close={() => showBuildMenu = false}/>
+        <BuildMenu items={buildItems} on:click={commandBuild} on:close={() => showBuildMenu = false}/>
     {/if}
     {#if showRecipeMenu}
         <RecipeMenu items={recipeItems}
             on:click={setRecipe}
             on:clear={clearRecipe}
             on:close={() => showRecipeMenu = false}/>
+    {/if}
+    {#if showRadialMenu === RADIAL_MENU_MAIN}
+        <RadialMenu
+            pos={radialScreenPos}
+            items={showRadialMenu}
+            on:close={() => showRadialMenu = false}
+            on:excavate={commandExcavate}
+            on:moveBuilding={commandMoveBuilding}
+            on:buildMenu={buildMenu}
+            on:setRecipe={commandRecipeShow}
+            on:moveItem={commandMoveItem}
+            on:cleanup={commandCleanup}/>
+    {:else if showRadialMenu === RADIAL_MENU_BUILD}
+        <RadialMenu
+            centerIcon={buildIcon}
+            pos={radialScreenPos}
+            items={showRadialMenu}
+            on:close={() => showRadialMenu = false}
+            on:buildPowerGrid={buildPowerGrid}
+            on:buildConveyor={buildConveyor}
+            on:buildBuilding={commandBuildBuildingMenu}
+            on:buildSplitter={buildSplitter}
+            on:buildMerger={buildMerger}
+            on:deconstruct={commandDeconstruct}
+            on:cancelBuild={commandCancelBuild}/>
     {/if}
     {#if showErrorMessage}
         <ErrorMessage text={errorMessage} timeout={errorMessageTimeout} on:click={() => showErrorMessage = false}/>

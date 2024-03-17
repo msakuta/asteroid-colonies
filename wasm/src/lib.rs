@@ -8,7 +8,8 @@ use wasm_bindgen::prelude::*;
 use web_sys::js_sys;
 
 use asteroid_colonies_logic::{
-    building::BuildingType, get_build_menu, AsteroidColoniesGame, Pos, HEIGHT, TILE_SIZE, WIDTH,
+    building::BuildingType, get_build_menu, AsteroidColoniesGame, Pos, TileState, HEIGHT,
+    TILE_SIZE, WIDTH,
 };
 
 use crate::{assets::Assets, render::calculate_back_image};
@@ -105,6 +106,10 @@ impl AsteroidColonies {
         self.transform_pos(x, y).to_vec()
     }
 
+    pub fn is_excavatable_at(&self, x: i32, y: i32) -> Result<bool, JsValue> {
+        Ok(matches!(self.game.tiles()[[x, y]].state, TileState::Solid))
+    }
+
     pub fn command(&mut self, com: &str, x: f64, y: f64) -> Result<JsValue, JsValue> {
         let [ix, iy] = self.transform_pos(x, y);
         if ix < 0 || WIDTH as i32 <= ix || iy < 0 || HEIGHT as i32 <= iy {
@@ -118,8 +123,16 @@ impl AsteroidColonies {
         res.map(|r| JsValue::from(r)).map_err(|e| JsValue::from(e))
     }
 
-    pub fn start_move_item(&mut self, x: f64, y: f64) -> bool {
-        let pos = self.transform_pos(x, y);
+    pub fn excavate(&mut self, ix: i32, iy: i32) -> Result<bool, JsValue> {
+        self.game.excavate(ix, iy).map_err(JsValue::from)
+    }
+
+    pub fn build_power_grid(&mut self, ix: i32, iy: i32) -> Result<bool, JsValue> {
+        self.game.build_power_grid(ix, iy).map_err(JsValue::from)
+    }
+
+    pub fn start_move_item(&mut self, x: i32, y: i32) -> bool {
+        let pos = [x, y];
         if self.game.iter_building().any(|b| b.intersects(pos)) {
             self.move_item_cursor = Some(pos);
             true
@@ -138,19 +151,18 @@ impl AsteroidColonies {
         Ok(serde_wasm_bindgen::to_value(&src)?)
     }
 
-    pub fn start_move_building(&mut self, x: f64, y: f64) -> bool {
-        let pos = self.transform_pos(x, y);
-        if self
+    pub fn start_move_building(&mut self, ix: i32, iy: i32) -> Result<(), JsValue> {
+        let pos = [ix, iy];
+        let bldg = self
             .game
             .iter_building()
             .find(|b| b.intersects(pos))
-            .is_some_and(|b| b.type_.is_mobile())
-        {
-            self.move_cursor = Some(pos);
-            true
-        } else {
-            false
+            .ok_or_else(|| JsValue::from("Building to move does not exist"))?;
+        if !bldg.type_.is_mobile() {
+            return Err(JsValue::from("The building is not mobile"));
         }
+        self.move_cursor = Some(pos);
+        Ok(())
     }
 
     pub fn move_building(&mut self, dst_x: f64, dst_y: f64) -> Result<JsValue, JsValue> {
@@ -175,6 +187,14 @@ impl AsteroidColonies {
         self.game.cancel_build(ix, iy)
     }
 
+    pub fn find_building(&self, x: i32, y: i32) -> Result<bool, JsValue> {
+        Ok(self.game.iter_building().any(|c| c.intersects([x, y])))
+    }
+
+    pub fn find_construction(&self, x: i32, y: i32) -> Result<bool, JsValue> {
+        Ok(self.game.iter_construction().any(|c| c.intersects([x, y])))
+    }
+
     pub fn build_plan(&mut self, constructions: Vec<JsValue>) -> Result<(), JsValue> {
         let constructions = constructions
             .into_iter()
@@ -185,10 +205,8 @@ impl AsteroidColonies {
     }
 
     /// Puts a task to deconstruct a building. It is different from `cancel_build` in that it destroys already built ones.
-    pub fn deconstruct(&mut self, x: f64, y: f64) -> Result<(), JsValue> {
-        let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
-        let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
-        self.game.deconstruct(ix, iy).map_err(|e| JsValue::from(e))
+    pub fn deconstruct(&mut self, ix: i32, iy: i32) -> Result<(), JsValue> {
+        self.game.deconstruct(ix, iy).map_err(JsValue::from)
     }
 
     pub fn get_recipes(&self, x: f64, y: f64) -> Result<Vec<JsValue>, JsValue> {

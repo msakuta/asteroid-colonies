@@ -4,6 +4,7 @@
 	export let radioValue;
 	
 	const options = [
+        {value: "general", label: "General"},
         {value: "excavate", label: "Excavate"},
         {value: "move", label: "Move Building"},
         {value: "power", label: "Install PowerGrid"},

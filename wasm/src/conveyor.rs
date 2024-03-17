@@ -1,37 +1,29 @@
 use wasm_bindgen::prelude::*;
 
-use crate::{render::TILE_SIZE, AsteroidColonies};
+use crate::AsteroidColonies;
 
 #[wasm_bindgen]
 impl AsteroidColonies {
     /// Preview or stage conveyor build plan.
     pub fn preview_build_conveyor(
         &mut self,
-        x0: f64,
-        y0: f64,
-        x1: f64,
-        y1: f64,
+        x0: i32,
+        y0: i32,
+        x1: i32,
+        y1: i32,
         preview: bool,
     ) -> Result<(), JsValue> {
-        let ix0 = (x0 - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
-        let iy0 = (y0 - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
-        let ix1 = (x1 - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
-        let iy1 = (y1 - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
         self.game
-            .preview_build_conveyor(ix0, iy0, ix1, iy1, preview)
+            .preview_build_conveyor(x0, y0, x1, y1, preview)
             .map_err(JsValue::from)
     }
 
-    pub fn build_splitter(&mut self, x: f64, y: f64) {
-        let ix0 = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
-        let iy0 = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
-        self.game.build_splitter(ix0, iy0);
+    pub fn build_splitter(&mut self, x: i32, y: i32) {
+        self.game.build_splitter(x, y);
     }
 
-    pub fn build_merger(&mut self, x: f64, y: f64) {
-        let ix0 = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
-        let iy0 = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
-        self.game.build_merger(ix0, iy0);
+    pub fn build_merger(&mut self, x: i32, y: i32) {
+        self.game.build_merger(x, y);
     }
 
     pub fn cancel_build_conveyor(&mut self, preview: bool) {
