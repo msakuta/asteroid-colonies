@@ -141,6 +141,6 @@
     }
 
     .button:not(.grayed):hover {
-        fill: rgba(191, 191, 63, 0.5);
+        fill: rgba(127, 127, 63, 0.95);
     }
 </style>
