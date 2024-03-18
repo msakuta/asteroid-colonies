@@ -2,6 +2,7 @@ import svelte from 'rollup-plugin-svelte';
 import css from 'rollup-plugin-css-only';
 import rust from '@wasm-tool/rollup-plugin-rust';
 import url from '@rollup/plugin-url';
+import terser from '@rollup/plugin-terser';
 import replace from '@rollup/plugin-replace';
 import resolve from '@rollup/plugin-node-resolve';
 
@@ -18,6 +19,7 @@ export default {
         dir: 'dist/js/',
     },
     plugins:[
+        terser(),
         replace({
             BASE_URL,
             SERVER_SYNC,
