@@ -1,9 +1,9 @@
 <script>
     import { createEventDispatcher } from 'svelte';
-    import radialMenu from '../images/radialMenu.png';
     import excavate from '../images/excavate.png';
     import moveBuilding from '../images/moveBuilding.png';
     import build from '../images/build.png';
+    import RadialMenuSvg from './RadialMenuSvg.svelte';
 
     const dispatch = createEventDispatcher();
 
@@ -30,11 +30,16 @@
             dispatch(item.event);
         }
     }
+
+    function radialMenuClick(evt) {
+        console.log(`clicked: ${evt.detail}`);
+        dispatchFilter(items[evt.detail]);
+    }
 </script>
 
 <div class="background" on:pointerup={() => dispatch('close')}>
     <div class="radialMenu noselect" style="transform: translate({pos[0] - menuWidth / 2}px, {pos[1] - menuWidth / 2}px)">
-        <div class="animContainer" style="background-image: url({radialMenu})">
+        <div class="animContainer">
             {#if centerIcon}
             <div class="icon centerIcon" style="background-image: url({centerIcon})"/>
             {/if}
@@ -42,12 +47,12 @@
             <div class="itemContainer"
                 class:grayed={item.grayed}
                 style="left: {pos[0]}; top: {pos[1]}"
-                on:pointerup|stopPropagation={() => dispatchFilter(item)}
             >
                 <div class="icon" style="background-image: url({item.icon})"></div>
                 {item.caption}
             </div>
             {/each}
+            <RadialMenuSvg {items} on:click={radialMenuClick}/>
         </div>
     </div>
 </div>
@@ -99,14 +104,11 @@
         color: #fff;
         text-align: center;
         font-size: 10pt;
+        pointer-events: none;
     }
 
     .grayed {
         filter: brightness(0.5)
-    }
-
-    .itemContainer:not(.grayed):hover {
-        background-color: rgba(191, 191, 63, 0.5);
     }
 
     .icon {
