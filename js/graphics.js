@@ -81,7 +81,8 @@ export async function loadAllIcons() {
         ["deconstruction", deconstruction],
         ["cleanup", cleanup],
     ].map(async ([name, src]) => {
-        return [name, src, await loadImage(src)];
+        const res = await fetch(src);
+        return [name, src, await loadImage(src), await createImageBitmap(await res.blob())];
     });
     return Promise.all(loadImages);
 }

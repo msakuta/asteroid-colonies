@@ -24,6 +24,7 @@
     import cancelBuildIcon from '../images/cancelBuild.png';
     import deconstructIcon from '../images/deconstruct.png';
     import cleanup from '../images/cleanup.png';
+    import { loadAllIcons } from './graphics';
 
     export let baseUrl = BASE_URL;
     export let port = 3883;
@@ -51,6 +52,8 @@
     let showRecipeMenu = false;
     let recipeItems = [];
     let recipePos = null;
+
+    const useWebGL = true;
 
     let buttons = [
         {mode: 'excavate', icon: excavateIcon},
@@ -154,7 +157,12 @@
         }
     }
 
-    onMount(() => {
+    onMount(async () => {
+        if (useWebGL) {
+            const images = await loadAllIcons();
+            const gl = canvas.getContext('webgl', { alpha: false });
+            game.load_gl_assets(gl, images);
+        }
         resizeHandler();
         canvas.addEventListener('pointermove', pointerMove);
         canvas.addEventListener('pointerdown', evt => {
@@ -185,9 +193,17 @@
         //     const dataText = await dataRes.text();
         //     game.deserialize(dataText);
         // }
-        const ctx = canvas.getContext('2d');
         game.tick();
-        game.render(ctx);
+        if (useWebGL) {
+            const gl = canvas.getContext('webgl', { alpha: false });
+            // gl.clearColor(0., 0.5, 0., 1.);
+            // gl.clear(gl.COLOR_BUFFER_BIT);
+            game.render_gl(gl);
+        }
+        else {
+            const ctx = canvas.getContext('2d');
+            game.render(ctx);
+        }
         if (mousePos !== null) {
             const info = game.get_info(mousePos[0], mousePos[1]);
             infoResult = info;

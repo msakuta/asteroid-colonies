@@ -3,9 +3,15 @@ mod conveyor;
 mod info;
 mod render;
 mod utils;
+mod gl {
+    pub mod assets;
+    mod render;
+    pub mod shader_bundle;
+    mod utils;
+}
 
 use wasm_bindgen::prelude::*;
-use web_sys::js_sys;
+use web_sys::{js_sys, WebGlRenderingContext};
 
 use asteroid_colonies_logic::{
     building::BuildingType, get_build_menu, AsteroidColoniesGame, Pos, TileState, HEIGHT,
@@ -51,6 +57,18 @@ extern "C" {
     fn alert(s: &str);
 }
 
+#[allow(dead_code)]
+fn window() -> web_sys::Window {
+    web_sys::window().expect("no global `window` exists")
+}
+
+#[allow(dead_code)]
+fn document() -> web_sys::Document {
+    window()
+        .document()
+        .expect("should have a document on window")
+}
+
 struct Viewport {
     /// View offset in pixels
     offset: [f64; 2],
@@ -65,6 +83,7 @@ pub struct AsteroidColonies {
     move_cursor: Option<Pos>,
     move_item_cursor: Option<Pos>,
     assets: Assets,
+    gl_assets: Option<gl::assets::Assets>,
     viewport: Viewport,
     debug_draw_chunks: bool,
 }
@@ -83,6 +102,7 @@ impl AsteroidColonies {
             move_cursor: None,
             move_item_cursor: None,
             assets: Assets::new(image_assets)?,
+            gl_assets: None,
             viewport: Viewport {
                 offset: [
                     -(WIDTH as f64 / 8. - 4.) * TILE_SIZE,
@@ -92,6 +112,17 @@ impl AsteroidColonies {
             },
             debug_draw_chunks: false,
         })
+    }
+
+    /// Load WebGL assets. Delayed from construction of AsteroidColonies instance, because
+    /// the assets must be associated with the canvas.
+    pub fn load_gl_assets(
+        &mut self,
+        context: &WebGlRenderingContext,
+        image_assets: js_sys::Array,
+    ) -> Result<(), JsValue> {
+        self.gl_assets = Some(gl::assets::Assets::new(context, image_assets)?);
+        Ok(())
     }
 
     pub fn set_size(&mut self, sx: f64, sy: f64) {
