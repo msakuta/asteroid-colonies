@@ -189,6 +189,8 @@
         game.set_size(bodyRect.width, bodyRect.height);
     }
 
+    const TICK_FRAMES = 4;
+
     function timerProc() {
         // Increment time before any await. Otherwise, this async function runs 2-4 times every tick for some reason.
         time++;
@@ -198,14 +200,14 @@
         //     const dataText = await dataRes.text();
         //     game.deserialize(dataText);
         // }
-        if (time % 4 === 0) {
+        if (time % TICK_FRAMES === 0) {
             game.tick();
         }
         if (useWebGL) {
             const gl = canvas.getContext('webgl', { alpha: false });
             // gl.clearColor(0., 0.5, 0., 1.);
             // gl.clear(gl.COLOR_BUFFER_BIT);
-            game.render_gl(gl);
+            game.render_gl(gl, time % TICK_FRAMES / TICK_FRAMES);
         }
         else {
             const ctx = canvas.getContext('2d');

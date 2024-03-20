@@ -7,7 +7,7 @@ use crate::{
 use asteroid_colonies_logic::{
     building::{Building, BuildingType},
     construction::ConstructionType,
-    task::Task,
+    task::{Task, MOVE_TIME},
     Conveyor, Direction, ItemType, Pos, TileState, Transport, TILE_SIZE,
 };
 use cgmath::{Matrix3, Matrix4, Rad, SquareMatrix, Vector2, Vector3};
@@ -19,14 +19,14 @@ use super::{assets::Assets, shader_bundle::ShaderBundle};
 
 #[wasm_bindgen]
 impl AsteroidColonies {
-    pub fn render_gl(&self, gl: &GL) -> Result<(), JsValue> {
+    pub fn render_gl(&self, gl: &GL, frac_frame: f64) -> Result<(), JsValue> {
         gl.clear_color(0.0, 0.0, 0.5, 1.);
         gl.clear(GL::COLOR_BUFFER_BIT);
 
         gl.enable(GL::BLEND);
         gl.disable(GL::DEPTH_TEST);
 
-        let ctx = RenderContext::new(self)?;
+        let ctx = RenderContext::new(self, frac_frame)?;
 
         self.render_gl_background(gl, &ctx)?;
         self.render_gl_power_grid(gl, &ctx)?;
@@ -48,6 +48,8 @@ impl AsteroidColonies {
 
 /// Cache of common variables throughout the rendering.
 struct RenderContext<'a> {
+    /// Fractional frame to interpolate objects motions
+    frac_frame: f64,
     assets: &'a Assets,
     shader: &'a ShaderBundle,
     offset: [f64; 2],
@@ -57,7 +59,7 @@ struct RenderContext<'a> {
 }
 
 impl<'a> RenderContext<'a> {
-    fn new(ac: &'a AsteroidColonies) -> Result<Self, JsValue> {
+    fn new(ac: &'a AsteroidColonies, frac_frame: f64) -> Result<Self, JsValue> {
         let Some(assets) = ac.gl_assets.as_ref() else {
             console_log!("Warning: gl_assets are not initialized!");
             return Err(js_str!("gl_assets are not initialized"));
@@ -78,6 +80,7 @@ impl<'a> RenderContext<'a> {
         let xmax = (-offset[0] + vp.size[0] + TILE_SIZE).div_euclid(TILE_SIZE) as i32;
 
         Ok(Self {
+            frac_frame,
             assets,
             shader,
             offset,
@@ -309,6 +312,7 @@ impl AsteroidColonies {
 
     fn render_gl_buildings(&self, gl: &GL, ctx: &RenderContext) -> Result<(), JsValue> {
         let RenderContext {
+            frac_frame,
             assets,
             shader,
             offset,
@@ -337,7 +341,21 @@ impl AsteroidColonies {
         };
 
         let render_bldg = |building: &Building| {
-            let [x, y] = building.pos;
+            let [x, y] = if let Task::Move(move_time, next) = &building.task {
+                next.last()
+                    .map(|next| {
+                        lerp(
+                            building.pos,
+                            *next,
+                            (MOVE_TIME - move_time + frac_frame * self.game.get_power_ratio())
+                                / MOVE_TIME,
+                        )
+                    })
+                    .unwrap_or_else(|| [building.pos[0] as f64, building.pos[1] as f64])
+            } else {
+                [building.pos[0] as f64, building.pos[1] as f64]
+                // [crew.pos[0] as f64, crew.pos[1] as f64]
+            };
             let [sx, sy] = building.type_.size();
             let direction = building.direction;
             let x = (x as f64 + offset[0] as f64 / TILE_SIZE) as f32;
@@ -437,6 +455,7 @@ impl AsteroidColonies {
 
     fn render_gl_crews(&self, gl: &GL, ctx: &RenderContext) -> Result<(), JsValue> {
         let RenderContext {
+            frac_frame,
             shader,
             assets,
             offset,
@@ -452,9 +471,13 @@ impl AsteroidColonies {
         );
 
         for crew in self.game.iter_crew() {
-            let [x, y] = crew.pos;
-            let x = (x as f64 + offset[0] as f64 / TILE_SIZE) as f32;
-            let y = (y as f64 + offset[1] as f64 / TILE_SIZE) as f32;
+            let [x, y] = if let Some(next) = crew.path.as_ref().and_then(|p| p.last()) {
+                lerp(crew.pos, *next, *frac_frame)
+            } else {
+                [crew.pos[0] as f64, crew.pos[1] as f64]
+            };
+            let x = (x + offset[0] as f64 / TILE_SIZE) as f32;
+            let y = (y + offset[1] as f64 / TILE_SIZE) as f32;
             let transform = ctx.to_screen
                 * scale
                 * Matrix4::from_translation(Vector3::new(x as f32, y as f32, 0.))
@@ -588,6 +611,7 @@ impl AsteroidColonies {
 
     fn render_gl_transports(&self, gl: &GL, ctx: &RenderContext) {
         let RenderContext {
+            frac_frame,
             assets,
             shader,
             to_screen,
@@ -603,7 +627,7 @@ impl AsteroidColonies {
         );
 
         let render_transport = |t: &Transport| {
-            let Some(&[x, y]) = t.path.last() else {
+            let Some(&pos) = t.path.last() else {
                 return;
             };
             let tex = match t.item {
@@ -621,8 +645,13 @@ impl AsteroidColonies {
                 ItemType::AssemblerComponent => &assets.tex_assembler_component,
             };
             gl.bind_texture(GL::TEXTURE_2D, Some(tex));
-            let x = (x as f64 + offset[0] as f64 / TILE_SIZE) as f32;
-            let y = (y as f64 + offset[1] as f64 / TILE_SIZE) as f32;
+            let [x, y] = if 2 <= t.path.len() {
+                lerp(pos, t.path[t.path.len() - 2], *frac_frame)
+            } else {
+                [pos[0] as f64, pos[1] as f64]
+            };
+            let x = (x + offset[0] as f64 / TILE_SIZE) as f32;
+            let y = (y + offset[1] as f64 / TILE_SIZE) as f32;
             let transform = to_screen
                 * scale
                 * Matrix4::from_translation(Vector3::new(x, y, 0.))
@@ -698,4 +727,11 @@ impl AsteroidColonies {
 
         Ok(())
     }
+}
+
+fn lerp(p0: Pos, p1: Pos, f: f64) -> [f64; 2] {
+    [
+        p0[0] as f64 * (1. - f) + p1[0] as f64 * f,
+        p0[1] as f64 * (1. - f) + p1[1] as f64 * f,
+    ]
 }

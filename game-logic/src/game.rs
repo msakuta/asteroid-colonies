@@ -25,6 +25,7 @@ pub struct AsteroidColoniesGame {
     pub(crate) buildings: EntitySet<Building>,
     pub(crate) crews: EntitySet<Crew>,
     pub(crate) global_tasks: Vec<GlobalTask>,
+    pub(crate) power_ratio: f64,
     /// Used power for the last tick, in kW
     pub(crate) used_power: f64,
     pub(crate) global_time: usize,
@@ -135,6 +136,7 @@ impl AsteroidColoniesGame {
             buildings,
             crews: EntitySet::new(),
             global_tasks: vec![],
+            power_ratio: 1.,
             used_power: 0.,
             global_time: 0,
             transports: EntitySet::new(),
@@ -148,6 +150,13 @@ impl AsteroidColoniesGame {
 
     pub fn get_global_time(&self) -> usize {
         self.global_time
+    }
+
+    /// Get the last power ratio. Used for interpolation of buildings animation.
+    ///
+    /// TODO: it shouldn't be global, should be per building of power grid.
+    pub fn get_power_ratio(&self) -> f64 {
+        self.power_ratio
     }
 
     // pub fn iter_tile(&self) -> impl Iterator<Item = &Tile> {
