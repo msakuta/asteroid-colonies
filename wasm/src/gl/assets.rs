@@ -58,6 +58,8 @@ pub(crate) struct Assets {
 
     pub tex_back: WebGlTexture,
     pub tex_cursor: WebGlTexture,
+    pub tex_move_cursor: WebGlTexture,
+    pub tex_crew: WebGlTexture,
     pub tex_power_grid: WebGlTexture,
     pub tex_conveyor: WebGlTexture,
     pub tex_atomic_battery: WebGlTexture,
@@ -128,6 +130,8 @@ impl Assets {
             instanced_arrays_ext: None,
             tex_back: load_texture_local("bg32")?,
             tex_cursor: load_texture_local("cursor")?,
+            tex_move_cursor: load_texture_local("move_cursor")?,
+            tex_crew: load_texture_local("crew")?,
             tex_power_grid: load_texture_local("power_grid")?,
             tex_conveyor: load_texture_local("conveyor")?,
             tex_atomic_battery: load_texture_local("atomic_battery")?,

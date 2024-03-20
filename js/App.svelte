@@ -175,6 +175,9 @@
 
         canvas.addEventListener('pointerup', pointerUp);
         window.addEventListener("resize", resizeHandler);
+
+        // Don't start timer until the assets are loaded, otherwise an error will be thrown
+        setInterval(timerProc, 25);
     });
 
     function resizeHandler() {
@@ -186,7 +189,7 @@
         game.set_size(bodyRect.width, bodyRect.height);
     }
 
-    setInterval(() => {
+    function timerProc() {
         // Increment time before any await. Otherwise, this async function runs 2-4 times every tick for some reason.
         time++;
         // if (serverSync && time % syncPeriod === 0) {
@@ -229,7 +232,7 @@
                 showErrorMessage = false;
             }
         }
-    }, 25);
+    }
 
     function updateHeartbeatOpacity() {
         if(!websocket) return;
