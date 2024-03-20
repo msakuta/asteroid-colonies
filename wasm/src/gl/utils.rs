@@ -1,6 +1,5 @@
-use crate::document;
 use cgmath::{Matrix3, Matrix4};
-use wasm_bindgen::{JsCast, JsValue};
+use wasm_bindgen::JsValue;
 use web_sys::{ImageBitmap, WebGlBuffer, WebGlRenderingContext as GL, WebGlTexture};
 
 // pub(crate) fn get_context() -> Result<GL, JsValue> {
