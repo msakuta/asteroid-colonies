@@ -83,6 +83,40 @@ Run
 and it will build the binary in `target/release`.
 
 
+## How to use a SSL certificate
+
+The server is capable of hosting SSL connections for both HTTP and WebSocket,
+which makes the protocol schema https and wss, respectively.
+
+Probably the easiest way to create a self-signed certificate for testing
+is to use [makecert](https://github.com/FiloSottile/mkcert).
+After installing makecert, run the commands below to create a self-signed
+Central Authority.
+
+```
+mkcert -install
+mkcert -CAROOT
+```
+
+Then you can create a certificate with this command:
+
+```
+mkcert <hostname>
+```
+
+It will create a pair of a certificate and a private key.
+`./<hostname>.pem` is the certificate and `./<hostname>-key.pem` is the private key.
+You can run the server with these files like below.
+
+```
+asteroid-colonies-server --ssl-cert ./<hostname>.pem --ssl-priv-key ./<hostname>-key.pem
+```
+
+Note that the port is still the same (default 3883), but the protocol is now HTTPS.
+It means you need to use an url like `https://<hostname>:3883/` to access from the browser.
+If you don't supply `--ssl-cert` or `--ssl-priv-key`, the server will run with HTTP.
+
+
 ## How to build the debian package for the server
 
 You can build a debian package that contains all the necessary assets for the server.
