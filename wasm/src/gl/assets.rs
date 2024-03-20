@@ -56,6 +56,7 @@ pub(crate) struct Assets {
     pub instanced_arrays_ext: Option<AngleInstancedArrays>,
 
     pub tex_back: WebGlTexture,
+    pub tex_cursor: WebGlTexture,
 
     pub flat_shader: Option<ShaderBundle>,
     pub textured_shader: Option<ShaderBundle>,
@@ -102,6 +103,7 @@ impl Assets {
         Ok(Assets {
             instanced_arrays_ext: None,
             tex_back: load_texture_local("bg32")?,
+            tex_cursor: load_texture_local("cursor")?,
 
             flat_shader: None,
             textured_shader: None,
