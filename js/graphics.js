@@ -77,6 +77,8 @@ export async function loadAllIcons() {
         ["wire", wire],
         ["circuit", circuit],
         ["battery_item", batteryItem],
+        ["conveyor_item", conveyorItem],
+        ["assembler_component", assemblerComponent],
         ["construction", construction],
         ["deconstruction", deconstruction],
         ["cleanup", cleanup],
