@@ -32,6 +32,7 @@ impl AsteroidColonies {
         self.render_gl_power_grid(gl, &ctx)?;
         self.render_gl_conveyors(gl, &ctx)?;
         self.render_gl_constructions(gl, &ctx);
+        self.render_gl_conveyor_plan(gl, &ctx);
         self.render_gl_transports(gl, &ctx);
         self.render_gl_buildings(gl, &ctx)?;
         self.render_gl_crews(gl, &ctx)?;
@@ -609,6 +610,15 @@ impl AsteroidColonies {
         }
     }
 
+    fn render_gl_conveyor_plan(&self, gl: &GL, ctx: &RenderContext) {
+        let RenderContext { shader, assets, .. } = ctx;
+        gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_conveyor));
+        gl.uniform1f(shader.alpha_loc.as_ref(), 0.5);
+        for (pos, conv) in self.game.iter_conveyor_plan() {
+            self.render_gl_conveyor(gl, ctx, pos[0], pos[1], *conv);
+        }
+    }
+
     fn render_gl_transports(&self, gl: &GL, ctx: &RenderContext) {
         let RenderContext {
             frac_frame,
@@ -620,6 +630,7 @@ impl AsteroidColonies {
             ..
         } = ctx;
 
+        gl.uniform1f(shader.alpha_loc.as_ref(), 1.0);
         gl.uniform_matrix3fv_with_f32_array(
             shader.tex_transform_loc.as_ref(),
             false,
