@@ -60,6 +60,7 @@ pub(crate) struct Assets {
     pub tex_power_grid: WebGlTexture,
     pub tex_conveyor: WebGlTexture,
     pub tex_atomic_battery: WebGlTexture,
+    pub tex_battery: WebGlTexture,
 
     pub flat_shader: Option<ShaderBundle>,
     pub textured_shader: Option<ShaderBundle>,
@@ -110,6 +111,7 @@ impl Assets {
             tex_power_grid: load_texture_local("power_grid")?,
             tex_conveyor: load_texture_local("conveyor")?,
             tex_atomic_battery: load_texture_local("atomic_battery")?,
+            tex_battery: load_texture_local("battery")?,
 
             flat_shader: None,
             textured_shader: None,

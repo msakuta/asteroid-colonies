@@ -298,7 +298,6 @@ impl AsteroidColonies {
 
         gl.uniform1i(shader.texture_loc.as_ref(), 0);
 
-        gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_atomic_battery));
         enable_buffer(&gl, &assets.screen_buffer, 2, shader.vertex_position);
         let vp = &self.viewport;
         let offset = [vp.offset[0].round(), vp.offset[1].round()];
@@ -349,8 +348,19 @@ impl AsteroidColonies {
             }
             match building.type_ {
                 BuildingType::Power => {
-                    let (sx, sy) = ((time / 5 % 2), 0.);
+                    let (sx, sy) = ((time / 5 % 2) as f32, 0.);
+                    gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_atomic_battery));
                     set_texture_transform(sx, sy, 0.5, 1.);
+                    render_tile(building.pos[0], building.pos[1]);
+                }
+                BuildingType::Battery => {
+                    let sx = building
+                        .energy
+                        .zip(building.type_.energy_capacity())
+                        .map(|(c, max)| (c as f64 / max as f64 * 4.).floor().min(3.))
+                        .unwrap_or(0.);
+                    gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_battery));
+                    set_texture_transform(sx as f32, 0., 0.25, 1.);
                     render_tile(building.pos[0], building.pos[1]);
                 }
                 _ => {}
