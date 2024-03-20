@@ -181,6 +181,8 @@
         const bodyRect = document.body.getBoundingClientRect();
         canvas.setAttribute("width", bodyRect.width);
         canvas.setAttribute("height", bodyRect.height);
+        const gl = canvas.getContext("webgl");
+        gl.viewport(0, 0, canvas.width, canvas.height);
         game.set_size(bodyRect.width, bodyRect.height);
     }
 
@@ -193,7 +195,9 @@
         //     const dataText = await dataRes.text();
         //     game.deserialize(dataText);
         // }
-        game.tick();
+        if (time % 4 === 0) {
+            game.tick();
+        }
         if (useWebGL) {
             const gl = canvas.getContext('webgl', { alpha: false });
             // gl.clearColor(0., 0.5, 0., 1.);
@@ -225,7 +229,7 @@
                 showErrorMessage = false;
             }
         }
-    }, 100);
+    }, 25);
 
     function updateHeartbeatOpacity() {
         if(!websocket) return;

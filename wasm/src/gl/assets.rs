@@ -116,7 +116,7 @@ impl Assets {
         })
     }
 
-    pub(super) fn prepare(&mut self, gl: GL) -> Result<(), JsValue> {
+    pub(crate) fn prepare(&mut self, gl: &GL) -> Result<(), JsValue> {
         self.instanced_arrays_ext = gl
             .get_extension("ANGLE_instanced_arrays")
             .unwrap_or(None)
@@ -241,6 +241,7 @@ impl Assets {
         )?;
         let program = link_program(&gl, &vert_shader, &frag_shader)?;
         gl.use_program(Some(&program));
+        console_log!("ShaderBundle textured_shader:");
         self.textured_shader = Some(ShaderBundle::new(&gl, program));
 
         gl.uniform1f(

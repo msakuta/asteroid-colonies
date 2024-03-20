@@ -5,7 +5,7 @@ mod render;
 mod utils;
 mod gl {
     pub mod assets;
-    mod render;
+    mod render_gl;
     pub mod shader_bundle;
     mod utils;
 }
@@ -43,6 +43,17 @@ macro_rules! console_log {
     };
     ($fmt:expr) => {
         crate::log($fmt)
+    }
+}
+
+/// format-like macro that returns js_sys::String
+#[macro_export]
+macro_rules! js_str {
+    ($fmt:expr, $($arg1:expr),*) => {
+        JsValue::from_str(&format!($fmt, $($arg1),+))
+    };
+    ($fmt:expr) => {
+        JsValue::from_str($fmt)
     }
 }
 
@@ -118,10 +129,12 @@ impl AsteroidColonies {
     /// the assets must be associated with the canvas.
     pub fn load_gl_assets(
         &mut self,
-        context: &WebGlRenderingContext,
+        gl: &WebGlRenderingContext,
         image_assets: js_sys::Array,
     ) -> Result<(), JsValue> {
-        self.gl_assets = Some(gl::assets::Assets::new(context, image_assets)?);
+        let mut assets = gl::assets::Assets::new(gl, image_assets)?;
+        assets.prepare(gl)?;
+        self.gl_assets = Some(assets);
         Ok(())
     }
 
