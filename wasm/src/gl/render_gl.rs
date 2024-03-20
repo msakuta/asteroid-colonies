@@ -6,6 +6,7 @@ use crate::{
 
 use asteroid_colonies_logic::{
     building::{Building, BuildingType},
+    construction::ConstructionType,
     task::Task,
     Conveyor, Direction, ItemType, Pos, TileState, Transport, TILE_SIZE,
 };
@@ -29,7 +30,8 @@ impl AsteroidColonies {
 
         self.render_gl_background(gl, &ctx)?;
         self.render_gl_power_grid(gl, &ctx)?;
-        self.render_gl_conveyor(gl, &ctx)?;
+        self.render_gl_conveyors(gl, &ctx)?;
+        self.render_gl_constructions(gl, &ctx);
         self.render_gl_transports(gl, &ctx);
         self.render_gl_buildings(gl, &ctx)?;
 
@@ -46,6 +48,7 @@ struct RenderContext<'a> {
     assets: &'a Assets,
     shader: &'a ShaderBundle,
     offset: [f64; 2],
+    scale: Matrix4<f32>,
     to_screen: Matrix4<f32>,
     tile_range: [i32; 4],
 }
@@ -63,6 +66,8 @@ impl<'a> RenderContext<'a> {
             .ok_or_else(|| js_str!("Shader bundle not found!"))?;
 
         let vp = &ac.viewport;
+        let scale_x = TILE_SIZE as f32 / (vp.size[0] as f32);
+        let scale_y = TILE_SIZE as f32 / (vp.size[1] as f32);
         let offset = [vp.offset[0].round(), vp.offset[1].round()];
         let ymin = ((-offset[1]).div_euclid(TILE_SIZE)) as i32;
         let ymax = (-offset[1] + vp.size[1] + TILE_SIZE).div_euclid(TILE_SIZE) as i32;
@@ -73,6 +78,7 @@ impl<'a> RenderContext<'a> {
             assets,
             shader,
             offset,
+            scale: Matrix4::from_nonuniform_scale(scale_x, scale_y, 1.),
             to_screen: Matrix4::from_nonuniform_scale(2., -2., 1.)
                 * Matrix4::from_translation(Vector3::new(-0.5, -0.5, 0.)),
             tile_range: [xmin, xmax, ymin, ymax],
@@ -86,6 +92,7 @@ impl AsteroidColonies {
             assets,
             shader,
             offset,
+            scale,
             tile_range,
             ..
         } = ctx;
@@ -99,8 +106,6 @@ impl AsteroidColonies {
 
         gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_back));
         enable_buffer(&gl, &assets.screen_buffer, 2, shader.vertex_position);
-        let scale_x = TILE_SIZE as f32 / (self.viewport.size[0] as f32);
-        let scale_y = TILE_SIZE as f32 / (self.viewport.size[1] as f32);
 
         let [xmin, xmax, ymin, ymax] = *tile_range;
         for iy in ymin..ymax {
@@ -121,9 +126,8 @@ impl AsteroidColonies {
 
                 let x = (ix as f64 + offset[0] as f64 / TILE_SIZE) as f32;
                 let y = (iy as f64 + offset[1] as f64 / TILE_SIZE) as f32;
-                let transform = ctx.to_screen
-                    * Matrix4::from_nonuniform_scale(scale_x, scale_y, 1.)
-                    * Matrix4::from_translation(Vector3::new(x, y, 0.));
+                let transform =
+                    ctx.to_screen * scale * Matrix4::from_translation(Vector3::new(x, y, 0.));
                 gl.uniform_matrix4fv_with_f32_array(
                     shader.transform_loc.as_ref(),
                     false,
@@ -141,6 +145,7 @@ impl AsteroidColonies {
             assets,
             shader,
             offset,
+            scale,
             tile_range,
             ..
         } = ctx;
@@ -153,8 +158,6 @@ impl AsteroidColonies {
 
         gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_power_grid));
         enable_buffer(&gl, &assets.screen_buffer, 2, shader.vertex_position);
-        let scale_x = TILE_SIZE as f32 / (self.viewport.size[0] as f32);
-        let scale_y = TILE_SIZE as f32 / (self.viewport.size[1] as f32);
 
         gl.uniform_matrix3fv_with_f32_array(
             shader.tex_transform_loc.as_ref(),
@@ -170,9 +173,8 @@ impl AsteroidColonies {
                 }
                 let x = (ix as f64 + offset[0] as f64 / TILE_SIZE) as f32;
                 let y = (iy as f64 + offset[1] as f64 / TILE_SIZE) as f32;
-                let transform = ctx.to_screen
-                    * Matrix4::from_nonuniform_scale(scale_x, scale_y, 1.)
-                    * Matrix4::from_translation(Vector3::new(x, y, 0.));
+                let transform =
+                    ctx.to_screen * scale * Matrix4::from_translation(Vector3::new(x, y, 0.));
                 gl.uniform_matrix4fv_with_f32_array(
                     shader.transform_loc.as_ref(),
                     false,
@@ -185,57 +187,38 @@ impl AsteroidColonies {
         Ok(())
     }
 
-    fn render_gl_conveyor(&self, gl: &GL, ctx: &RenderContext) -> Result<(), JsValue> {
+    fn render_gl_conveyor(&self, gl: &GL, ctx: &RenderContext, x: i32, y: i32, conv: Conveyor) {
         let RenderContext {
-            assets,
             shader,
             offset,
-            tile_range,
+            scale,
             ..
         } = ctx;
 
         let conveyor_texture_transform = Matrix3::<f32>::from_nonuniform_scale(1. / 4., 1. / 5.);
 
-        gl.use_program(Some(&shader.program));
-        gl.uniform1f(shader.alpha_loc.as_ref(), 1.);
-        gl.active_texture(GL::TEXTURE0);
-
-        gl.uniform1i(shader.texture_loc.as_ref(), 0);
-
-        gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_conveyor));
-        enable_buffer(&gl, &assets.screen_buffer, 2, shader.vertex_position);
-        let scale_x = TILE_SIZE as f32 / (self.viewport.size[0] as f32);
-        let scale_y = TILE_SIZE as f32 / (self.viewport.size[1] as f32);
-
-        gl.uniform_matrix3fv_with_f32_array(
-            shader.tex_transform_loc.as_ref(),
-            false,
-            Matrix3::identity().flatten(),
-        );
-
-        let set_texture_transform = |sx, sy| {
-            let tex_transform = conveyor_texture_transform
-                * Matrix3::from_translation(Vector2::new(sx as f32, sy as f32));
-
-            gl.uniform_matrix3fv_with_f32_array(
-                shader.tex_transform_loc.as_ref(),
-                false,
-                tex_transform.flatten(),
-            );
-        };
-
         let render_tile = |x, y| {
             let x = (x as f64 + offset[0] as f64 / TILE_SIZE) as f32;
             let y = (y as f64 + offset[1] as f64 / TILE_SIZE) as f32;
-            let transform = ctx.to_screen
-                * Matrix4::from_nonuniform_scale(scale_x, scale_y, 1.)
-                * Matrix4::from_translation(Vector3::new(x, y, 0.));
+            let transform =
+                ctx.to_screen * scale * Matrix4::from_translation(Vector3::new(x, y, 0.));
             gl.uniform_matrix4fv_with_f32_array(
                 shader.transform_loc.as_ref(),
                 false,
                 transform.flatten(),
             );
             gl.draw_arrays(GL::TRIANGLE_FAN, 0, 4);
+        };
+
+        let set_texture_transform = |sx, sy| {
+            let tex_transform = conveyor_texture_transform
+                * Matrix3::from_translation(Vector2::new(sx as f32, sy as f32));
+
+            gl.uniform_matrix3fv_with_f32_array(
+                ctx.shader.tex_transform_loc.as_ref(),
+                false,
+                tex_transform.flatten(),
+            );
         };
 
         let render_conveyor_layer = |x, y, conv: (Direction, Direction)| {
@@ -263,37 +246,58 @@ impl AsteroidColonies {
             render_tile(x, y);
         };
 
-        let render_conveyor = |x, y, conv: Conveyor| -> Result<(), JsValue> {
-            match conv {
-                Conveyor::One(from, to) => render_conveyor_layer(x, y, (from, to)),
-                Conveyor::Two(first, second) => {
-                    render_conveyor_layer(x, y, first);
-                    render_conveyor_layer(x, y, second);
-                }
-                Conveyor::Splitter(dir) | Conveyor::Merger(dir) => {
-                    let sx = match dir {
-                        Direction::Left => 0.,
-                        Direction::Up => 1.,
-                        Direction::Right => 2.,
-                        Direction::Down => 3.,
-                    };
-                    let sy = match conv {
-                        Conveyor::Splitter(_) => 3.,
-                        _ => 4.,
-                    };
-                    set_texture_transform(sx, sy);
-                    render_tile(x, y);
-                }
-                _ => {}
-            };
-            Ok(())
+        match conv {
+            Conveyor::One(from, to) => render_conveyor_layer(x, y, (from, to)),
+            Conveyor::Two(first, second) => {
+                render_conveyor_layer(x, y, first);
+                render_conveyor_layer(x, y, second);
+            }
+            Conveyor::Splitter(dir) | Conveyor::Merger(dir) => {
+                let sx = match dir {
+                    Direction::Left => 0.,
+                    Direction::Up => 1.,
+                    Direction::Right => 2.,
+                    Direction::Down => 3.,
+                };
+                let sy = match conv {
+                    Conveyor::Splitter(_) => 3.,
+                    _ => 4.,
+                };
+                set_texture_transform(sx, sy);
+                render_tile(x, y);
+            }
+            _ => {}
         };
+    }
+
+    fn render_gl_conveyors(&self, gl: &GL, ctx: &RenderContext) -> Result<(), JsValue> {
+        let RenderContext {
+            assets,
+            shader,
+            tile_range,
+            ..
+        } = ctx;
+
+        gl.use_program(Some(&shader.program));
+        gl.uniform1f(shader.alpha_loc.as_ref(), 1.);
+        gl.active_texture(GL::TEXTURE0);
+
+        gl.uniform1i(shader.texture_loc.as_ref(), 0);
+
+        gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_conveyor));
+        enable_buffer(&gl, &assets.screen_buffer, 2, shader.vertex_position);
+
+        gl.uniform_matrix3fv_with_f32_array(
+            shader.tex_transform_loc.as_ref(),
+            false,
+            Matrix3::identity().flatten(),
+        );
 
         let [xmin, xmax, ymin, ymax] = *tile_range;
         for iy in ymin..ymax {
             for ix in xmin..xmax {
                 let conv = self.game.tiles()[[ix, iy]].conveyor;
-                render_conveyor(ix, iy, conv)?;
+                self.render_gl_conveyor(gl, ctx, ix, iy, conv);
             }
         }
 
@@ -305,6 +309,7 @@ impl AsteroidColonies {
             assets,
             shader,
             offset,
+            scale,
             tile_range,
             ..
         } = ctx;
@@ -316,8 +321,6 @@ impl AsteroidColonies {
         gl.uniform1i(shader.texture_loc.as_ref(), 0);
 
         enable_buffer(&gl, &assets.screen_buffer, 2, shader.vertex_position);
-        let scale_x = TILE_SIZE as f32 / (self.viewport.size[0] as f32);
-        let scale_y = TILE_SIZE as f32 / (self.viewport.size[1] as f32);
 
         let set_texture_transform = |tx, ty, sx, sy| {
             let tex_transform = Matrix3::from_nonuniform_scale(sx, sy)
@@ -344,7 +347,7 @@ impl AsteroidColonies {
                 _ => 0.,
             };
             let transform = ctx.to_screen
-                * Matrix4::from_nonuniform_scale(scale_x, scale_y, 1.)
+                * scale
                 * Matrix4::from_translation(Vector3::new(x, y, 0.))
                 * Matrix4::from_nonuniform_scale(sx as f32, sy as f32, 1.)
                 * Matrix4::from_translation(Vector3::new(0.5, 0.5, 0.))
@@ -429,12 +432,13 @@ impl AsteroidColonies {
         Ok(())
     }
 
-    fn render_gl_transports(&self, gl: &GL, ctx: &RenderContext) {
+    fn render_gl_constructions(&self, gl: &GL, ctx: &RenderContext) {
         let RenderContext {
             assets,
             shader,
             to_screen,
             offset,
+            scale,
             ..
         } = ctx;
 
@@ -444,8 +448,102 @@ impl AsteroidColonies {
             Matrix3::identity().flatten(),
         );
 
-        let scale_x = TILE_SIZE as f32 / (self.viewport.size[0] as f32);
-        let scale_y = TILE_SIZE as f32 / (self.viewport.size[1] as f32);
+        for construction in self.game.iter_construction() {
+            let [ix, iy] = construction.pos;
+            let x = (ix as f64 + offset[0] as f64 / TILE_SIZE) as f32;
+            let y = (iy as f64 + offset[1] as f64 / TILE_SIZE) as f32;
+            match construction.get_type() {
+                ConstructionType::Building(ty) => {
+                    let Some(tex) = assets.building_to_tex(ty) else {
+                        continue;
+                    };
+                    let size = ty.size();
+                    let width = size[0] as f32;
+                    let height = size[1] as f32;
+                    gl.bind_texture(GL::TEXTURE_2D, Some(tex));
+                    let transform = to_screen
+                        * scale
+                        * Matrix4::from_translation(Vector3::new(x, y, 0.))
+                        * Matrix4::from_nonuniform_scale(width, height, 1.);
+                    gl.uniform_matrix4fv_with_f32_array(
+                        shader.transform_loc.as_ref(),
+                        false,
+                        transform.flatten(),
+                    );
+                    gl.draw_arrays(GL::TRIANGLE_FAN, 0, 4);
+                }
+                ConstructionType::PowerGrid => {
+                    gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_power_grid));
+                    let transform =
+                        to_screen * scale * Matrix4::from_translation(Vector3::new(x, y, 0.));
+                    gl.uniform_matrix4fv_with_f32_array(
+                        shader.transform_loc.as_ref(),
+                        false,
+                        transform.flatten(),
+                    );
+                    gl.draw_arrays(GL::TRIANGLE_FAN, 0, 4);
+                }
+                ConstructionType::Conveyor(conv) => {
+                    gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_conveyor));
+                    self.render_gl_conveyor(gl, ctx, ix, iy, conv);
+                }
+            }
+            let tex = if construction.canceling() {
+                &assets.tex_deconstruction
+            } else {
+                &assets.tex_construction
+            };
+            gl.bind_texture(GL::TEXTURE_2D, Some(tex));
+            gl.uniform_matrix3fv_with_f32_array(
+                shader.tex_transform_loc.as_ref(),
+                false,
+                Matrix3::identity().flatten(),
+            );
+            let size = construction.size();
+            let width = size[0] as f32;
+            let height = size[1] as f32;
+            // const SRC_WIDTH: f64 = 64.;
+            // const SRC_HEIGHT: f64 = 64.;
+            let transform = to_screen
+                * scale
+                * Matrix4::from_translation(Vector3::new(x, y, 0.))
+                * Matrix4::from_nonuniform_scale(width, height, 1.);
+            gl.uniform_matrix4fv_with_f32_array(
+                shader.transform_loc.as_ref(),
+                false,
+                transform.flatten(),
+            );
+            gl.draw_arrays(GL::TRIANGLE_FAN, 0, 4);
+            // context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+            //     img, 0., 0., SRC_WIDTH, SRC_HEIGHT, x, y, width, height,
+            // )?;
+            // render_global_task_bar(
+            //     context,
+            //     [x, y],
+            //     construction.progress(),
+            //     construction.recipe.time,
+            // );
+            // if let Some((t, pos, max_time)) = task_target {
+            //     render_global_task_bar(context, pos, t, max_time);
+            // }
+        }
+    }
+
+    fn render_gl_transports(&self, gl: &GL, ctx: &RenderContext) {
+        let RenderContext {
+            assets,
+            shader,
+            to_screen,
+            offset,
+            scale,
+            ..
+        } = ctx;
+
+        gl.uniform_matrix3fv_with_f32_array(
+            shader.tex_transform_loc.as_ref(),
+            false,
+            Matrix3::identity().flatten(),
+        );
 
         let render_transport = |t: &Transport| {
             let Some(&[x, y]) = t.path.last() else {
@@ -469,7 +567,7 @@ impl AsteroidColonies {
             let x = (x as f64 + offset[0] as f64 / TILE_SIZE) as f32;
             let y = (y as f64 + offset[1] as f64 / TILE_SIZE) as f32;
             let transform = to_screen
-                * Matrix4::from_nonuniform_scale(scale_x, scale_y, 1.)
+                * scale
                 * Matrix4::from_translation(Vector3::new(x, y, 0.))
                 * Matrix4::from_translation(Vector3::new(0.5, 0.5, 0.))
                 * Matrix4::from_scale(0.5)

@@ -452,7 +452,9 @@ impl AsteroidColonies {
                     ItemType::Battery => (&self.assets.img_battery_item, 32., 32.),
                     ItemType::PowerGridComponent => (&self.assets.img_power_grid, 32., 32.),
                     ItemType::ConveyorComponent => (&self.assets.img_conveyor_item, 32., 32.),
-                    ItemType::AssemblerComponent => (&self.assets.img_assembler, 32., 32.),
+                    ItemType::AssemblerComponent => {
+                        (&self.assets.img_assembler_component, 32., 32.)
+                    }
                 };
                 let tile_offset = (TILE_SIZE as f64 - ITEM_SIZE as f64) / 2.;
                 let x = pos[0] as f64 * TILE_SIZE + tile_offset + offset[0];
