@@ -57,6 +57,7 @@ pub(crate) struct Assets {
 
     pub tex_back: WebGlTexture,
     pub tex_cursor: WebGlTexture,
+    pub tex_power_grid: WebGlTexture,
 
     pub flat_shader: Option<ShaderBundle>,
     pub textured_shader: Option<ShaderBundle>,
@@ -104,6 +105,7 @@ impl Assets {
             instanced_arrays_ext: None,
             tex_back: load_texture_local("bg32")?,
             tex_cursor: load_texture_local("cursor")?,
+            tex_power_grid: load_texture_local("power_grid")?,
 
             flat_shader: None,
             textured_shader: None,
