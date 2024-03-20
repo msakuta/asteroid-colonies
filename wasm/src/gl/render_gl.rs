@@ -390,6 +390,16 @@ impl AsteroidColonies {
                     set_texture_transform(sx, 0., 1. / 3., 1.);
                     render_tile(&building);
                 }
+                BuildingType::Assembler => {
+                    let sx = if !matches!(building.task, Task::None) {
+                        (time % 2 + 1) as f32
+                    } else {
+                        0.
+                    };
+                    gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_assembler));
+                    set_texture_transform(sx, 0., 1. / 3., 1.);
+                    render_tile(&building);
+                }
                 BuildingType::Furnace => {
                     let sx = if !matches!(building.task, Task::None) {
                         (time % 2 + 1) as f32
