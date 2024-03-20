@@ -367,7 +367,6 @@ impl AsteroidColonies {
                     let (sx, sy) = ((time / 5 % 2) as f32, 0.);
                     gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_atomic_battery));
                     set_texture_transform(sx, sy, 0.5, 1.);
-                    let size = building.type_.size();
                     render_tile(&building);
                 }
                 BuildingType::Battery => {
@@ -410,7 +409,13 @@ impl AsteroidColonies {
                     set_texture_transform(sx, 0., 1. / 3., 1.);
                     render_tile(&building);
                 }
-                _ => {}
+                _ => {
+                    if let Some(tex) = assets.building_to_tex(building.type_) {
+                        gl.bind_texture(GL::TEXTURE_2D, Some(tex));
+                        set_texture_transform(0., 0., 1., 1.);
+                        render_tile(&building);
+                    }
+                }
             }
         }
 

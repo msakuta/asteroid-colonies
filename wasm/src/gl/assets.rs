@@ -4,6 +4,7 @@ use super::{
     shader_bundle::ShaderBundle,
     utils::{load_texture, vertex_buffer_data},
 };
+use asteroid_colonies_logic::building::BuildingType;
 use slice_of_array::prelude::SliceFlatExt;
 use wasm_bindgen::{prelude::*, JsCast, JsValue};
 use web_sys::{
@@ -61,6 +62,9 @@ pub(crate) struct Assets {
     pub tex_conveyor: WebGlTexture,
     pub tex_atomic_battery: WebGlTexture,
     pub tex_battery: WebGlTexture,
+    pub tex_storage: WebGlTexture,
+    pub tex_medium_storage: WebGlTexture,
+    pub tex_crew_cabin: WebGlTexture,
     pub tex_excavator: WebGlTexture,
     pub tex_assembler: WebGlTexture,
     pub tex_furnace: WebGlTexture,
@@ -115,6 +119,9 @@ impl Assets {
             tex_conveyor: load_texture_local("conveyor")?,
             tex_atomic_battery: load_texture_local("atomic_battery")?,
             tex_battery: load_texture_local("battery")?,
+            tex_storage: load_texture_local("storage")?,
+            tex_medium_storage: load_texture_local("medium_storage")?,
+            tex_crew_cabin: load_texture_local("crew_cabin")?,
             tex_excavator: load_texture_local("excavator")?,
             tex_assembler: load_texture_local("assembler")?,
             tex_furnace: load_texture_local("furnace")?,
@@ -129,6 +136,20 @@ impl Assets {
             wire_buffer: None,
             harvesting_buffer: None,
             sprites_buffer: None,
+        })
+    }
+
+    pub fn building_to_tex(&self, ty: BuildingType) -> Option<&WebGlTexture> {
+        Some(match ty {
+            BuildingType::Power => &self.tex_atomic_battery,
+            BuildingType::Battery => &self.tex_battery,
+            BuildingType::Excavator => &self.tex_excavator,
+            BuildingType::Storage => &self.tex_storage,
+            BuildingType::MediumStorage => &self.tex_medium_storage,
+            BuildingType::CrewCabin => &self.tex_crew_cabin,
+            BuildingType::Assembler => &self.tex_assembler,
+            BuildingType::Furnace => &self.tex_furnace,
+            _ => panic!("Uncovered building type!"),
         })
     }
 
