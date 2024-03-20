@@ -13,6 +13,7 @@ use ::actix_files::NamedFile;
 use ::actix_web::{middleware, web, App, HttpRequest, HttpServer};
 use ::asteroid_colonies_logic::AsteroidColoniesGame;
 use ::clap::Parser;
+use ::openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use actix_web::HttpResponse;
 use session::SessionId;
 use std::{
@@ -72,6 +73,10 @@ struct Args {
     #[cfg(debug_assertions)]
     #[clap(long, default_value = ".", help = "JavaScript and Wasm path")]
     js_path: PathBuf,
+    #[clap(long)]
+    ssl_cert: Option<PathBuf>,
+    #[clap(long)]
+    ssl_priv_key: Option<PathBuf>,
 }
 
 struct ServerData {
@@ -317,7 +322,14 @@ async fn main() -> std::io::Result<()> {
         }
     });
 
-    let _result = HttpServer::new(move || {
+    let builder = args.ssl_cert.zip(args.ssl_priv_key).map(|(cert, key)| {
+        let mut builder = SslAcceptor::mozilla_modern_v5(SslMethod::tls_server()).unwrap();
+        builder.set_private_key_file(key, SslFiletype::PEM).unwrap();
+        builder.set_certificate_chain_file(cert).unwrap();
+        builder
+    });
+
+    let server = HttpServer::new(move || {
         let cors = Cors::permissive()
             // .allowed_methods(vec!["GET", "POST"])
             // .allowed_headers(vec![http::header::AUTHORIZATION, http::header::ACCEPT])
@@ -341,8 +353,13 @@ async fn main() -> std::io::Result<()> {
         }
         #[cfg(debug_assertions)]
         app.route("/js/{filename:.*}", web::get().to(get_js_file))
-    })
-    .bind((args.host.as_str(), args.port))?
+    });
+
+    let _result = if let Some(builder) = builder {
+        server.bind_openssl((args.host.as_str(), args.port), builder)?
+    } else {
+        server.bind((args.host.as_str(), args.port))?
+    }
     .run()
     .await;
 

@@ -99,7 +99,7 @@
 
     let reconnectTime = 0;
     let websocketOptions = {
-        port,
+        baseUrl,
         game,
         onupdate: () => {
             heartbeatOpacity = 1;

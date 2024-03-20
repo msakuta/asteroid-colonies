@@ -6,7 +6,7 @@ export async function fetchSessionId({port, baseUrl, game}) {
     let loaded = false;
     for (let i = 0; i < 20; i++) {
         try {
-            const sessionRes = await fetch(`http://${location.hostname}:${port}/api/session`, {
+            const sessionRes = await fetch(`${baseUrl}/api/session`, {
                 method: "POST"
             });
             sessionId = await sessionRes.text();
@@ -21,9 +21,11 @@ export async function fetchSessionId({port, baseUrl, game}) {
     }
 }
 
-export function reconnectWebSocket({port, game, onupdate = () => {}}){
+export function reconnectWebSocket({baseUrl, game, onupdate = () => {}}){
     if(sessionId){
-        websocket = new WebSocket(`ws://${location.hostname}:${port}/ws/${sessionId}`);
+        // Is there a smarter way to switch protocol?
+        const wsUrl = location.protocol === "https:" ? baseUrl.replace("https", "wss") : baseUrl.replace("http", "ws");
+        websocket = new WebSocket(`${wsUrl}/ws/${sessionId}`);
         websocket.binaryType = "arraybuffer";
         websocket.addEventListener("message", (event) => {
             if (event.data instanceof ArrayBuffer) {
