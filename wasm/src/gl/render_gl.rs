@@ -5,7 +5,9 @@ use crate::{
 };
 
 use asteroid_colonies_logic::{
-    building::BuildingType, task::Task, Conveyor, Direction, Pos, TileState, TILE_SIZE,
+    building::{Building, BuildingType},
+    task::Task,
+    Conveyor, Direction, Pos, TileState, TILE_SIZE,
 };
 use cgmath::{Matrix3, Matrix4, Rad, SquareMatrix, Vector2, Vector3};
 use wasm_bindgen::prelude::*;
@@ -321,7 +323,10 @@ impl AsteroidColonies {
             );
         };
 
-        let render_tile = |x, y, direction| {
+        let render_tile = |building: &Building| {
+            let [x, y] = building.pos;
+            let [sx, sy] = building.type_.size();
+            let direction = building.direction;
             let x = (x as f64 + offset[0] as f64 / TILE_SIZE) as f32;
             let y = (y as f64 + offset[1] as f64 / TILE_SIZE) as f32;
             use std::f32::consts::PI;
@@ -334,6 +339,7 @@ impl AsteroidColonies {
             let transform = to_screen
                 * Matrix4::from_nonuniform_scale(scale_x, scale_y, 1.)
                 * Matrix4::from_translation(Vector3::new(x, y, 0.))
+                * Matrix4::from_nonuniform_scale(sx as f32, sy as f32, 1.)
                 * Matrix4::from_translation(Vector3::new(0.5, 0.5, 0.))
                 * Matrix4::from_angle_z(Rad(rot))
                 * Matrix4::from_translation(Vector3::new(-0.5, -0.5, 0.));
@@ -361,7 +367,8 @@ impl AsteroidColonies {
                     let (sx, sy) = ((time / 5 % 2) as f32, 0.);
                     gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_atomic_battery));
                     set_texture_transform(sx, sy, 0.5, 1.);
-                    render_tile(building.pos[0], building.pos[1], building.direction);
+                    let size = building.type_.size();
+                    render_tile(&building);
                 }
                 BuildingType::Battery => {
                     let sx = building
@@ -371,7 +378,7 @@ impl AsteroidColonies {
                         .unwrap_or(0.);
                     gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_battery));
                     set_texture_transform(sx as f32, 0., 0.25, 1.);
-                    render_tile(building.pos[0], building.pos[1], building.direction);
+                    render_tile(&building);
                 }
                 BuildingType::Excavator => {
                     let sx = if let Task::Excavate(_, _) = building.task {
@@ -381,7 +388,17 @@ impl AsteroidColonies {
                     };
                     gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_excavator));
                     set_texture_transform(sx, 0., 1. / 3., 1.);
-                    render_tile(building.pos[0], building.pos[1], building.direction);
+                    render_tile(&building);
+                }
+                BuildingType::Furnace => {
+                    let sx = if !matches!(building.task, Task::None) {
+                        (time % 2 + 1) as f32
+                    } else {
+                        0.
+                    };
+                    gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_furnace));
+                    set_texture_transform(sx, 0., 1. / 3., 1.);
+                    render_tile(&building);
                 }
                 _ => {}
             }
