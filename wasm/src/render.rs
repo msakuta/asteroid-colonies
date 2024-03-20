@@ -22,8 +22,8 @@ const ITEM_SIZE: f64 = 16.;
 const BAR_MARGIN: f64 = 4.;
 const BAR_WIDTH: f64 = TILE_SIZE - BAR_MARGIN * 2.;
 const BAR_HEIGHT: f64 = 6.;
-const SPACE_BIT: u8 = 32;
-const NEIGHBOR_BITS: u8 = 0x1f;
+pub(crate) const SPACE_BIT: u8 = 32;
+pub(crate) const NEIGHBOR_BITS: u8 = 0x1f;
 
 #[wasm_bindgen]
 impl AsteroidColonies {
