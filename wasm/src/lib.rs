@@ -85,6 +85,8 @@ struct Viewport {
     offset: [f64; 2],
     /// Viewport size in pixels
     size: [f64; 2],
+    /// Zoom level
+    scale: f64,
 }
 
 #[wasm_bindgen]
@@ -120,6 +122,7 @@ impl AsteroidColonies {
                     -(HEIGHT as f64 / 2. - 8.) * TILE_SIZE,
                 ],
                 size: [vp_width, vp_height],
+                scale: 1.,
             },
             debug_draw_chunks: false,
         })
@@ -282,8 +285,22 @@ impl AsteroidColonies {
     }
 
     pub fn pan(&mut self, x: f64, y: f64) {
-        self.viewport.offset[0] += x;
-        self.viewport.offset[1] += y;
+        self.viewport.offset[0] += x / self.viewport.scale;
+        self.viewport.offset[1] += y / self.viewport.scale;
+    }
+
+    pub fn change_zoom(&mut self, x: f64, y: f64, v: f64) {
+        let new_scale = if v < 0. {
+            (self.viewport.scale * 1.2).min(4.)
+        } else {
+            (self.viewport.scale / 1.2).max(0.5)
+        };
+        self.viewport.offset[0] +=
+            (x as f64 / self.viewport.scale) * (1. - new_scale / self.viewport.scale);
+        self.viewport.offset[1] +=
+            (y as f64 / self.viewport.scale) * (1. - new_scale / self.viewport.scale);
+
+        self.viewport.scale = new_scale;
     }
 
     pub fn tick(&mut self) -> Result<(), JsValue> {
@@ -326,8 +343,9 @@ impl AsteroidColonies {
 
 impl AsteroidColonies {
     fn transform_pos(&self, x: f64, y: f64) -> Pos {
-        let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
-        let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
+        let vp = &self.viewport;
+        let ix = (x / vp.scale - vp.offset[0]).div_euclid(TILE_SIZE) as i32;
+        let iy = (y / vp.scale - vp.offset[1]).div_euclid(TILE_SIZE) as i32;
         [ix, iy]
     }
 }

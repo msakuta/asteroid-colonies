@@ -175,6 +175,10 @@
 
         canvas.addEventListener('pointerup', pointerUp);
         window.addEventListener("resize", resizeHandler);
+        window.addEventListener("wheel", evt => {
+            const [x, y] = toLogicalCoords(evt.clientX, evt.clientY);
+            game.change_zoom(x, y, evt.deltaY);
+        });
 
         // Don't start timer until the assets are loaded, otherwise an error will be thrown
         setInterval(timerProc, 25);

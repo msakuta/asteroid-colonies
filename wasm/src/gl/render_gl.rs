@@ -74,13 +74,13 @@ impl<'a> RenderContext<'a> {
             .ok_or_else(|| js_str!("Shader bundle not found!"))?;
 
         let vp = &ac.viewport;
-        let scale_x = TILE_SIZE as f32 / (vp.size[0] as f32);
-        let scale_y = TILE_SIZE as f32 / (vp.size[1] as f32);
+        let scale_x = (vp.scale * TILE_SIZE) as f32 / (vp.size[0] as f32);
+        let scale_y = (vp.scale * TILE_SIZE) as f32 / (vp.size[1] as f32);
         let offset = [vp.offset[0].round(), vp.offset[1].round()];
         let ymin = ((-offset[1]).div_euclid(TILE_SIZE)) as i32;
-        let ymax = (-offset[1] + vp.size[1] + TILE_SIZE).div_euclid(TILE_SIZE) as i32;
+        let ymax = (-offset[1] + vp.size[1] / vp.scale + TILE_SIZE).div_euclid(TILE_SIZE) as i32;
         let xmin = ((-offset[0]).div_euclid(TILE_SIZE)) as i32;
-        let xmax = (-offset[0] + vp.size[0] + TILE_SIZE).div_euclid(TILE_SIZE) as i32;
+        let xmax = (-offset[0] + vp.size[0] / vp.scale + TILE_SIZE).div_euclid(TILE_SIZE) as i32;
 
         Ok(Self {
             frac_frame,
@@ -762,6 +762,7 @@ impl AsteroidColonies {
         let RenderContext {
             shader,
             assets,
+            scale,
             to_screen,
             ..
         } = ctx;
@@ -779,13 +780,9 @@ impl AsteroidColonies {
 
         let vp = &self.viewport;
         let offset = [vp.offset[0].round(), vp.offset[1].round()];
-        let scale_x = TILE_SIZE as f32 / (self.viewport.size[0] as f32);
-        let scale_y = TILE_SIZE as f32 / (self.viewport.size[1] as f32);
         let x = (cursor[0] as f64 + offset[0] as f64 / TILE_SIZE) as f32;
         let y = (cursor[1] as f64 + offset[1] as f64 / TILE_SIZE) as f32;
-        let transform = to_screen
-            * Matrix4::from_nonuniform_scale(scale_x, scale_y, 1.)
-            * Matrix4::from_translation(Vector3::new(x, y, 0.));
+        let transform = to_screen * scale * Matrix4::from_translation(Vector3::new(x, y, 0.));
 
         gl.uniform_matrix4fv_with_f32_array(
             shader.transform_loc.as_ref(),
