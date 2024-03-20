@@ -4,7 +4,9 @@ use crate::{
     js_str, AsteroidColonies,
 };
 
-use asteroid_colonies_logic::{Conveyor, Direction, Pos, TileState, TILE_SIZE};
+use asteroid_colonies_logic::{
+    building::BuildingType, Conveyor, Direction, Pos, TileState, TILE_SIZE,
+};
 use cgmath::{Matrix3, Matrix4, SquareMatrix, Vector2, Vector3};
 use wasm_bindgen::prelude::*;
 
@@ -32,6 +34,7 @@ impl AsteroidColonies {
         self.render_gl_background(gl, assets, &to_screen)?;
         self.render_gl_power_grid(gl, assets, &to_screen)?;
         self.render_gl_conveyor(gl, assets, &to_screen)?;
+        self.render_gl_buildings(gl, assets, &to_screen)?;
 
         if let Some(cursor) = self.cursor {
             self.render_gl_cursor(gl, assets, &cursor, &to_screen)?;
@@ -273,6 +276,84 @@ impl AsteroidColonies {
             for ix in xmin..xmax {
                 let conv = self.game.tiles()[[ix, iy]].conveyor;
                 render_conveyor(ix, iy, conv)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn render_gl_buildings(
+        &self,
+        gl: &GL,
+        assets: &Assets,
+        to_screen: &Matrix4<f32>,
+    ) -> Result<(), JsValue> {
+        let shader = assets
+            .textured_shader
+            .as_ref()
+            .ok_or_else(|| js_str!("Shader bundle not found!"))?;
+        gl.use_program(Some(&shader.program));
+        gl.uniform1f(shader.alpha_loc.as_ref(), 1.);
+        gl.active_texture(GL::TEXTURE0);
+
+        gl.uniform1i(shader.texture_loc.as_ref(), 0);
+
+        gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_atomic_battery));
+        enable_buffer(&gl, &assets.screen_buffer, 2, shader.vertex_position);
+        let vp = &self.viewport;
+        let offset = [vp.offset[0].round(), vp.offset[1].round()];
+        let scale_x = TILE_SIZE as f32 / (self.viewport.size[0] as f32);
+        let scale_y = TILE_SIZE as f32 / (self.viewport.size[1] as f32);
+
+        gl.uniform_matrix3fv_with_f32_array(
+            shader.tex_transform_loc.as_ref(),
+            false,
+            Matrix3::identity().flatten(),
+        );
+
+        let set_texture_transform = |tx, ty, sx, sy| {
+            let tex_transform = Matrix3::from_nonuniform_scale(sx, sy)
+                * Matrix3::from_translation(Vector2::new(tx as f32, ty as f32));
+
+            gl.uniform_matrix3fv_with_f32_array(
+                shader.tex_transform_loc.as_ref(),
+                false,
+                tex_transform.flatten(),
+            );
+        };
+
+        let render_tile = |x, y| {
+            let x = (x as f64 + offset[0] as f64 / TILE_SIZE) as f32;
+            let y = (y as f64 + offset[1] as f64 / TILE_SIZE) as f32;
+            let transform = to_screen
+                * Matrix4::from_nonuniform_scale(scale_x, scale_y, 1.)
+                * Matrix4::from_translation(Vector3::new(x, y, 0.));
+            gl.uniform_matrix4fv_with_f32_array(
+                shader.transform_loc.as_ref(),
+                false,
+                transform.flatten(),
+            );
+            gl.draw_arrays(GL::TRIANGLE_FAN, 0, 4);
+        };
+
+        let time = self.game.get_global_time();
+
+        let [xmin, xmax, ymin, ymax] = self.render_tile_range();
+        for building in self.game.iter_building() {
+            if building.pos[0] < xmin
+                || xmax < building.pos[0]
+                || building.pos[1] < ymin
+                || ymax < building.pos[1]
+            {
+                continue;
+            }
+            match building.type_ {
+                BuildingType::Power => {
+                    let (sx, sy) = ((time / 5 % 2), 0.);
+                    set_texture_transform(sx, sy, 0.5, 1.);
+                    render_tile(building.pos[0], building.pos[1]);
+                }
+                _ => {}
             }
         }
 
