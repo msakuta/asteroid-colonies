@@ -1,4 +1,4 @@
-use crate::{render::TILE_SIZE, AsteroidColonies};
+use crate::AsteroidColonies;
 use asteroid_colonies_logic::{
     building::{BuildingType, Recipe},
     construction::{BuildMenuItem, ConstructionType},
