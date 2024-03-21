@@ -84,6 +84,7 @@ pub(crate) struct Assets {
     pub tex_construction: WebGlTexture,
     pub tex_deconstruction: WebGlTexture,
     pub tex_cleanup: WebGlTexture,
+    pub tex_excavate: WebGlTexture,
 
     pub flat_shader: Option<ShaderBundle>,
     pub textured_shader: Option<ShaderBundle>,
@@ -157,6 +158,7 @@ impl Assets {
             tex_construction: load_texture_local("construction")?,
             tex_deconstruction: load_texture_local("deconstruction")?,
             tex_cleanup: load_texture_local("cleanup")?,
+            tex_excavate: load_texture_local("excavate")?,
 
             flat_shader: None,
             textured_shader: None,
