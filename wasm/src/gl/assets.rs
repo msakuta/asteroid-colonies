@@ -264,7 +264,19 @@ impl Assets {
         "#,
         )?;
         let program = link_program(&gl, &vert_shader, &frag_shader)?;
-        self.flat_shader = Some(ShaderBundle::new(&gl, program));
+        self.flat_shader = Some(ShaderBundle::new(&gl, program.clone()));
+        gl.use_program(Some(&program));
+        gl.uniform4f(
+            self.flat_shader.as_ref().unwrap().color_loc.as_ref(),
+            0.5,
+            0.,
+            0.,
+            1.,
+        );
+        console_log!(
+            "program: {}",
+            program == self.flat_shader.as_ref().unwrap().program
+        );
 
         gl.enable(GL::BLEND);
         gl.blend_equation(GL::FUNC_ADD);

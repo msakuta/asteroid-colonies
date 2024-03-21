@@ -1,10 +1,14 @@
 use super::{super::utils::Flatten, enable_buffer, lerp, RenderContext};
-use crate::AsteroidColonies;
+use crate::{
+    gl::shader_bundle::ShaderBundle,
+    render::{BAR_HEIGHT, BAR_MARGIN, BAR_WIDTH, TILE_SIZE},
+    AsteroidColonies,
+};
 
 use ::asteroid_colonies_logic::{
     building::{Building, BuildingType},
-    task::{Task, MOVE_TIME},
-    Direction, TILE_SIZE,
+    task::{Task, EXCAVATE_TIME, MOVE_TIME},
+    Direction,
 };
 use cgmath::{Matrix3, Matrix4, Rad, Vector2, Vector3};
 use wasm_bindgen::JsValue;
@@ -22,8 +26,6 @@ impl AsteroidColonies {
             ..
         } = ctx;
 
-        gl.use_program(Some(&shader.program));
-        gl.uniform1f(shader.alpha_loc.as_ref(), 1.);
         gl.active_texture(GL::TEXTURE0);
 
         gl.uniform1i(shader.texture_loc.as_ref(), 0);
@@ -42,7 +44,7 @@ impl AsteroidColonies {
         };
 
         let render_bldg = |building: &Building| {
-            let [x, y] = if let Task::Move(move_time, next) = &building.task {
+            let pos = if let Task::Move(move_time, next) = &building.task {
                 next.last()
                     .map(|next| {
                         lerp(
@@ -59,8 +61,8 @@ impl AsteroidColonies {
             };
             let [sx, sy] = building.type_.size();
             let direction = building.direction;
-            let x = (x as f64 + offset[0] as f64 / TILE_SIZE) as f32;
-            let y = (y as f64 + offset[1] as f64 / TILE_SIZE) as f32;
+            let x = (pos[0] + offset[0] as f64 / TILE_SIZE) as f32;
+            let y = (pos[1] + offset[1] as f64 / TILE_SIZE) as f32;
             use std::f32::consts::PI;
             let rot = match direction {
                 Some(Direction::Left) => 0.5 * PI,
@@ -81,6 +83,7 @@ impl AsteroidColonies {
                 transform.flatten(),
             );
             gl.draw_arrays(GL::TRIANGLE_FAN, 0, 4);
+            pos
         };
 
         let time = self.game.get_global_time();
@@ -94,12 +97,16 @@ impl AsteroidColonies {
             {
                 continue;
             }
-            match building.type_ {
+
+            gl.use_program(Some(&shader.program));
+            gl.uniform1f(shader.alpha_loc.as_ref(), 1.);
+
+            let [x, y] = match building.type_ {
                 BuildingType::Power => {
                     let (sx, sy) = ((time / 5 % 2) as f32, 0.);
                     gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_atomic_battery));
                     set_texture_transform(sx, sy, 0.5, 1.);
-                    render_bldg(&building);
+                    render_bldg(&building)
                 }
                 BuildingType::Battery => {
                     let sx = building
@@ -109,7 +116,7 @@ impl AsteroidColonies {
                         .unwrap_or(0.);
                     gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_battery));
                     set_texture_transform(sx as f32, 0., 0.25, 1.);
-                    render_bldg(&building);
+                    render_bldg(&building)
                 }
                 BuildingType::Excavator => {
                     let sx = if let Task::Excavate(_, _) = building.task {
@@ -119,7 +126,7 @@ impl AsteroidColonies {
                     };
                     gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_excavator));
                     set_texture_transform(sx, 0., 1. / 3., 1.);
-                    render_bldg(&building);
+                    render_bldg(&building)
                 }
                 BuildingType::Assembler => {
                     let sx = if !matches!(building.task, Task::None) {
@@ -129,7 +136,7 @@ impl AsteroidColonies {
                     };
                     gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_assembler));
                     set_texture_transform(sx, 0., 1. / 3., 1.);
-                    render_bldg(&building);
+                    render_bldg(&building)
                 }
                 BuildingType::Furnace => {
                     let sx = if !matches!(building.task, Task::None) {
@@ -139,18 +146,115 @@ impl AsteroidColonies {
                     };
                     gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_furnace));
                     set_texture_transform(sx, 0., 1. / 3., 1.);
-                    render_bldg(&building);
+                    render_bldg(&building)
                 }
                 _ => {
                     if let Some(tex) = assets.building_to_tex(building.type_) {
                         gl.bind_texture(GL::TEXTURE_2D, Some(tex));
                         set_texture_transform(0., 0., 1., 1.);
-                        render_bldg(&building);
+                        render_bldg(&building)
+                    } else {
+                        [building.pos[0] as f64, building.pos[1] as f64]
                     }
                 }
+            };
+
+            let task_target = match building.task {
+                Task::Excavate(t, _) => Some((t, EXCAVATE_TIME)),
+                Task::Move(t, _) => Some((t, MOVE_TIME)),
+                Task::Assemble { t, max_t, .. } => Some((t, max_t)),
+                _ => None,
+            };
+
+            let Some(flat_shader) = assets.flat_shader.as_ref() else {
+                continue;
+            };
+
+            if let Some((t, max_time)) = task_target {
+                RenderBar {
+                    gl,
+                    ctx,
+                    x,
+                    y,
+                    v: t as f64,
+                    max: max_time as f64,
+                    scale: building.type_.size()[0] as f64,
+                    color: [0., 0.75, 0., 1.],
+                    shader: flat_shader,
+                }
+                .render_bar();
+            }
+
+            let inventory_count: usize = building.inventory.iter().map(|item| *item.1).sum();
+            if 0 < inventory_count {
+                RenderBar {
+                    gl,
+                    ctx,
+                    x: x + (1. - (BAR_WIDTH) / TILE_SIZE) / 2.,
+                    y: y + (1. - (BAR_HEIGHT + BAR_MARGIN * 2.) / TILE_SIZE),
+                    v: inventory_count as f64,
+                    max: building.type_.capacity() as f64,
+                    scale: building.type_.size()[0] as f64,
+                    color: [0.75, 0.75, 0., 1.],
+                    shader: flat_shader,
+                }
+                .render_bar();
             }
         }
 
+        // Reset to the default shader for next rendering
+        gl.use_program(Some(&shader.program));
+
         Ok(())
+    }
+}
+
+struct RenderBar<'a> {
+    gl: &'a GL,
+    ctx: &'a RenderContext<'a>,
+    x: f64,
+    y: f64,
+    v: f64,
+    max: f64,
+    scale: f64,
+    color: [f32; 4],
+    shader: &'a ShaderBundle,
+}
+
+impl<'a> RenderBar<'a> {
+    fn render_bar(&self) {
+        let shader = self.shader;
+        self.gl.use_program(Some(&shader.program));
+        self.gl
+            .uniform4f(shader.color_loc.as_ref(), 0.5, 0., 0., 1.);
+
+        let x = (self.x + self.ctx.offset[0] / TILE_SIZE) as f32;
+        let y = (self.y + self.ctx.offset[1] / TILE_SIZE) as f32;
+        let sx = (BAR_WIDTH / TILE_SIZE * self.scale) as f32;
+        let sy = (BAR_HEIGHT / TILE_SIZE * self.scale * 0.5) as f32;
+        let transform = self.ctx.to_screen
+            * self.ctx.scale
+            * Matrix4::from_translation(Vector3::new(x, y, 0.))
+            * Matrix4::from_nonuniform_scale(sx, sy, 1.);
+        self.gl.uniform_matrix4fv_with_f32_array(
+            shader.transform_loc.as_ref(),
+            false,
+            transform.flatten(),
+        );
+        self.gl.draw_arrays(GL::TRIANGLE_FAN, 0, 4);
+
+        self.gl
+            .uniform4fv_with_f32_array(shader.color_loc.as_ref(), &self.color);
+        let sx = (BAR_WIDTH / TILE_SIZE * self.scale * self.v / self.max) as f32;
+        let transform = self.ctx.to_screen
+            * self.ctx.scale
+            * Matrix4::from_translation(Vector3::new(x, y, 0.))
+            * Matrix4::from_nonuniform_scale(sx, sy, 1.);
+        self.gl.uniform_matrix4fv_with_f32_array(
+            shader.transform_loc.as_ref(),
+            false,
+            transform.flatten(),
+        );
+        self.gl.draw_arrays(GL::TRIANGLE_FAN, 0, 4);
     }
 }

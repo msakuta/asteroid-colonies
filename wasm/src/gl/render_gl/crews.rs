@@ -18,6 +18,7 @@ impl AsteroidColonies {
             ..
         } = ctx;
 
+        gl.use_program(Some(&shader.program));
         gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_crew));
         gl.uniform_matrix3fv_with_f32_array(
             shader.tex_transform_loc.as_ref(),

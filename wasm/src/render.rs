@@ -19,9 +19,9 @@ use asteroid_colonies_logic::{
 
 pub(crate) const TILE_SIZE: f64 = 32.;
 const ITEM_SIZE: f64 = 16.;
-const BAR_MARGIN: f64 = 4.;
-const BAR_WIDTH: f64 = TILE_SIZE - BAR_MARGIN * 2.;
-const BAR_HEIGHT: f64 = 6.;
+pub(crate) const BAR_MARGIN: f64 = 4.;
+pub(crate) const BAR_WIDTH: f64 = TILE_SIZE - BAR_MARGIN * 2.;
+pub(crate) const BAR_HEIGHT: f64 = 6.;
 pub(crate) const SPACE_BIT: u8 = 32;
 pub(crate) const NEIGHBOR_BITS: u8 = 0x1f;
 
