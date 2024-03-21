@@ -4,6 +4,7 @@ mod construction;
 mod conveyor;
 mod crews;
 mod cursor;
+mod global_tasks;
 mod power_grid;
 mod transports;
 
@@ -32,6 +33,7 @@ impl AsteroidColonies {
         self.render_gl_background(gl, &ctx)?;
         self.render_gl_power_grid(gl, &ctx)?;
         self.render_gl_conveyors(gl, &ctx)?;
+        self.render_gl_global_tasks(gl, &ctx);
         self.render_gl_constructions(gl, &ctx);
         self.render_gl_conveyor_plan(gl, &ctx);
         self.render_gl_transports(gl, &ctx);
