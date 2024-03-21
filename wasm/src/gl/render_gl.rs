@@ -575,6 +575,7 @@ impl AsteroidColonies {
 
     fn render_gl_constructions(&self, gl: &GL, ctx: &RenderContext) {
         let RenderContext {
+            frac_frame,
             assets,
             shader,
             to_screen,
@@ -582,6 +583,9 @@ impl AsteroidColonies {
             scale,
             ..
         } = ctx;
+
+        let view_time = (self.game.get_global_time() as f64 + frac_frame) * 0.1;
+        let alpha = triangle(view_time as f32);
 
         gl.uniform_matrix3fv_with_f32_array(
             shader.tex_transform_loc.as_ref(),
@@ -593,6 +597,7 @@ impl AsteroidColonies {
             let [ix, iy] = construction.pos;
             let x = (ix as f64 + offset[0] as f64 / TILE_SIZE) as f32;
             let y = (iy as f64 + offset[1] as f64 / TILE_SIZE) as f32;
+            gl.uniform1f(shader.alpha_loc.as_ref(), 0.5);
             match construction.get_type() {
                 ConstructionType::Building(ty) => {
                     let Some(tex) = assets.building_to_tex(ty) else {
@@ -634,6 +639,7 @@ impl AsteroidColonies {
             } else {
                 &assets.tex_construction
             };
+            gl.uniform1f(shader.alpha_loc.as_ref(), alpha);
             gl.bind_texture(GL::TEXTURE_2D, Some(tex));
             gl.uniform_matrix3fv_with_f32_array(
                 shader.tex_transform_loc.as_ref(),
@@ -802,4 +808,21 @@ fn lerp(p0: Pos, p1: Pos, f: f64) -> [f64; 2] {
         p0[0] as f64 * (1. - f) + p1[0] as f64 * f,
         p0[1] as f64 * (1. - f) + p1[1] as f64 * f,
     ]
+}
+
+fn triangle(f: f32) -> f32 {
+    let view_time_mod = f.rem_euclid(2.);
+    if view_time_mod < 1. {
+        view_time_mod
+    } else {
+        2. - view_time_mod
+    }
+}
+
+#[test]
+fn a() {
+    for i in -10..20 {
+        let d = i as f32 / 4.;
+        println!("f({d:5})= {}", triangle(d));
+    }
 }

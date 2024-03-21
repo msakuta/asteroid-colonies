@@ -72,7 +72,7 @@ pub fn vertex_buffer_data(context: &GL, vertices: &[f32]) {
     };
 }
 
-pub fn vertex_buffer_sub_data(context: &GL, vertices: &[f32]) {
+pub fn _vertex_buffer_sub_data(context: &GL, vertices: &[f32]) {
     // Note that `Float32Array::view` is somewhat dangerous (hence the
     // `unsafe`!). This is creating a raw view into our module's
     // `WebAssembly.Memory` buffer, but if we allocate more pages for ourself

@@ -301,7 +301,7 @@ impl Assets {
             void main() {
                 vec4 texColor = texture2D( texture, texCoords.xy );
                 gl_FragColor = vec4(texColor.rgb, texColor.a * alpha);
-                if(gl_FragColor.a < 0.5)
+                if(gl_FragColor.a < 0.01)
                     discard;
             }
         "#,
