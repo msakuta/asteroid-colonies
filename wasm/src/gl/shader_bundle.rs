@@ -8,8 +8,12 @@ pub(crate) struct ShaderBundle {
     #[allow(dead_code)] // May use later
     pub tex_coord_position: u32,
     pub texture_loc: Option<WebGlUniformLocation>,
+    pub texture2_loc: Option<WebGlUniformLocation>,
     pub transform_loc: Option<WebGlUniformLocation>,
     pub tex_transform_loc: Option<WebGlUniformLocation>,
+    pub width_scale_loc: Option<WebGlUniformLocation>,
+    pub height_scale_loc: Option<WebGlUniformLocation>,
+    #[allow(dead_code)] // May use later
     pub attrib_position_loc: i32,
     #[allow(dead_code)] // May use later
     pub alpha_loc: Option<WebGlUniformLocation>,
@@ -36,10 +40,13 @@ impl ShaderBundle {
             vertex_position,
             tex_coord_position,
             texture_loc: get_uniform("texture"),
+            texture2_loc: get_uniform("texture2"),
             transform_loc: get_uniform("transform"),
             tex_transform_loc: get_uniform("texTransform"),
             alpha_loc: get_uniform("alpha"),
             color_loc: get_uniform("color"),
+            width_scale_loc: get_uniform("widthScale"),
+            height_scale_loc: get_uniform("heightScale"),
             attrib_position_loc,
             // Program has to be later than others
             program,

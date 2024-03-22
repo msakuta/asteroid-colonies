@@ -1,8 +1,10 @@
+use std::cell::Cell;
+
 use crate::console_log;
 
 use super::{
     shader_bundle::ShaderBundle,
-    utils::{load_texture, vertex_buffer_data},
+    utils::{create_texture, load_texture, vertex_buffer_data},
 };
 use asteroid_colonies_logic::building::BuildingType;
 use slice_of_array::prelude::SliceFlatExt;
@@ -86,8 +88,12 @@ pub(crate) struct Assets {
     pub tex_cleanup: WebGlTexture,
     pub tex_excavate: WebGlTexture,
 
+    pub tex_bg_sampler: WebGlTexture,
+    pub bg_sampler_buf: Cell<Vec<u8>>,
+
     pub flat_shader: Option<ShaderBundle>,
     pub textured_shader: Option<ShaderBundle>,
+    pub multi_textured_shader: Option<ShaderBundle>,
     pub textured_instancing_shader: Option<ShaderBundle>,
     pub textured_alpha_shader: Option<ShaderBundle>,
 
@@ -160,8 +166,12 @@ impl Assets {
             tex_cleanup: load_texture_local("cleanup")?,
             tex_excavate: load_texture_local("excavate")?,
 
+            tex_bg_sampler: create_texture(context, 128)?,
+            bg_sampler_buf: Cell::new(vec![]),
+
             flat_shader: None,
             textured_shader: None,
+            multi_textured_shader: None,
             textured_instancing_shader: None,
             textured_alpha_shader: None,
             screen_buffer: None,
@@ -269,18 +279,6 @@ impl Assets {
         )?;
         let program = link_program(&gl, &vert_shader, &frag_shader)?;
         self.flat_shader = Some(ShaderBundle::new(&gl, program.clone()));
-        gl.use_program(Some(&program));
-        gl.uniform4f(
-            self.flat_shader.as_ref().unwrap().color_loc.as_ref(),
-            0.5,
-            0.,
-            0.,
-            1.,
-        );
-        console_log!(
-            "program: {}",
-            program == self.flat_shader.as_ref().unwrap().program
-        );
 
         gl.enable(GL::BLEND);
         gl.blend_equation(GL::FUNC_ADD);
@@ -341,6 +339,8 @@ impl Assets {
                 .and_then(|s| s.texture_loc.as_ref()),
             0,
         );
+
+        self.multi_textured_shader = Some(make_multitex_shader(gl, &vert_shader)?);
 
         let vert_shader_instancing = compile_shader(
             &gl,
@@ -486,6 +486,59 @@ impl Assets {
 
         Ok(())
     }
+}
+
+fn make_multitex_shader(gl: &GL, vert_shader: &WebGlShader) -> Result<ShaderBundle, JsValue> {
+    let frag_shader = compile_shader(
+        &gl,
+        GL::FRAGMENT_SHADER,
+        r#"
+        precision mediump float;
+
+        varying vec2 texCoords;
+
+        uniform sampler2D texture;
+        uniform sampler2D texture2;
+        uniform float alpha;
+        uniform float widthScale;
+        uniform float heightScale;
+        const float sampleSize = 128.;
+        // Margin is a way to work around border artifacts between tiles
+        const float margin = 1. / 32.;
+        const float marginDiscard = 30. / 32.;
+
+        void main() {
+            float x = texCoords.x;
+            float xi = floor(x * sampleSize) / sampleSize;
+            float xf = (x - xi) * sampleSize;
+            float y = texCoords.y;
+            float yi = floor(y * sampleSize) / sampleSize;
+            float yf = (y - yi) * sampleSize;
+            if(xi < 0. || 1. < xi || yi < 0. || 1. < yi){
+                gl_FragColor = vec4(0., 0., 0., 1.);
+                return;
+            }
+            vec4 first = texture2D( texture2, vec2(xi, yi) );
+            vec4 texColor = texture2D( texture, vec2(
+                (xf + margin) * marginDiscard * widthScale,
+                ((yf + margin) * marginDiscard + first[0] * 2.) * heightScale) );
+            gl_FragColor = texColor;
+            // gl_FragColor = vec4(texColor.rgb, texColor.a * alpha);
+            if(gl_FragColor.a < 0.01)
+                discard;
+        }
+    "#,
+    )?;
+    let program = link_program(&gl, vert_shader, &frag_shader)?;
+    gl.use_program(Some(&program));
+    console_log!("ShaderBundle multi_textured_shader:");
+    let shader = ShaderBundle::new(&gl, program);
+
+    gl.uniform1f(shader.width_scale_loc.as_ref(), 1. / 4.);
+
+    gl.uniform1f(shader.height_scale_loc.as_ref(), 1. / 8.);
+
+    Ok(shader)
 }
 
 pub fn compile_shader(context: &GL, shader_type: u32, source: &str) -> Result<WebGlShader, String> {

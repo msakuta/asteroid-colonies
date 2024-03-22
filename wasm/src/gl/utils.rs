@@ -20,7 +20,6 @@ pub(crate) fn load_texture(gl: &GL, bitmap: ImageBitmap) -> Result<WebGlTexture,
     fn is_power_of_2(value: u32) -> bool {
         (value & (value - 1)) == 0
     }
-
     let texture = gl.create_texture().unwrap();
     gl.bind_texture(GL::TEXTURE_2D, Some(&texture));
 
@@ -52,6 +51,36 @@ pub(crate) fn load_texture(gl: &GL, bitmap: ImageBitmap) -> Result<WebGlTexture,
         gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_T, GL::CLAMP_TO_EDGE as i32);
         gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_MIN_FILTER, GL::NEAREST as i32);
     }
+
+    Ok(texture)
+}
+
+pub fn create_texture(gl: &GL, size: usize) -> Result<WebGlTexture, JsValue> {
+    let texture = gl.create_texture().unwrap();
+    gl.bind_texture(GL::TEXTURE_2D, Some(&texture));
+
+    let buf = vec![0u8; size * size];
+
+    let level = 0;
+    let internal_format = GL::LUMINANCE as i32;
+    let src_format = GL::LUMINANCE;
+    let src_type = GL::UNSIGNED_BYTE;
+    gl.tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_u8_array(
+        GL::TEXTURE_2D,
+        level,
+        internal_format,
+        size as i32,
+        size as i32,
+        0,
+        src_format,
+        src_type,
+        Some(&buf),
+    )?;
+    gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_MAG_FILTER, GL::NEAREST as i32);
+    gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_MIN_FILTER, GL::LINEAR as i32);
+
+    gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_S, GL::REPEAT as i32);
+    gl.tex_parameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_T, GL::REPEAT as i32);
 
     Ok(texture)
 }
