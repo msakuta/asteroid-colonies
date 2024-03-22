@@ -59,7 +59,7 @@ fn render_global_task_bar(gl: &GL, ctx: &RenderContext, [x, y]: [i32; 2], t: f64
         return;
     };
     gl.use_program(Some(&shader.program));
-    gl.uniform4f(shader.color_loc.as_ref(), 0.5, 0., 0., 1.);
+    gl.uniform4f(shader.color_loc.as_ref(), 0.1, 0.1, 0.1, 1.);
 
     let x = (x as f64 + ctx.offset[0] / TILE_SIZE) as f32;
     let y = (y as f64 + ctx.offset[1] / TILE_SIZE) as f32;

@@ -226,7 +226,7 @@ impl<'a> RenderBar<'a> {
         let shader = self.shader;
         self.gl.use_program(Some(&shader.program));
         self.gl
-            .uniform4f(shader.color_loc.as_ref(), 0.5, 0., 0., 1.);
+            .uniform4f(shader.color_loc.as_ref(), 0.1, 0.1, 0.1, 1.);
 
         let x = (self.x + self.ctx.offset[0] / TILE_SIZE) as f32;
         let y = (self.y + self.ctx.offset[1] / TILE_SIZE) as f32;
