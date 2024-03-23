@@ -86,15 +86,8 @@ impl AsteroidColonies {
 
         let time = self.game.get_global_time();
 
-        let [xmin, xmax, ymin, ymax] = *tile_range;
-        for building in self.game.iter_building() {
-            if !building.intersects_rect(
-                [xmin, ymin],
-                [(xmax - xmin) as usize, (ymax - ymin) as usize],
-            ) {
-                continue;
-            }
-
+        // Render objects in the building perimeter. Subject to the culling, if the screen is out of view.
+        let render_main = |building: &Building| {
             gl.use_program(Some(&shader.program));
             gl.uniform1f(shader.alpha_loc.as_ref(), 1.);
 
@@ -166,7 +159,7 @@ impl AsteroidColonies {
             };
 
             let Some(flat_shader) = assets.flat_shader.as_ref() else {
-                continue;
+                return;
             };
 
             if let Some((t, max_time)) = task_target {
@@ -198,6 +191,16 @@ impl AsteroidColonies {
                     shader: flat_shader,
                 }
                 .render_bar();
+            }
+        };
+
+        let [xmin, xmax, ymin, ymax] = *tile_range;
+        for building in self.game.iter_building() {
+            if building.intersects_rect(
+                [xmin, ymin],
+                [(xmax - xmin) as usize, (ymax - ymin) as usize],
+            ) {
+                render_main(&building);
             }
 
             if let Task::Move(_, path) = &building.task {
