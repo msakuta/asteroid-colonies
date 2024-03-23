@@ -96,7 +96,8 @@
     let buildingConveyor = null;
     let dragStart = null;
     let dragLast = null;
-    let fingerDist = 1;
+    let fingerDist = null;
+    let activePointers = [];
     let zoomChanging = false;
     let canvas;
     let time = 0;
@@ -160,6 +161,35 @@
         }
     }
 
+    // Multi-touch event tracking.
+    // see https://developer.mozilla.org/en-US/docs/Web/API/Pointer_events/Multi-touch_interaction
+    function updatePointerEvent(evt) {
+        // Remove this event from the target's cache
+        const index = activePointers.findIndex(
+            (cachedEv) => cachedEv.pointerId === evt.pointerId,
+        );
+        if (0 <= index) {
+            activePointers[index] = evt;
+        }
+    }
+
+    function removeEvent(evt) {
+        // Remove this event from the target's cache
+        const index = activePointers.findIndex(
+            (cachedEv) => cachedEv.pointerId === evt.pointerId,
+        );
+        if (0 <= index) {
+            activePointers.splice(index, 1);
+        }
+        if (activePointers.length <= 1) {
+            fingerDist = null;
+        }
+        if (activePointers.length === 0) {
+            zoomChanging = false;
+        }
+        console.log(`activePointers ${activePointers.length}`);
+    }
+
     onMount(async () => {
         if (useWebGL) {
             const images = await loadAllIcons();
@@ -167,66 +197,47 @@
             game.load_gl_assets(gl, images);
         }
         resizeHandler();
+
         canvas.addEventListener('pointermove', evt => {
+            updatePointerEvent(evt);
+            if (1 < activePointers.length) {
+                zoomChanging = true;
+                const newFingerDist = getMultitouchDistance();
+                if (fingerDist !== null) {
+                    const [x, y] = toLogicalCoords(evt.clientX, evt.clientY);
+                    const scale = 1 / Math.abs(fingerDist / newFingerDist);
+                    game.set_zoom(x, y, scale);
+                }
+                fingerDist = newFingerDist;
+            }
             if (!zoomChanging) {
                 pointerMove(evt);
             }
         });
         canvas.addEventListener('pointerdown', evt => {
             dragStart = toLogicalCoords(evt.clientX, evt.clientY);
+            activePointers.push(evt);
             evt.preventDefault();
             evt.stopPropagation();
         });
 
-        canvas.addEventListener('pointerleave', _ => mousePos = dragStart = null);
+        canvas.addEventListener('pointerleave', evt => {
+            mousePos = dragStart = null;
+            removeEvent(evt);
+        });
 
         canvas.addEventListener('pointerup', evt => {
             if (!zoomChanging) {
                 wrapErrorMessage(evt => pointerUpInt(evt))(evt);
             }
+            removeEvent(evt);
         });
 
-        function getMultitouchDistance(e) {
-            const diffX = e.touches[0].clientX - e.touches[1].clientX;
-            const diffY = e.touches[0].clientY - e.touches[1].clientY;
+        function getMultitouchDistance() {
+            const diffX = activePointers[0].clientX - activePointers[1].clientX;
+            const diffY = activePointers[0].clientY - activePointers[1].clientY;
             return Math.sqrt(diffX * diffX + diffY * diffY);
         }
-
-        canvas.addEventListener('touchstart', (e) => {
-            if (e.touches.length > 1) {
-                fingerDist = getMultitouchDistance(e);
-                const scale = Math.abs(fingerDist / newFingerDist);
-                errorMessage = `pos: ${game.pos()} current: ${game.get_zoom()} scale: ${scale}`;
-                showErrorMessage = true;
-                errorMessageTimeout = 3;
-                zoomChanging = true;
-            } else {
-                zoomChanging = false;
-            }
-        }, false);
-
-        canvas.addEventListener('touchmove', (e) => {
-            if (e.touches.length > 1 && zoomChanging) {
-                e.preventDefault();
-                e.stopPropagation(); // Stop moving
-                const newFingerDist = getMultitouchDistance(e);
-                const [x, y] = toLogicalCoords(e.clientX, e.clientY);
-                const scale = Math.abs(fingerDist / newFingerDist);
-                errorMessage = `pos: ${game.pos()} current: ${game.get_zoom()} scale: ${scale}`;
-                showErrorMessage = true;
-                errorMessageTimeout = 3;
-                game.set_zoom(x, y, scale);
-                fingerDist = newFingerDist; // Save current distance for next time
-            } else { // Else just moving around
-            // mouse_x = e.touches[0].clientX; // Save finger position for next time
-            // mouse_y = e.touches[0].clientY; //
-            }
-        }, false);
-
-        canvas.addEventListener('touchend', function (e) {
-            // mouse_x = e.touches[0].clientX;
-            // mouse_y = e.touches[0].clientY; // could be down to 1 finger, back to moving image
-        }, false);
 
         window.addEventListener("resize", resizeHandler);
         window.addEventListener("wheel", evt => {
