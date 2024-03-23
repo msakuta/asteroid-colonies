@@ -85,6 +85,7 @@ pub(crate) struct Assets {
     pub tex_deconstruction: WebGlTexture,
     pub tex_cleanup: WebGlTexture,
     pub tex_excavate: WebGlTexture,
+    pub tex_path: WebGlTexture,
 
     pub tex_bg_sampler: WebGlTexture,
     pub bg_sampler_buf: Cell<Vec<u8>>,
@@ -92,6 +93,7 @@ pub(crate) struct Assets {
     pub flat_shader: Option<ShaderBundle>,
     pub textured_shader: Option<ShaderBundle>,
     pub multi_textured_shader: Option<ShaderBundle>,
+    pub vertex_textured_shader: Option<ShaderBundle>,
     pub textured_instancing_shader: Option<ShaderBundle>,
     pub textured_alpha_shader: Option<ShaderBundle>,
 
@@ -163,6 +165,7 @@ impl Assets {
             tex_deconstruction: load_texture_local("deconstruction")?,
             tex_cleanup: load_texture_local("cleanup")?,
             tex_excavate: load_texture_local("excavate")?,
+            tex_path: load_texture_local("path")?,
 
             tex_bg_sampler: create_texture(context, 128)?,
             bg_sampler_buf: Cell::new(vec![]),
@@ -170,6 +173,7 @@ impl Assets {
             flat_shader: None,
             textured_shader: None,
             multi_textured_shader: None,
+            vertex_textured_shader: None,
             textured_instancing_shader: None,
             textured_alpha_shader: None,
             screen_buffer: None,
@@ -339,6 +343,7 @@ impl Assets {
         );
 
         self.multi_textured_shader = Some(make_multitex_shader(gl, &vert_shader)?);
+        self.vertex_textured_shader = Some(make_vertex_textured_shader(gl)?);
 
         let vert_shader_instancing = compile_shader(
             &gl,
@@ -527,6 +532,55 @@ fn make_multitex_shader(gl: &GL, vert_shader: &WebGlShader) -> Result<ShaderBund
     "#,
     )?;
     let program = link_program(&gl, vert_shader, &frag_shader)?;
+    gl.use_program(Some(&program));
+    console_log!("ShaderBundle multi_textured_shader:");
+    let shader = ShaderBundle::new(&gl, program);
+
+    gl.uniform1f(shader.width_scale_loc.as_ref(), 1. / 4.);
+
+    gl.uniform1f(shader.height_scale_loc.as_ref(), 1. / 8.);
+
+    Ok(shader)
+}
+
+fn make_vertex_textured_shader(gl: &GL) -> Result<ShaderBundle, String> {
+    let vert_shader = compile_shader(
+        &gl,
+        GL::VERTEX_SHADER,
+        r#"
+        attribute vec2 vertexData;
+        attribute vec2 texCoord;
+        uniform mat4 transform;
+        uniform mat3 texTransform;
+        varying vec2 texCoords;
+        void main() {
+            gl_Position = transform * vec4(vertexData.xy, 0., 1.0);
+
+            texCoords = (texTransform * vec3(texCoord.xy, 1.)).xy;
+        }
+    "#,
+    )?;
+    let frag_shader = compile_shader(
+        &gl,
+        GL::FRAGMENT_SHADER,
+        r#"
+        precision mediump float;
+
+        varying vec2 texCoords;
+
+        uniform sampler2D texture;
+        uniform float alpha;
+        uniform vec4 color;
+
+        void main() {
+            vec4 texColor = texture2D( texture, texCoords.xy );
+            gl_FragColor = color * vec4(texColor.rgb, texColor.a);
+            if(gl_FragColor.a < 0.01)
+                discard;
+        }
+    "#,
+    )?;
+    let program = link_program(&gl, &vert_shader, &frag_shader)?;
     gl.use_program(Some(&program));
     console_log!("ShaderBundle multi_textured_shader:");
     let shader = ShaderBundle::new(&gl, program);

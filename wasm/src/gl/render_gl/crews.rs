@@ -1,4 +1,9 @@
-use super::{super::utils::{enable_buffer, Flatten}, lerp, path::render_path, RenderContext};
+use super::{
+    super::utils::{enable_buffer, Flatten},
+    lerp,
+    path::render_path,
+    RenderContext,
+};
 use crate::AsteroidColonies;
 
 use ::asteroid_colonies_logic::TILE_SIZE;
@@ -51,7 +56,7 @@ impl AsteroidColonies {
             gl.draw_arrays(GL::TRIANGLE_FAN, 0, 4);
 
             if let Some(path) = &crew.path {
-                render_path(gl, ctx, path, &[0.5, 0., 1., 1.]);
+                render_path(gl, ctx, path, &[1., 0., 1., 1.]);
             }
         }
         Ok(())

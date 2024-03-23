@@ -59,6 +59,7 @@ impl AsteroidColonies {
 struct RenderContext<'a> {
     /// Fractional frame to interpolate objects motions
     frac_frame: f64,
+    total_time: f64,
     assets: &'a Assets,
     shader: &'a ShaderBundle,
     offset: [f64; 2],
@@ -90,6 +91,7 @@ impl<'a> RenderContext<'a> {
 
         Ok(Self {
             frac_frame,
+            total_time: ac.game.get_global_time() as f64 + frac_frame,
             assets,
             shader,
             offset,
