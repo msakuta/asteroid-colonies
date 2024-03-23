@@ -6,7 +6,7 @@
     import ButtonFrames from './ButtonFrames.svelte';
     import DebugButton from './DebugButton.svelte';
     import InfoPanel from './InfoPanel.svelte';
-    import { websocket, fetchSessionId, reconnectWebSocket } from './session';
+    import { websocket, fetchSessionId, reconnectWebSocket, tickTime } from './session';
     import BuildMenu from './BuildMenu.svelte';
     import RecipeMenu from './RecipeMenu.svelte';
     import ErrorMessage from './ErrorMessage.svelte';
@@ -258,7 +258,6 @@
         game.set_size(bodyRect.width, bodyRect.height);
     }
 
-    const FRAME_TIME = 0.1;
     let lastUpdated = null;
     let lastShowed = null;
 
@@ -276,15 +275,15 @@
         if (lastUpdated === null) {
             lastUpdated = now;
         }
-        while (FRAME_TIME < (now - lastUpdated) / 1000) {
-            lastUpdated += FRAME_TIME * 1000;
+        while (tickTime < (now - lastUpdated) / 1000) {
+            lastUpdated += tickTime * 1000;
             game.tick();
         }
         if (useWebGL) {
             const gl = canvas.getContext('webgl', { alpha: false });
             // gl.clearColor(0., 0.5, 0., 1.);
             // gl.clear(gl.COLOR_BUFFER_BIT);
-            game.render_gl(gl, (now - lastUpdated) / FRAME_TIME / 1000, performance.now() / 1000);
+            game.render_gl(gl, (now - lastUpdated) / tickTime / 1000, performance.now() / 1000);
         }
         else {
             const ctx = canvas.getContext('2d');
