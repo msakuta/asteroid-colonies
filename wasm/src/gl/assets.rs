@@ -100,8 +100,8 @@ pub(crate) struct Assets {
     pub textured_shader: ShaderBundle,
     pub multi_textured_shader: ShaderBundle,
     pub vertex_textured_shader: ShaderBundle,
-    pub textured_instancing_shader: Option<ShaderBundle>,
-    pub textured_alpha_shader: Option<ShaderBundle>,
+    /// Textured instancing shader, may use later
+    pub _textured_instancing_shader: Option<ShaderBundle>,
 
     pub screen_buffer: Option<WebGlBuffer>,
     pub rect_buffer: Option<WebGlBuffer>,
@@ -182,8 +182,7 @@ impl Assets {
             textured_shader,
             multi_textured_shader: make_multitex_shader(gl, &vert_shader)?,
             vertex_textured_shader: make_vertex_textured_shader(gl)?,
-            textured_instancing_shader: None,
-            textured_alpha_shader: None,
+            _textured_instancing_shader: make_instancing_shader(gl).ok(),
             screen_buffer: None,
             rect_buffer: None,
             cursor_buffer: None,
@@ -269,99 +268,6 @@ impl Assets {
         gl.blend_func(GL::SRC_ALPHA, GL::ONE_MINUS_SRC_ALPHA);
 
         // self.assets.sprite_shader = Some(shader);
-
-        let vert_shader_instancing = compile_shader(
-            &gl,
-            GL::VERTEX_SHADER,
-            r#"
-            attribute vec2 vertexData;
-            attribute vec4 position;
-            // attribute float alpha;
-            uniform mat4 transform;
-            uniform mat3 texTransform;
-            varying vec2 texCoords;
-            // varying float alphaVar;
-
-            void main() {
-                mat4 centerize = mat4(
-                    4, 0, 0, 0,
-                    0, -4, 0, 0,
-                    0, 0, 4, 0,
-                    -1, 1, -1, 1);
-                gl_Position = /*centerize **/ (transform * (vec4(vertexData.xy, 0.0, 1.0) + vec4(position.xy, 0.0, 1.0)));
-                texCoords = (texTransform * vec3(
-                    vertexData.xy + vec2(position.z, position.w), 1.)).xy;
-                // alphaVar = alpha;
-            }
-        "#,
-        )?;
-        let frag_shader_instancing = compile_shader(
-            &gl,
-            GL::FRAGMENT_SHADER,
-            r#"
-            precision mediump float;
-
-            varying vec2 texCoords;
-            // varying float alphaVar;
-
-            uniform sampler2D texture;
-
-            void main() {
-                vec4 texColor = texture2D( texture, vec2(texCoords.x, texCoords.y) );
-                gl_FragColor = texColor;
-                if(gl_FragColor.a < 0.5)
-                    discard;
-            }
-        "#,
-        )?;
-        let program = link_program(&gl, &vert_shader_instancing, &frag_shader_instancing)?;
-        let shader = ShaderBundle::new(&gl, program);
-        self.textured_instancing_shader = Some(shader);
-
-        let vert_shader = compile_shader(
-            &gl,
-            GL::VERTEX_SHADER,
-            r#"
-            attribute vec2 vertexData;
-            uniform mat4 transform;
-            uniform mat3 texTransform;
-            varying vec2 texCoords;
-            void main() {
-                gl_Position = transform * vec4(vertexData.xy, 0., 1.0);
-
-                texCoords = (texTransform * vec3(vertexData.xy, 1.)).xy;
-            }
-        "#,
-        )?;
-        let frag_shader = compile_shader(
-            &gl,
-            GL::FRAGMENT_SHADER,
-            r#"
-            precision mediump float;
-
-            varying vec2 texCoords;
-
-            uniform float alpha;
-            uniform sampler2D texture;
-
-            void main() {
-                vec4 texColor = texture2D( texture, texCoords.xy );
-                float prodAlpha = texColor.a * alpha;
-                gl_FragColor = vec4(texColor.rgb, prodAlpha);
-            }
-        "#,
-        )?;
-        let program = link_program(&gl, &vert_shader, &frag_shader)?;
-        gl.use_program(Some(&program));
-        self.textured_alpha_shader = Some(ShaderBundle::new(&gl, program));
-
-        gl.active_texture(GL::TEXTURE0);
-        gl.uniform1i(
-            self.textured_alpha_shader
-                .as_ref()
-                .and_then(|s| s.texture_loc.as_ref()),
-            0,
-        );
 
         self.rect_buffer = Some(gl.create_buffer().ok_or("failed to create buffer")?);
         gl.bind_buffer(GL::ARRAY_BUFFER, self.rect_buffer.as_ref());
@@ -591,6 +497,55 @@ fn make_vertex_textured_shader(gl: &GL) -> Result<ShaderBundle, String> {
     gl.uniform1f(shader.height_scale_loc.as_ref(), 1. / 8.);
 
     Ok(shader)
+}
+
+fn make_instancing_shader(gl: &GL) -> Result<ShaderBundle, String> {
+    let vert_shader_instancing = compile_shader(
+        &gl,
+        GL::VERTEX_SHADER,
+        r#"
+    attribute vec2 vertexData;
+    attribute vec4 position;
+    // attribute float alpha;
+    uniform mat4 transform;
+    uniform mat3 texTransform;
+    varying vec2 texCoords;
+    // varying float alphaVar;
+
+    void main() {
+        mat4 centerize = mat4(
+            4, 0, 0, 0,
+            0, -4, 0, 0,
+            0, 0, 4, 0,
+            -1, 1, -1, 1);
+        gl_Position = /*centerize **/ (transform * (vec4(vertexData.xy, 0.0, 1.0) + vec4(position.xy, 0.0, 1.0)));
+        texCoords = (texTransform * vec3(
+            vertexData.xy + vec2(position.z, position.w), 1.)).xy;
+        // alphaVar = alpha;
+    }
+"#,
+    )?;
+    let frag_shader_instancing = compile_shader(
+        &gl,
+        GL::FRAGMENT_SHADER,
+        r#"
+    precision mediump float;
+
+    varying vec2 texCoords;
+    // varying float alphaVar;
+
+    uniform sampler2D texture;
+
+    void main() {
+        vec4 texColor = texture2D( texture, vec2(texCoords.x, texCoords.y) );
+        gl_FragColor = texColor;
+        if(gl_FragColor.a < 0.5)
+            discard;
+    }
+"#,
+    )?;
+    let program = link_program(&gl, &vert_shader_instancing, &frag_shader_instancing)?;
+    Ok(ShaderBundle::new(&gl, program))
 }
 
 pub fn compile_shader(context: &GL, shader_type: u32, source: &str) -> Result<WebGlShader, String> {
