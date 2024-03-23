@@ -88,11 +88,10 @@ impl AsteroidColonies {
 
         let [xmin, xmax, ymin, ymax] = *tile_range;
         for building in self.game.iter_building() {
-            if building.pos[0] < xmin
-                || xmax < building.pos[0]
-                || building.pos[1] < ymin
-                || ymax < building.pos[1]
-            {
+            if !building.intersects_rect(
+                [xmin, ymin],
+                [(xmax - xmin) as usize, (ymax - ymin) as usize],
+            ) {
                 continue;
             }
 
