@@ -3,9 +3,15 @@ mod conveyor;
 mod info;
 mod render;
 mod utils;
+mod gl {
+    pub mod assets;
+    mod render_gl;
+    pub mod shader_bundle;
+    mod utils;
+}
 
 use wasm_bindgen::prelude::*;
-use web_sys::js_sys;
+use web_sys::{js_sys, WebGlRenderingContext};
 
 use asteroid_colonies_logic::{
     building::BuildingType, get_build_menu, AsteroidColoniesGame, Pos, TileState, HEIGHT,
@@ -40,6 +46,17 @@ macro_rules! console_log {
     }
 }
 
+/// format-like macro that returns js_sys::String
+#[macro_export]
+macro_rules! js_str {
+    ($fmt:expr, $($arg1:expr),*) => {
+        JsValue::from_str(&format!($fmt, $($arg1),+))
+    };
+    ($fmt:expr) => {
+        JsValue::from_str($fmt)
+    }
+}
+
 #[wasm_bindgen]
 extern "C" {
     #[wasm_bindgen(js_namespace = console)]
@@ -51,11 +68,28 @@ extern "C" {
     fn alert(s: &str);
 }
 
+#[allow(dead_code)]
+fn window() -> web_sys::Window {
+    web_sys::window().expect("no global `window` exists")
+}
+
+#[allow(dead_code)]
+fn document() -> web_sys::Document {
+    window()
+        .document()
+        .expect("should have a document on window")
+}
+
+const MAX_SCALE: f64 = 4.;
+const MIN_SCALE: f64 = 0.5;
+
 struct Viewport {
     /// View offset in pixels
     offset: [f64; 2],
     /// Viewport size in pixels
     size: [f64; 2],
+    /// Zoom level
+    scale: f64,
 }
 
 #[wasm_bindgen]
@@ -65,6 +99,7 @@ pub struct AsteroidColonies {
     move_cursor: Option<Pos>,
     move_item_cursor: Option<Pos>,
     assets: Assets,
+    gl_assets: Option<gl::assets::Assets>,
     viewport: Viewport,
     debug_draw_chunks: bool,
 }
@@ -83,15 +118,29 @@ impl AsteroidColonies {
             move_cursor: None,
             move_item_cursor: None,
             assets: Assets::new(image_assets)?,
+            gl_assets: None,
             viewport: Viewport {
                 offset: [
                     -(WIDTH as f64 / 8. - 4.) * TILE_SIZE,
                     -(HEIGHT as f64 / 2. - 8.) * TILE_SIZE,
                 ],
                 size: [vp_width, vp_height],
+                scale: 1.,
             },
             debug_draw_chunks: false,
         })
+    }
+
+    /// Load WebGL assets. Delayed from construction of AsteroidColonies instance, because
+    /// the assets must be associated with the canvas.
+    pub fn load_gl_assets(
+        &mut self,
+        gl: &WebGlRenderingContext,
+        image_assets: js_sys::Array,
+    ) -> Result<(), JsValue> {
+        let assets = gl::assets::Assets::new(gl, image_assets)?;
+        self.gl_assets = Some(assets);
+        Ok(())
     }
 
     pub fn set_size(&mut self, sx: f64, sy: f64) {
@@ -238,8 +287,40 @@ impl AsteroidColonies {
     }
 
     pub fn pan(&mut self, x: f64, y: f64) {
-        self.viewport.offset[0] += x;
-        self.viewport.offset[1] += y;
+        self.viewport.offset[0] += x / self.viewport.scale;
+        self.viewport.offset[1] += y / self.viewport.scale;
+    }
+
+    pub fn get_pos(&self) -> Vec<f64> {
+        self.viewport.offset.to_vec()
+    }
+
+    pub fn get_zoom(&self) -> f64 {
+        self.viewport.scale
+    }
+
+    pub fn set_zoom(&mut self, x: f64, y: f64, scale: f64) {
+        let new_scale = (self.viewport.scale * scale).clamp(MIN_SCALE, MAX_SCALE);
+        self.viewport.offset[0] +=
+            (x as f64 / self.viewport.scale) * (1. - new_scale / self.viewport.scale);
+        self.viewport.offset[1] +=
+            (y as f64 / self.viewport.scale) * (1. - new_scale / self.viewport.scale);
+
+        self.viewport.scale = new_scale;
+    }
+
+    pub fn change_zoom(&mut self, x: f64, y: f64, v: f64) {
+        let new_scale = if v < 0. {
+            (self.viewport.scale * 1.2).min(MAX_SCALE)
+        } else {
+            (self.viewport.scale / 1.2).max(MIN_SCALE)
+        };
+        self.viewport.offset[0] +=
+            (x as f64 / self.viewport.scale) * (1. - new_scale / self.viewport.scale);
+        self.viewport.offset[1] +=
+            (y as f64 / self.viewport.scale) * (1. - new_scale / self.viewport.scale);
+
+        self.viewport.scale = new_scale;
     }
 
     pub fn tick(&mut self) -> Result<(), JsValue> {
@@ -282,8 +363,9 @@ impl AsteroidColonies {
 
 impl AsteroidColonies {
     fn transform_pos(&self, x: f64, y: f64) -> Pos {
-        let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
-        let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
+        let vp = &self.viewport;
+        let ix = (x / vp.scale - vp.offset[0]).div_euclid(TILE_SIZE) as i32;
+        let iy = (y / vp.scale - vp.offset[1]).div_euclid(TILE_SIZE) as i32;
         [ix, iy]
     }
 }

@@ -19,11 +19,11 @@ use asteroid_colonies_logic::{
 
 pub(crate) const TILE_SIZE: f64 = 32.;
 const ITEM_SIZE: f64 = 16.;
-const BAR_MARGIN: f64 = 4.;
-const BAR_WIDTH: f64 = TILE_SIZE - BAR_MARGIN * 2.;
-const BAR_HEIGHT: f64 = 6.;
-const SPACE_BIT: u8 = 32;
-const NEIGHBOR_BITS: u8 = 0x1f;
+pub(crate) const BAR_MARGIN: f64 = 4.;
+pub(crate) const BAR_WIDTH: f64 = TILE_SIZE - BAR_MARGIN * 2.;
+pub(crate) const BAR_HEIGHT: f64 = 6.;
+pub(crate) const SPACE_BIT: u8 = 32;
+pub(crate) const NEIGHBOR_BITS: u8 = 0x1f;
 
 #[wasm_bindgen]
 impl AsteroidColonies {
@@ -451,8 +451,10 @@ impl AsteroidColonies {
                     ItemType::Circuit => (&self.assets.img_circuit, 32., 32.),
                     ItemType::Battery => (&self.assets.img_battery_item, 32., 32.),
                     ItemType::PowerGridComponent => (&self.assets.img_power_grid, 32., 32.),
-                    ItemType::ConveyorComponent => (&self.assets.img_conveyor, 32., 32.),
-                    ItemType::AssemblerComponent => (&self.assets.img_assembler, 32., 32.),
+                    ItemType::ConveyorComponent => (&self.assets.img_conveyor_item, 32., 32.),
+                    ItemType::AssemblerComponent => {
+                        (&self.assets.img_assembler_component, 32., 32.)
+                    }
                 };
                 let tile_offset = (TILE_SIZE as f64 - ITEM_SIZE as f64) / 2.;
                 let x = pos[0] as f64 * TILE_SIZE + tile_offset + offset[0];

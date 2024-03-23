@@ -30,6 +30,8 @@ import furnaceItem from '../images/furnaceItem.png';
 import construction from '../images/construction.png';
 import deconstruction from '../images/deconstruction.png';
 import cleanup from '../images/cleanup.png';
+import excavate from '../images/excavate.png';
+import path from '../images/path.png';
 import heart from '../images/heart.png';
 import brokenHeart from '../images/brokenHeart.png';
 import debug from '../images/debug.png';
@@ -77,11 +79,16 @@ export async function loadAllIcons() {
         ["wire", wire],
         ["circuit", circuit],
         ["battery_item", batteryItem],
+        ["conveyor_item", conveyorItem],
+        ["assembler_component", assemblerComponent],
         ["construction", construction],
         ["deconstruction", deconstruction],
         ["cleanup", cleanup],
+        ["excavate", excavate],
+        ["path", path],
     ].map(async ([name, src]) => {
-        return [name, src, await loadImage(src)];
+        const res = await fetch(src);
+        return [name, src, await loadImage(src), await createImageBitmap(await res.blob())];
     });
     return Promise.all(loadImages);
 }

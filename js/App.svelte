@@ -24,6 +24,7 @@
     import cancelBuildIcon from '../images/cancelBuild.png';
     import deconstructIcon from '../images/deconstruct.png';
     import cleanup from '../images/cleanup.png';
+    import { loadAllIcons } from './graphics';
 
     export let baseUrl = BASE_URL;
     export let port = 3883;
@@ -51,6 +52,8 @@
     let showRecipeMenu = false;
     let recipeItems = [];
     let recipePos = null;
+
+    const useWebGL = true;
 
     let buttons = [
         {mode: 'excavate', icon: excavateIcon},
@@ -93,9 +96,13 @@
     let buildingConveyor = null;
     let dragStart = null;
     let dragLast = null;
+    let fingerDist = null;
+    let activePointers = [];
+    let zoomChanging = false;
     let canvas;
     let time = 0;
     let modeName = "";
+
 
     let reconnectTime = 0;
     let websocketOptions = {
@@ -154,29 +161,108 @@
         }
     }
 
-    onMount(() => {
+    // Multi-touch event tracking.
+    // see https://developer.mozilla.org/en-US/docs/Web/API/Pointer_events/Multi-touch_interaction
+    function updatePointerEvent(evt) {
+        // Remove this event from the target's cache
+        const index = activePointers.findIndex(
+            (cachedEv) => cachedEv.pointerId === evt.pointerId,
+        );
+        if (0 <= index) {
+            activePointers[index] = evt;
+        }
+    }
+
+    function removeEvent(evt) {
+        // Remove this event from the target's cache
+        const index = activePointers.findIndex(
+            (cachedEv) => cachedEv.pointerId === evt.pointerId,
+        );
+        if (0 <= index) {
+            activePointers.splice(index, 1);
+        }
+        if (activePointers.length <= 1) {
+            fingerDist = null;
+        }
+        if (activePointers.length === 0) {
+            zoomChanging = false;
+        }
+        console.log(`activePointers ${activePointers.length}`);
+    }
+
+    onMount(async () => {
+        if (useWebGL) {
+            const images = await loadAllIcons();
+            const gl = canvas.getContext('webgl', { alpha: false });
+            game.load_gl_assets(gl, images);
+        }
         resizeHandler();
-        canvas.addEventListener('pointermove', pointerMove);
+
+        canvas.addEventListener('pointermove', evt => {
+            updatePointerEvent(evt);
+            if (1 < activePointers.length) {
+                zoomChanging = true;
+                const newFingerDist = getMultitouchDistance();
+                if (fingerDist !== null) {
+                    const [x, y] = toLogicalCoords(evt.clientX, evt.clientY);
+                    const scale = 1 / Math.abs(fingerDist / newFingerDist);
+                    game.set_zoom(x, y, scale);
+                }
+                fingerDist = newFingerDist;
+            }
+            if (!zoomChanging) {
+                pointerMove(evt);
+            }
+        });
         canvas.addEventListener('pointerdown', evt => {
             dragStart = toLogicalCoords(evt.clientX, evt.clientY);
+            activePointers.push(evt);
             evt.preventDefault();
             evt.stopPropagation();
         });
 
-        canvas.addEventListener('pointerleave', _ => mousePos = dragStart = null);
+        canvas.addEventListener('pointerleave', evt => {
+            mousePos = dragStart = null;
+            removeEvent(evt);
+        });
 
-        canvas.addEventListener('pointerup', pointerUp);
+        canvas.addEventListener('pointerup', evt => {
+            if (!zoomChanging) {
+                wrapErrorMessage(evt => pointerUpInt(evt))(evt);
+            }
+            removeEvent(evt);
+        });
+
+        function getMultitouchDistance() {
+            const diffX = activePointers[0].clientX - activePointers[1].clientX;
+            const diffY = activePointers[0].clientY - activePointers[1].clientY;
+            return Math.sqrt(diffX * diffX + diffY * diffY);
+        }
+
         window.addEventListener("resize", resizeHandler);
+        window.addEventListener("wheel", evt => {
+            const [x, y] = toLogicalCoords(evt.clientX, evt.clientY);
+            game.change_zoom(x, y, evt.deltaY);
+        });
+
+        // Don't start timer until the assets are loaded, otherwise an error will be thrown
+        requestAnimationFrame(frameProc);
     });
 
     function resizeHandler() {
         const bodyRect = document.body.getBoundingClientRect();
         canvas.setAttribute("width", bodyRect.width);
         canvas.setAttribute("height", bodyRect.height);
+        const gl = canvas.getContext("webgl");
+        gl.viewport(0, 0, canvas.width, canvas.height);
         game.set_size(bodyRect.width, bodyRect.height);
     }
 
-    setInterval(() => {
+    const FRAME_TIME = 0.1;
+    let lastUpdated = null;
+    let lastShowed = null;
+
+    function frameProc() {
         // Increment time before any await. Otherwise, this async function runs 2-4 times every tick for some reason.
         time++;
         // if (serverSync && time % syncPeriod === 0) {
@@ -185,16 +271,32 @@
         //     const dataText = await dataRes.text();
         //     game.deserialize(dataText);
         // }
-        const ctx = canvas.getContext('2d');
-        game.tick();
-        game.render(ctx);
+        const now = performance.now();
+        const deltaTime = (now - lastShowed) / 1000;
+        if (lastUpdated === null) {
+            lastUpdated = now;
+        }
+        while (FRAME_TIME < (now - lastUpdated) / 1000) {
+            lastUpdated += FRAME_TIME * 1000;
+            game.tick();
+        }
+        if (useWebGL) {
+            const gl = canvas.getContext('webgl', { alpha: false });
+            // gl.clearColor(0., 0.5, 0., 1.);
+            // gl.clear(gl.COLOR_BUFFER_BIT);
+            game.render_gl(gl, (now - lastUpdated) / FRAME_TIME / 1000, performance.now() / 1000);
+        }
+        else {
+            const ctx = canvas.getContext('2d');
+            game.render(ctx);
+        }
         if (mousePos !== null) {
             const info = game.get_info(mousePos[0], mousePos[1]);
             infoResult = info;
         }
         if (websocket) {
             if (websocket.readyState === 1) {
-                heartbeatOpacity = Math.max(0, heartbeatOpacity - 0.2);
+                heartbeatOpacity = Math.max(0, heartbeatOpacity - deltaTime);
             }
             updateHeartbeatOpacity();
             if (websocket.readyState === 3 && reconnectTime-- <= 0) {
@@ -204,12 +306,14 @@
             }
         }
         if (showErrorMessage) {
-            errorMessageTimeout = errorMessageTimeout - 1;
+            errorMessageTimeout = errorMessageTimeout - deltaTime;
             if(errorMessageTimeout < 0) {
                 showErrorMessage = false;
             }
         }
-    }, 100);
+        lastShowed = now;
+        requestAnimationFrame(frameProc);
+    }
 
     function updateHeartbeatOpacity() {
         if(!websocket) return;
@@ -362,8 +466,6 @@
         }
     }
 
-    let pointerUp = wrapErrorMessage(evt => pointerUpInt(evt));
-
     function wrapErrorMessage(f) {
         return evt => {
             try {
@@ -372,7 +474,7 @@
             catch (e) {
                 errorMessage = e;
                 showErrorMessage = true;
-                errorMessageTimeout = 30;
+                errorMessageTimeout = 3;
             }
         };
     }

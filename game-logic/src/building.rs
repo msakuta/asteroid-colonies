@@ -476,6 +476,7 @@ impl AsteroidColoniesGame {
             }
         }
 
+        self.power_ratio = power_ratio;
         self.used_power = power_ratio * power_demand as f64;
         // println!("charge: {chargeable}, discharge: {dischargeable}, power_gen: {power_gen}, power_demand: {power_demand}, ratio = {power_ratio}, used: {}", self.used_power);
 

@@ -141,20 +141,28 @@ impl AsteroidColoniesGame {
                 }
             }
             Task::Move(ref mut t, ref mut path) => {
-                if *t <= 0. {
+                let next_t = *t - power_ratio;
+                if next_t <= 0. {
                     if let Some(next) = path.pop() {
-                        let direction = Direction::from_vec([
-                            next[0] - building.pos[0],
-                            next[1] - building.pos[1],
-                        ]);
                         building.pos = next;
-                        building.direction = direction;
-                        *t = MOVE_TIME;
+                        if let Some(next_next) = path.last() {
+                            building.direction = Direction::from_vec([
+                                next_next[0] - building.pos[0],
+                                next_next[1] - building.pos[1],
+                            ]);
+                        }
+                        *t = next_t + MOVE_TIME;
                     } else {
                         building.task = Task::None;
                     }
                 } else {
-                    *t = (*t - power_ratio).max(0.);
+                    if let Some(next) = path.last() {
+                        building.direction = Direction::from_vec([
+                            next[0] - building.pos[0],
+                            next[1] - building.pos[1],
+                        ]);
+                    }
+                    *t = next_t;
                 }
             }
             Task::Assemble {
