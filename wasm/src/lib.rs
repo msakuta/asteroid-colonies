@@ -80,6 +80,9 @@ fn document() -> web_sys::Document {
         .expect("should have a document on window")
 }
 
+const MAX_SCALE: f64 = 4.;
+const MIN_SCALE: f64 = 0.5;
+
 struct Viewport {
     /// View offset in pixels
     offset: [f64; 2],
@@ -289,11 +292,29 @@ impl AsteroidColonies {
         self.viewport.offset[1] += y / self.viewport.scale;
     }
 
+    pub fn get_pos(&self) -> Vec<f64> {
+        self.viewport.offset.to_vec()
+    }
+
+    pub fn get_zoom(&self) -> f64 { 
+        self.viewport.scale
+    }
+
+    pub fn set_zoom(&mut self, x: f64, y: f64, scale: f64) {
+        let new_scale = (self.viewport.scale * scale).clamp(MIN_SCALE, MAX_SCALE);
+        self.viewport.offset[0] +=
+            (x as f64 / self.viewport.scale) * (1. - new_scale / self.viewport.scale);
+        self.viewport.offset[1] +=
+            (y as f64 / self.viewport.scale) * (1. - new_scale / self.viewport.scale);
+
+        self.viewport.scale = new_scale;
+    }
+
     pub fn change_zoom(&mut self, x: f64, y: f64, v: f64) {
         let new_scale = if v < 0. {
-            (self.viewport.scale * 1.2).min(4.)
+            (self.viewport.scale * 1.2).min(MAX_SCALE)
         } else {
-            (self.viewport.scale / 1.2).max(0.5)
+            (self.viewport.scale / 1.2).max(MIN_SCALE)
         };
         self.viewport.offset[0] +=
             (x as f64 / self.viewport.scale) * (1. - new_scale / self.viewport.scale);
