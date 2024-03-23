@@ -52,7 +52,7 @@ pub(super) fn render_path(gl: &GL, ctx: &RenderContext, path: &[[i32; 2]], color
         let prev_normal = vec2(prev_delta[1], -prev_delta[0]);
         let next_normal = vec2(next_delta[1], -next_delta[0]);
         let cur_normal = (prev_normal + next_normal).normalize();
-        if !first {
+        if first {
             first = false;
             add_vertex(prev, prev_normal, 0.);
         }
