@@ -1,5 +1,5 @@
 use super::{super::utils::Flatten, render_global_task_bar, RenderContext};
-use crate::AsteroidColonies;
+use crate::{gl::utils::enable_buffer, AsteroidColonies};
 
 use ::asteroid_colonies_logic::{construction::ConstructionType, TILE_SIZE};
 use cgmath::{Matrix3, Matrix4, SquareMatrix, Vector3};
@@ -20,6 +20,7 @@ impl AsteroidColonies {
         let shader = &assets.textured_shader;
 
         gl.use_program(Some(&shader.program));
+        enable_buffer(gl, &assets.screen_buffer, 2, shader.vertex_position);
 
         let view_time = (self.game.get_global_time() as f64 + frac_frame) * 0.1;
         let alpha = triangle(view_time as f32);
