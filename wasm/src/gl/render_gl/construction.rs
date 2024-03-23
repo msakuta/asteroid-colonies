@@ -1,4 +1,4 @@
-use super::{super::utils::Flatten, RenderContext};
+use super::{super::utils::Flatten, render_global_task_bar, RenderContext};
 use crate::AsteroidColonies;
 
 use ::asteroid_colonies_logic::{construction::ConstructionType, TILE_SIZE};
@@ -17,6 +17,8 @@ impl AsteroidColonies {
             scale,
             ..
         } = ctx;
+
+        gl.use_program(Some(&shader.program));
 
         let view_time = (self.game.get_global_time() as f64 + frac_frame) * 0.1;
         let alpha = triangle(view_time as f32);
@@ -98,12 +100,14 @@ impl AsteroidColonies {
             // context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
             //     img, 0., 0., SRC_WIDTH, SRC_HEIGHT, x, y, width, height,
             // )?;
-            // render_global_task_bar(
-            //     context,
-            //     [x, y],
-            //     construction.progress(),
-            //     construction.recipe.time,
-            // );
+            render_global_task_bar(
+                gl,
+                ctx,
+                [ix, iy],
+                size[0] as f32,
+                construction.progress(),
+                construction.recipe.time,
+            );
             // if let Some((t, pos, max_time)) = task_target {
             //     render_global_task_bar(context, pos, t, max_time);
             // }
