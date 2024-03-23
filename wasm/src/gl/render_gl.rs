@@ -37,12 +37,12 @@ impl AsteroidColonies {
         self.render_gl_background(gl, &ctx)?;
         self.render_gl_power_grid(gl, &ctx)?;
         self.render_gl_conveyors(gl, &ctx)?;
+        self.render_gl_buildings(gl, &ctx)?;
+        self.render_gl_crews(gl, &ctx)?;
         self.render_gl_global_tasks(gl, &ctx);
         self.render_gl_constructions(gl, &ctx);
         self.render_gl_conveyor_plan(gl, &ctx);
         self.render_gl_transports(gl, &ctx);
-        self.render_gl_buildings(gl, &ctx)?;
-        self.render_gl_crews(gl, &ctx)?;
 
         if let Some(cursor) = self.move_cursor {
             self.render_gl_cursor(gl, &cursor, &ctx, &ctx.assets.tex_move_cursor)?;

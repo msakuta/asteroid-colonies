@@ -15,9 +15,7 @@ use web_sys::{
 
 pub(crate) const MAX_SPRITES: usize = 512;
 pub(crate) const SPRITE_COMPONENTS: usize = 4;
-pub(crate) const WIRE_SEGMENTS: i32 = 10;
 pub(crate) const HARVESTING_SEGMENTS: usize = 20;
-pub(crate) const HARVESTING_THICKNESS: f32 = 0.1;
 
 #[wasm_bindgen]
 extern "C" {
@@ -100,7 +98,7 @@ pub(crate) struct Assets {
     pub screen_buffer: Option<WebGlBuffer>,
     pub rect_buffer: Option<WebGlBuffer>,
     pub cursor_buffer: Option<WebGlBuffer>,
-    pub wire_buffer: Option<WebGlBuffer>,
+    pub path_buffer: Option<WebGlBuffer>,
     pub harvesting_buffer: Option<WebGlBuffer>,
 
     pub sprites_buffer: Option<WebGlBuffer>,
@@ -177,7 +175,7 @@ impl Assets {
             screen_buffer: None,
             rect_buffer: None,
             cursor_buffer: None,
-            wire_buffer: None,
+            path_buffer: None,
             harvesting_buffer: None,
             sprites_buffer: None,
         })
@@ -470,9 +468,8 @@ impl Assets {
         ];
         vertex_buffer_data(&gl, rect_vertices.flat());
 
-        self.wire_buffer = Some(gl.create_buffer().ok_or("failed to create buffer")?);
-        gl.bind_buffer(GL::ARRAY_BUFFER, self.wire_buffer.as_ref());
-        gl.buffer_data_with_i32(GL::ARRAY_BUFFER, (WIRE_SEGMENTS + 1) * 4, GL::DYNAMIC_DRAW);
+        self.path_buffer = Some(gl.create_buffer().ok_or("failed to create buffer")?);
+        gl.bind_buffer(GL::ARRAY_BUFFER, self.path_buffer.as_ref());
 
         self.harvesting_buffer = Some(gl.create_buffer().ok_or("failed to create buffer")?);
         gl.bind_buffer(GL::ARRAY_BUFFER, self.harvesting_buffer.as_ref());

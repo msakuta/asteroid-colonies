@@ -1,4 +1,7 @@
-use super::{super::utils::Flatten, enable_buffer, lerp, RenderContext};
+use super::{
+    super::utils::{vertex_buffer_data, Flatten},
+    enable_buffer, lerp, RenderContext,
+};
 use crate::{
     gl::shader_bundle::ShaderBundle,
     render::{BAR_HEIGHT, BAR_MARGIN, BAR_WIDTH, TILE_SIZE},
@@ -10,7 +13,7 @@ use ::asteroid_colonies_logic::{
     task::{Task, EXCAVATE_TIME, MOVE_TIME},
     Direction,
 };
-use cgmath::{Matrix3, Matrix4, Rad, Vector2, Vector3};
+use cgmath::{vec2, InnerSpace, Matrix3, Matrix4, Rad, Vector2, Vector3};
 use wasm_bindgen::JsValue;
 use web_sys::WebGlRenderingContext as GL;
 
@@ -29,8 +32,6 @@ impl AsteroidColonies {
         gl.active_texture(GL::TEXTURE0);
 
         gl.uniform1i(shader.texture_loc.as_ref(), 0);
-
-        enable_buffer(&gl, &assets.screen_buffer, 2, shader.vertex_position);
 
         let set_texture_transform = |tx, ty, sx, sy| {
             let tex_transform = Matrix3::from_nonuniform_scale(sx, sy)
@@ -100,6 +101,8 @@ impl AsteroidColonies {
 
             gl.use_program(Some(&shader.program));
             gl.uniform1f(shader.alpha_loc.as_ref(), 1.);
+
+            enable_buffer(&gl, &assets.screen_buffer, 2, shader.vertex_position);
 
             let [x, y] = match building.type_ {
                 BuildingType::Power => {
@@ -200,6 +203,10 @@ impl AsteroidColonies {
                 }
                 .render_bar();
             }
+
+            if let Task::Move(_, path) = &building.task {
+                render_path(gl, ctx, path);
+            }
         }
 
         // Reset to the default shader for next rendering
@@ -257,4 +264,59 @@ impl<'a> RenderBar<'a> {
         );
         self.gl.draw_arrays(GL::TRIANGLE_FAN, 0, 4);
     }
+}
+
+const PATH_WIDTH: f32 = 0.05;
+
+fn render_path(gl: &GL, ctx: &RenderContext, path: &[[i32; 2]]) {
+    let Some(ref shader) = ctx.assets.flat_shader else {
+        return;
+    };
+    let mut vertices = Vec::with_capacity(path.len() * 2);
+    let mut add_vertex = |pos: Vector2<f32>, normal: Vector2<f32>| {
+        vertices.extend_from_slice(&[
+            pos[0] + 0.5 + normal[0] * PATH_WIDTH,
+            pos[1] + 0.5 + normal[1] * PATH_WIDTH,
+            pos[0] + 0.5 - normal[0] * PATH_WIDTH,
+            pos[1] + 0.5 - normal[1] * PATH_WIDTH,
+        ]);
+    };
+    let mut first = true;
+    let mut last = None;
+    for ((prev, cur), next) in path
+        .iter()
+        .zip(path.iter().skip(1))
+        .zip(path.iter().skip(2))
+    {
+        let prev = vec2(prev[0], prev[1]).cast::<f32>().unwrap();
+        let cur = vec2(cur[0], cur[1]).cast::<f32>().unwrap();
+        let next = vec2(next[0], next[1]).cast::<f32>().unwrap();
+        let prev_delta = cur - prev;
+        let next_delta = next - cur;
+        let prev_normal = vec2(prev_delta[1], -prev_delta[0]);
+        let next_normal = vec2(next_delta[1], -next_delta[0]);
+        let cur_normal = (prev_normal + next_normal).normalize();
+        if !first {
+            first = false;
+            add_vertex(prev, prev_normal);
+        }
+        add_vertex(cur, cur_normal);
+        last = Some((next, next_normal));
+    }
+    if let Some((pos, normal)) = last {
+        add_vertex(pos, normal);
+    }
+
+    enable_buffer(&gl, &ctx.assets.path_buffer, 2, shader.vertex_position);
+    vertex_buffer_data(gl, &vertices);
+
+    gl.uniform4f(shader.color_loc.as_ref(), 1., 0.5, 0.0, 1.);
+
+    let x = ctx.offset[0] / TILE_SIZE;
+    let y = ctx.offset[1] / TILE_SIZE;
+    let transform =
+        ctx.to_screen * ctx.scale * Matrix4::from_translation(Vector3::new(x as f32, y as f32, 0.));
+    gl.uniform_matrix4fv_with_f32_array(shader.transform_loc.as_ref(), false, transform.flatten());
+    gl.line_width(5.);
+    gl.draw_arrays(GL::TRIANGLE_STRIP, 0, vertices.len() as i32 / 2);
 }
