@@ -84,7 +84,7 @@ impl AsteroidColonies {
             pos
         };
 
-        let time = self.game.get_global_time();
+        let time = ctx.view_time / 0.1;
 
         // Render objects in the building perimeter. Subject to the culling, if the screen is out of view.
         let render_main = |building: &Building| {
@@ -95,7 +95,7 @@ impl AsteroidColonies {
 
             let [x, y] = match building.type_ {
                 BuildingType::Power => {
-                    let (sx, sy) = ((time / 5 % 2) as f32, 0.);
+                    let (sx, sy) = ((time / 5. % 2.).floor() as f32, 0.);
                     gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_atomic_battery));
                     set_texture_transform(sx, sy, 0.5, 1.);
                     render_bldg(&building)
@@ -112,7 +112,7 @@ impl AsteroidColonies {
                 }
                 BuildingType::Excavator => {
                     let sx = if let Task::Excavate(_, _) = building.task {
-                        (time % 2 + 1) as f32
+                        ((time % 2.).floor() + 1.) as f32
                     } else {
                         0.
                     };
@@ -122,7 +122,7 @@ impl AsteroidColonies {
                 }
                 BuildingType::Assembler => {
                     let sx = if !matches!(building.task, Task::None) {
-                        (time % 2 + 1) as f32
+                        ((time % 2.).floor() + 1.) as f32
                     } else {
                         0.
                     };
@@ -132,7 +132,7 @@ impl AsteroidColonies {
                 }
                 BuildingType::Furnace => {
                     let sx = if !matches!(building.task, Task::None) {
-                        (time % 2 + 1) as f32
+                        ((time % 2.).floor() + 1.) as f32
                     } else {
                         0.
                     };

@@ -26,14 +26,14 @@ use super::{assets::Assets, shader_bundle::ShaderBundle};
 
 #[wasm_bindgen]
 impl AsteroidColonies {
-    pub fn render_gl(&self, gl: &GL, frac_frame: f64) -> Result<(), JsValue> {
+    pub fn render_gl(&self, gl: &GL, frac_frame: f64, view_time: f64) -> Result<(), JsValue> {
         gl.clear_color(0.0, 0.0, 0.5, 1.);
         gl.clear(GL::COLOR_BUFFER_BIT);
 
         gl.enable(GL::BLEND);
         gl.disable(GL::DEPTH_TEST);
 
-        let ctx = RenderContext::new(self, frac_frame)?;
+        let ctx = RenderContext::new(self, frac_frame, view_time)?;
 
         self.render_gl_background(gl, &ctx)?;
         self.render_gl_power_grid(gl, &ctx)?;
@@ -59,7 +59,12 @@ impl AsteroidColonies {
 struct RenderContext<'a> {
     /// Fractional frame to interpolate objects motions
     frac_frame: f64,
-    total_time: f64,
+    /// View time that is relative to page load, in seconds, returned from performance.now().
+    /// It cannot be used for global time aware rendering, but useful for animation
+    /// repeating graphics over time.
+    /// Also, it is insensitive to global time scale, so it won't be too fast or too slow
+    /// depending on the scale.
+    view_time: f64,
     assets: &'a Assets,
     shader: &'a ShaderBundle,
     offset: [f64; 2],
@@ -69,7 +74,7 @@ struct RenderContext<'a> {
 }
 
 impl<'a> RenderContext<'a> {
-    fn new(ac: &'a AsteroidColonies, frac_frame: f64) -> Result<Self, JsValue> {
+    fn new(ac: &'a AsteroidColonies, frac_frame: f64, view_time: f64) -> Result<Self, JsValue> {
         let Some(assets) = ac.gl_assets.as_ref() else {
             console_log!("Warning: gl_assets are not initialized!");
             return Err(js_str!("gl_assets are not initialized"));
@@ -91,7 +96,7 @@ impl<'a> RenderContext<'a> {
 
         Ok(Self {
             frac_frame,
-            total_time: ac.game.get_global_time() as f64 + frac_frame,
+            view_time,
             assets,
             shader,
             offset,

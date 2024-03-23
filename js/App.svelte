@@ -211,7 +211,7 @@
             const gl = canvas.getContext('webgl', { alpha: false });
             // gl.clearColor(0., 0.5, 0., 1.);
             // gl.clear(gl.COLOR_BUFFER_BIT);
-            game.render_gl(gl, time % TICK_FRAMES / TICK_FRAMES);
+            game.render_gl(gl, time % TICK_FRAMES / TICK_FRAMES, performance.now() / 1000);
         }
         else {
             const ctx = canvas.getContext('2d');

@@ -26,7 +26,7 @@ pub(super) fn render_path(gl: &GL, ctx: &RenderContext, path: &[[i32; 2]], color
 
     let mut vertices = Vec::with_capacity(path.len() * 8);
     let mut add_vertex = |pos: Vector2<f32>, normal: Vector2<f32>, t: f32| {
-        let t_coord = -TEX_SCROLL_SCALE * t - ((ctx.total_time * 0.2) % 1.) as f32;
+        let t_coord = -TEX_SCROLL_SCALE * t - (ctx.view_time % 1.) as f32;
         vertices.extend_from_slice(&[
             pos[0] + 0.5 + normal[0] * PATH_WIDTH,
             pos[1] + 0.5 + normal[1] * PATH_WIDTH,
