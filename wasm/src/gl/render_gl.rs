@@ -5,6 +5,7 @@ mod conveyor;
 mod crews;
 mod cursor;
 mod global_tasks;
+mod path;
 mod power_grid;
 mod transports;
 

@@ -1,4 +1,4 @@
-use super::{super::utils::Flatten, lerp, RenderContext};
+use super::{super::utils::Flatten, lerp, path::render_path, RenderContext};
 use crate::AsteroidColonies;
 
 use ::asteroid_colonies_logic::TILE_SIZE;
@@ -47,23 +47,9 @@ impl AsteroidColonies {
             );
             gl.draw_arrays(GL::TRIANGLE_FAN, 0, 4);
 
-            // if let Some(path) = &crew.path {
-            //     context.set_stroke_style(&JsValue::from("#7f00ff"));
-            //     context.set_line_width(2.);
-            //     context.begin_path();
-            //     let mut first = true;
-            //     for node in path.iter().chain(std::iter::once(&crew.pos)) {
-            //         let x = (node[0] as f64 + 0.5) * TILE_SIZE + offset[0];
-            //         let y = (node[1] as f64 + 0.5) * TILE_SIZE + offset[1];
-            //         if first {
-            //             first = false;
-            //             context.move_to(x, y);
-            //         } else {
-            //             context.line_to(x, y);
-            //         }
-            //     }
-            //     context.stroke();
-            // }
+            if let Some(path) = &crew.path {
+                render_path(gl, ctx, path, &[0.5, 0., 1., 1.]);
+            }
         }
         Ok(())
     }
