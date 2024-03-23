@@ -637,14 +637,14 @@
     function setShowRecipeMenu(x, y) {
         showRadialMenu = false;
         showBuildMenu = false;
+        recipePos = [x, y];
         recipeItems = game.get_recipes(x, y);
         showRecipeMenu = true;
-        recipePos = game.transform_coords(x, y);
     }
 
     let commandRecipeShow = wrapErrorMessage(() => {
         showRadialMenu = false;
-        const [x, y] = radialScreenPos;
+        const [x, y] = radialPos;
         setShowRecipeMenu(x, y);
     });
 

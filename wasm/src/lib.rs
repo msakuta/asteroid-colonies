@@ -258,9 +258,7 @@ impl AsteroidColonies {
         self.game.deconstruct(ix, iy).map_err(JsValue::from)
     }
 
-    pub fn get_recipes(&self, x: f64, y: f64) -> Result<Vec<JsValue>, JsValue> {
-        let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
-        let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
+    pub fn get_recipes(&self, ix: i32, iy: i32) -> Result<Vec<JsValue>, JsValue> {
         let recipes = self.game.get_recipes(ix, iy).map_err(JsValue::from)?;
 
         recipes
