@@ -117,8 +117,8 @@ pub fn _vertex_buffer_sub_data(context: &GL, vertices: &[f32]) {
     };
 }
 
-pub fn enable_buffer(gl: &GL, buffer: &Option<WebGlBuffer>, elements: i32, vertex_position: u32) {
-    gl.bind_buffer(GL::ARRAY_BUFFER, buffer.as_ref());
+pub fn enable_buffer(gl: &GL, buffer: &WebGlBuffer, elements: i32, vertex_position: u32) {
+    gl.bind_buffer(GL::ARRAY_BUFFER, Some(buffer));
     gl.vertex_attrib_pointer_with_i32(vertex_position, elements, GL::FLOAT, false, 0, 0);
     gl.enable_vertex_attrib_array(vertex_position);
 }

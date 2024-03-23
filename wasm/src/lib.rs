@@ -138,8 +138,7 @@ impl AsteroidColonies {
         gl: &WebGlRenderingContext,
         image_assets: js_sys::Array,
     ) -> Result<(), JsValue> {
-        let mut assets = gl::assets::Assets::new(gl, image_assets)?;
-        assets.prepare(gl)?;
+        let assets = gl::assets::Assets::new(gl, image_assets)?;
         self.gl_assets = Some(assets);
         Ok(())
     }

@@ -63,7 +63,7 @@ pub(super) fn render_path(gl: &GL, ctx: &RenderContext, path: &[[i32; 2]], color
         add_vertex(pos, normal, t as f32);
     }
 
-    gl.bind_buffer(GL::ARRAY_BUFFER, ctx.assets.path_buffer.as_ref());
+    gl.bind_buffer(GL::ARRAY_BUFFER, Some(&ctx.assets.path_buffer));
     let attrib_size = std::mem::size_of::<[f32; 2]>() as i32;
     gl.vertex_attrib_pointer_with_i32(
         shader.vertex_position,

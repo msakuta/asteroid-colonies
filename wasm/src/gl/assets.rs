@@ -7,7 +7,7 @@ use super::{
     utils::{create_texture, load_texture, vertex_buffer_data},
 };
 use asteroid_colonies_logic::building::BuildingType;
-use slice_of_array::prelude::SliceFlatExt;
+
 use wasm_bindgen::{prelude::*, JsCast, JsValue};
 use web_sys::{
     ImageBitmap, WebGlBuffer, WebGlProgram, WebGlRenderingContext as GL, WebGlShader, WebGlTexture,
@@ -15,7 +15,6 @@ use web_sys::{
 
 pub(crate) const MAX_SPRITES: usize = 512;
 pub(crate) const SPRITE_COMPONENTS: usize = 4;
-pub(crate) const HARVESTING_SEGMENTS: usize = 20;
 
 #[wasm_bindgen]
 extern "C" {
@@ -54,7 +53,8 @@ extern "C" {
 }
 
 pub(crate) struct Assets {
-    pub instanced_arrays_ext: Option<AngleInstancedArrays>,
+    /// Instanced array extension, may use later
+    pub _instanced_arrays_ext: Option<AngleInstancedArrays>,
 
     pub tex_back: WebGlTexture,
     pub tex_cursor: WebGlTexture,
@@ -103,13 +103,11 @@ pub(crate) struct Assets {
     /// Textured instancing shader, may use later
     pub _textured_instancing_shader: Option<ShaderBundle>,
 
-    pub screen_buffer: Option<WebGlBuffer>,
-    pub rect_buffer: Option<WebGlBuffer>,
-    pub cursor_buffer: Option<WebGlBuffer>,
-    pub path_buffer: Option<WebGlBuffer>,
-    pub harvesting_buffer: Option<WebGlBuffer>,
+    pub screen_buffer: WebGlBuffer,
+    // pub rect_buffer: WebGlBuffer,
+    pub path_buffer: WebGlBuffer,
 
-    pub sprites_buffer: Option<WebGlBuffer>,
+    pub _sprites_buffer: WebGlBuffer,
 }
 
 impl Assets {
@@ -140,10 +138,51 @@ impl Assets {
             }
         };
 
+        let instanced_arrays_ext = gl
+            .get_extension("ANGLE_instanced_arrays")
+            .unwrap_or(None)
+            .map(|v| v.unchecked_into::<AngleInstancedArrays>());
+
+        console_log!(
+            "WebGL Instanced arrays is {}",
+            if instanced_arrays_ext.is_some() {
+                "available"
+            } else {
+                "not available"
+            }
+        );
+
         let (textured_shader, vert_shader, _frag_shader) = make_textured_shader(gl)?;
 
+        let screen_buffer = gl.create_buffer().ok_or("failed to create buffer")?;
+        gl.bind_buffer(GL::ARRAY_BUFFER, Some(&screen_buffer));
+        let rect_vertices: [f32; 8] = [1., 1., 0., 1., 0., 0., 1., 0.];
+        vertex_buffer_data(&gl, &rect_vertices);
+
+        // let rect_buffer = gl.create_buffer().ok_or("failed to create buffer")?;
+        // gl.bind_buffer(GL::ARRAY_BUFFER, Some(&rect_buffer));
+        // let rect_vertices: [f32; 8] = [1., 1., -1., 1., -1., -1., 1., -1.];
+        // vertex_buffer_data(&gl, &rect_vertices);
+
+        let path_buffer = gl.create_buffer().ok_or("failed to create buffer")?;
+        gl.bind_buffer(GL::ARRAY_BUFFER, Some(&path_buffer));
+
+        let sprites_buffer = gl.create_buffer().ok_or("failed to create buffer")?;
+        gl.bind_buffer(GL::ARRAY_BUFFER, Some(&sprites_buffer));
+        gl.buffer_data_with_i32(
+            GL::ARRAY_BUFFER,
+            (MAX_SPRITES * SPRITE_COMPONENTS * std::mem::size_of::<f32>()) as i32,
+            GL::DYNAMIC_DRAW,
+        );
+
+        gl.enable(GL::BLEND);
+        gl.blend_equation(GL::FUNC_ADD);
+        gl.blend_func(GL::SRC_ALPHA, GL::ONE_MINUS_SRC_ALPHA);
+
+        gl.clear_color(0.0, 0.0, 0.5, 1.);
+
         Ok(Assets {
-            instanced_arrays_ext: None,
+            _instanced_arrays_ext: instanced_arrays_ext,
             tex_back: load_texture_local("bg32")?,
             tex_cursor: load_texture_local("cursor")?,
             tex_move_cursor: load_texture_local("move_cursor")?,
@@ -183,12 +222,10 @@ impl Assets {
             multi_textured_shader: make_multitex_shader(gl, &vert_shader)?,
             vertex_textured_shader: make_vertex_textured_shader(gl)?,
             _textured_instancing_shader: make_instancing_shader(gl).ok(),
-            screen_buffer: None,
-            rect_buffer: None,
-            cursor_buffer: None,
-            path_buffer: None,
-            harvesting_buffer: None,
-            sprites_buffer: None,
+            screen_buffer,
+            // rect_buffer,
+            path_buffer,
+            _sprites_buffer: sprites_buffer,
         })
     }
 
@@ -204,120 +241,6 @@ impl Assets {
             BuildingType::Furnace => &self.tex_furnace,
             _ => panic!("Uncovered building type!"),
         })
-    }
-
-    pub(crate) fn prepare(&mut self, gl: &GL) -> Result<(), JsValue> {
-        self.instanced_arrays_ext = gl
-            .get_extension("ANGLE_instanced_arrays")
-            .unwrap_or(None)
-            .map(|v| v.unchecked_into::<AngleInstancedArrays>());
-        console_log!(
-            "WebGL Instanced arrays is {}",
-            if self.instanced_arrays_ext.is_some() {
-                "available"
-            } else {
-                "not available"
-            }
-        );
-
-        // let vert_shader = compile_shader(
-        //     &context,
-        //     GL::VERTEX_SHADER,
-        //     r#"
-        //     attribute vec2 vertexData;
-        //     uniform mat4 transform;
-        //     uniform mat3 texTransform;
-        //     varying vec2 texCoords;
-        //     void main() {
-        //         gl_Position = transform * vec4(vertexData.xy, 0.01, 1.0);
-
-        //         texCoords = (texTransform * vec3((vertexData.xy - 1.) * 0.5, 1.)).xy;
-        //     }
-        // "#,
-        // )?;
-        // let frag_shader = compile_shader(
-        //     &context,
-        //     GL::FRAGMENT_SHADER,
-        //     r#"
-        //     precision mediump float;
-
-        //     varying vec2 texCoords;
-
-        //     uniform sampler2D texture;
-        //     uniform float alpha;
-
-        //     void main() {
-        //         // vec4 texColor = texture2D( texture, vec2(texCoords.x, texCoords.y) );
-        //         // gl_FragColor = vec4(texColor.rgb, texColor.a * alpha);
-        //         gl_FragColor = vec4(1, 1, 1, 1);
-        //     }
-        // "#,
-        // )?;
-        // let program = link_program(&context, &vert_shader, &frag_shader)?;
-        // context.use_program(Some(&program));
-
-        // let shader = ShaderBundle::new(&context, program);
-
-        // context.active_texture(GL::TEXTURE0);
-
-        // context.uniform1i(shader.texture_loc.as_ref(), 0);
-        // context.uniform1f(shader.alpha_loc.as_ref(), 1.);
-
-        gl.enable(GL::BLEND);
-        gl.blend_equation(GL::FUNC_ADD);
-        gl.blend_func(GL::SRC_ALPHA, GL::ONE_MINUS_SRC_ALPHA);
-
-        // self.assets.sprite_shader = Some(shader);
-
-        self.rect_buffer = Some(gl.create_buffer().ok_or("failed to create buffer")?);
-        gl.bind_buffer(GL::ARRAY_BUFFER, self.rect_buffer.as_ref());
-        let rect_vertices: [f32; 8] = [1., 1., -1., 1., -1., -1., 1., -1.];
-        vertex_buffer_data(&gl, &rect_vertices);
-
-        self.screen_buffer = Some(gl.create_buffer().ok_or("failed to create buffer")?);
-        gl.bind_buffer(GL::ARRAY_BUFFER, self.screen_buffer.as_ref());
-        let rect_vertices: [f32; 8] = [1., 1., 0., 1., 0., 0., 1., 0.];
-        vertex_buffer_data(&gl, &rect_vertices);
-
-        self.sprites_buffer = Some(gl.create_buffer().ok_or("failed to create buffer")?);
-        gl.bind_buffer(GL::ARRAY_BUFFER, self.sprites_buffer.as_ref());
-        gl.buffer_data_with_i32(
-            GL::ARRAY_BUFFER,
-            (MAX_SPRITES * SPRITE_COMPONENTS * std::mem::size_of::<f32>()) as i32,
-            GL::DYNAMIC_DRAW,
-        );
-
-        self.cursor_buffer = Some(gl.create_buffer().ok_or("failed to create buffer")?);
-        gl.bind_buffer(GL::ARRAY_BUFFER, self.cursor_buffer.as_ref());
-        const CURSOR_LINE_WIDTH: f32 = 0.05;
-        let rect_vertices = [
-            [1. + CURSOR_LINE_WIDTH, 1. + CURSOR_LINE_WIDTH],
-            [1. - CURSOR_LINE_WIDTH, 1. - CURSOR_LINE_WIDTH],
-            [-(1. + CURSOR_LINE_WIDTH), 1. + CURSOR_LINE_WIDTH],
-            [-(1. - CURSOR_LINE_WIDTH), 1. - CURSOR_LINE_WIDTH],
-            [-(1. + CURSOR_LINE_WIDTH), -(1. + CURSOR_LINE_WIDTH)],
-            [-(1. - CURSOR_LINE_WIDTH), -(1. - CURSOR_LINE_WIDTH)],
-            [1. + CURSOR_LINE_WIDTH, -(1. + CURSOR_LINE_WIDTH)],
-            [1. - CURSOR_LINE_WIDTH, -(1. - CURSOR_LINE_WIDTH)],
-            [1. + CURSOR_LINE_WIDTH, 1. + CURSOR_LINE_WIDTH],
-            [1. - CURSOR_LINE_WIDTH, 1. - CURSOR_LINE_WIDTH],
-        ];
-        vertex_buffer_data(&gl, rect_vertices.flat());
-
-        self.path_buffer = Some(gl.create_buffer().ok_or("failed to create buffer")?);
-        gl.bind_buffer(GL::ARRAY_BUFFER, self.path_buffer.as_ref());
-
-        self.harvesting_buffer = Some(gl.create_buffer().ok_or("failed to create buffer")?);
-        gl.bind_buffer(GL::ARRAY_BUFFER, self.harvesting_buffer.as_ref());
-        gl.buffer_data_with_i32(
-            GL::ARRAY_BUFFER,
-            ((HARVESTING_SEGMENTS + 1) * std::mem::size_of::<f32>() * 4) as i32,
-            GL::DYNAMIC_DRAW,
-        );
-
-        gl.clear_color(0.0, 0.0, 0.5, 1.);
-
-        Ok(())
     }
 }
 
@@ -546,6 +469,52 @@ fn make_instancing_shader(gl: &GL) -> Result<ShaderBundle, String> {
     )?;
     let program = link_program(&gl, &vert_shader_instancing, &frag_shader_instancing)?;
     Ok(ShaderBundle::new(&gl, program))
+}
+
+fn _make_sprite_shader(gl: &GL) -> Result<ShaderBundle, String> {
+    let vert_shader = compile_shader(
+        &gl,
+        GL::VERTEX_SHADER,
+        r#"
+            attribute vec2 vertexData;
+            uniform mat4 transform;
+            uniform mat3 texTransform;
+            varying vec2 texCoords;
+            void main() {
+                gl_Position = transform * vec4(vertexData.xy, 0.01, 1.0);
+
+                texCoords = (texTransform * vec3((vertexData.xy - 1.) * 0.5, 1.)).xy;
+            }
+        "#,
+    )?;
+    let frag_shader = compile_shader(
+        &gl,
+        GL::FRAGMENT_SHADER,
+        r#"
+            precision mediump float;
+
+            varying vec2 texCoords;
+
+            uniform sampler2D texture;
+            uniform float alpha;
+
+            void main() {
+                // vec4 texColor = texture2D( texture, vec2(texCoords.x, texCoords.y) );
+                // gl_FragColor = vec4(texColor.rgb, texColor.a * alpha);
+                gl_FragColor = vec4(1, 1, 1, 1);
+            }
+        "#,
+    )?;
+    let program = link_program(&gl, &vert_shader, &frag_shader)?;
+    gl.use_program(Some(&program));
+
+    let shader = ShaderBundle::new(&gl, program);
+
+    gl.active_texture(GL::TEXTURE0);
+
+    gl.uniform1i(shader.texture_loc.as_ref(), 0);
+    gl.uniform1f(shader.alpha_loc.as_ref(), 1.);
+    Ok(shader)
 }
 
 pub fn compile_shader(context: &GL, shader_type: u32, source: &str) -> Result<WebGlShader, String> {
