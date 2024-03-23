@@ -1,4 +1,4 @@
-use super::{super::utils::Flatten, lerp, path::render_path, RenderContext};
+use super::{super::utils::{enable_buffer, Flatten}, lerp, path::render_path, RenderContext};
 use crate::AsteroidColonies;
 
 use ::asteroid_colonies_logic::TILE_SIZE;
@@ -27,6 +27,9 @@ impl AsteroidColonies {
         );
 
         for crew in self.game.iter_crew() {
+            gl.use_program(Some(&shader.program));
+            enable_buffer(gl, &assets.screen_buffer, 2, shader.vertex_position);
+
             let [x, y] = if let Some(next) = crew.path.as_ref().and_then(|p| p.last()) {
                 lerp(crew.pos, *next, *frac_frame)
             } else {
