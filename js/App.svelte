@@ -296,7 +296,7 @@
         }
         if (websocket) {
             if (websocket.readyState === 1) {
-                heartbeatOpacity = Math.max(0, heartbeatOpacity - 0.2);
+                heartbeatOpacity = Math.max(0, heartbeatOpacity - deltaTime);
             }
             updateHeartbeatOpacity();
             if (websocket.readyState === 3 && reconnectTime-- <= 0) {
