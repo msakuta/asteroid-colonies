@@ -11,12 +11,13 @@ impl AsteroidColonies {
         let RenderContext {
             frac_frame,
             assets,
-            shader,
             to_screen,
             offset,
             scale,
             ..
         } = ctx;
+
+        let shader = &assets.textured_shader;
 
         gl.use_program(Some(&shader.program));
         gl.uniform1f(shader.alpha_loc.as_ref(), 1.0);

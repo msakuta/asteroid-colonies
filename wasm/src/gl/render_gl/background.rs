@@ -17,16 +17,13 @@ impl AsteroidColonies {
     pub(super) fn render_gl_background(&self, gl: &GL, ctx: &RenderContext) -> Result<(), JsValue> {
         let RenderContext {
             assets,
-            shader,
             offset,
             scale,
             tile_range,
             ..
         } = ctx;
         let back_texture_transform = Matrix3::<f32>::from_nonuniform_scale(1. / 4., 1. / 8.);
-        let Some(ref mt_shader) = assets.multi_textured_shader else {
-            return Err(JsValue::from("multi_textured_shader not available"));
-        };
+        let mt_shader = &assets.multi_textured_shader;
 
         gl.use_program(Some(&mt_shader.program));
         gl.uniform1f(mt_shader.alpha_loc.as_ref(), 1.);
@@ -74,6 +71,8 @@ impl AsteroidColonies {
             )?;
         }
         assets.bg_sampler_buf.set(buf);
+
+        let shader = &assets.textured_shader;
 
         enable_buffer(&gl, &assets.screen_buffer, 2, shader.vertex_position);
 

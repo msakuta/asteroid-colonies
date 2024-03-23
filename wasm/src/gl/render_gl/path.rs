@@ -12,9 +12,7 @@ const PATH_WIDTH: f32 = 0.1;
 const TEX_SCROLL_SCALE: f32 = 0.5;
 
 pub(super) fn render_path(gl: &GL, ctx: &RenderContext, path: &[[i32; 2]], color: &[f32; 4]) {
-    let Some(ref shader) = ctx.assets.vertex_textured_shader else {
-        return;
-    };
+    let shader = &ctx.assets.vertex_textured_shader;
     gl.use_program(Some(&shader.program));
     gl.bind_texture(GL::TEXTURE_2D, Some(&ctx.assets.tex_path));
 

@@ -296,7 +296,7 @@ impl AsteroidColonies {
         self.viewport.offset.to_vec()
     }
 
-    pub fn get_zoom(&self) -> f64 { 
+    pub fn get_zoom(&self) -> f64 {
         self.viewport.scale
     }
 

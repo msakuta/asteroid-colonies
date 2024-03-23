@@ -14,12 +14,13 @@ impl AsteroidColonies {
     pub(super) fn render_gl_power_grid(&self, gl: &GL, ctx: &RenderContext) -> Result<(), JsValue> {
         let RenderContext {
             assets,
-            shader,
             offset,
             scale,
             tile_range,
             ..
         } = ctx;
+
+        let shader = &assets.textured_shader;
 
         gl.use_program(Some(&shader.program));
         gl.uniform1f(shader.alpha_loc.as_ref(), 1.);

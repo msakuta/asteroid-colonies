@@ -16,7 +16,7 @@ impl AsteroidColonies {
         conv: Conveyor,
     ) {
         let RenderContext {
-            shader,
+            assets,
             offset,
             scale,
             ..
@@ -30,7 +30,7 @@ impl AsteroidColonies {
             let transform =
                 ctx.to_screen * scale * Matrix4::from_translation(Vector3::new(x, y, 0.));
             gl.uniform_matrix4fv_with_f32_array(
-                shader.transform_loc.as_ref(),
+                assets.textured_shader.transform_loc.as_ref(),
                 false,
                 transform.flatten(),
             );
@@ -42,7 +42,7 @@ impl AsteroidColonies {
                 * Matrix3::from_translation(Vector2::new(sx as f32, sy as f32));
 
             gl.uniform_matrix3fv_with_f32_array(
-                ctx.shader.tex_transform_loc.as_ref(),
+                assets.textured_shader.tex_transform_loc.as_ref(),
                 false,
                 tex_transform.flatten(),
             );
@@ -99,11 +99,10 @@ impl AsteroidColonies {
 
     pub(super) fn render_gl_conveyors(&self, gl: &GL, ctx: &RenderContext) -> Result<(), JsValue> {
         let RenderContext {
-            assets,
-            shader,
-            tile_range,
-            ..
+            assets, tile_range, ..
         } = ctx;
+
+        let shader = &assets.textured_shader;
 
         gl.use_program(Some(&shader.program));
         gl.uniform1f(shader.alpha_loc.as_ref(), 1.);
@@ -132,9 +131,9 @@ impl AsteroidColonies {
     }
 
     pub(super) fn render_gl_conveyor_plan(&self, gl: &GL, ctx: &RenderContext) {
-        let RenderContext { shader, assets, .. } = ctx;
+        let assets = &ctx.assets;
         gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_conveyor));
-        gl.uniform1f(shader.alpha_loc.as_ref(), 0.5);
+        gl.uniform1f(assets.textured_shader.alpha_loc.as_ref(), 0.5);
         for (pos, conv) in self.game.iter_conveyor_plan() {
             self.render_gl_conveyor(gl, ctx, pos[0], pos[1], *conv);
         }

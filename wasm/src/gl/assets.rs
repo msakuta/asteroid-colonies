@@ -87,13 +87,19 @@ pub(crate) struct Assets {
     pub tex_excavate: WebGlTexture,
     pub tex_path: WebGlTexture,
 
+    /// A special texture that holds tile types in the map.
+    /// The shader will use it as a lookup table to quickly render
+    /// many tiles with mixed types.
     pub tex_bg_sampler: WebGlTexture,
+    /// A buffer to hold the type indices of the tiles.
+    /// Stored in CPU memory to check if there is any change.
+    /// If there was, the buffer data is transferred to the GPU texture memory.
     pub bg_sampler_buf: Cell<Vec<u8>>,
 
-    pub flat_shader: Option<ShaderBundle>,
-    pub textured_shader: Option<ShaderBundle>,
-    pub multi_textured_shader: Option<ShaderBundle>,
-    pub vertex_textured_shader: Option<ShaderBundle>,
+    pub flat_shader: ShaderBundle,
+    pub textured_shader: ShaderBundle,
+    pub multi_textured_shader: ShaderBundle,
+    pub vertex_textured_shader: ShaderBundle,
     pub textured_instancing_shader: Option<ShaderBundle>,
     pub textured_alpha_shader: Option<ShaderBundle>,
 
@@ -107,7 +113,7 @@ pub(crate) struct Assets {
 }
 
 impl Assets {
-    pub fn new(context: &GL, image_assets: js_sys::Array) -> Result<Self, JsValue> {
+    pub fn new(gl: &GL, image_assets: js_sys::Array) -> Result<Self, JsValue> {
         let load_texture_local = |path| -> Result<WebGlTexture, JsValue> {
             if let Some(value) = image_assets.iter().find(|value| {
                 let array = js_sys::Array::from(value);
@@ -115,7 +121,7 @@ impl Assets {
             }) {
                 let array = js_sys::Array::from(&value).to_vec();
                 let ret = load_texture(
-                    &context,
+                    &gl,
                     array
                         .get(3)
                         .cloned()
@@ -133,6 +139,8 @@ impl Assets {
                 Err(JsValue::from_str("Couldn't find texture"))
             }
         };
+
+        let (textured_shader, vert_shader, _frag_shader) = make_textured_shader(gl)?;
 
         Ok(Assets {
             instanced_arrays_ext: None,
@@ -167,13 +175,13 @@ impl Assets {
             tex_excavate: load_texture_local("excavate")?,
             tex_path: load_texture_local("path")?,
 
-            tex_bg_sampler: create_texture(context, 128)?,
+            tex_bg_sampler: create_texture(gl, 128)?,
             bg_sampler_buf: Cell::new(vec![]),
 
-            flat_shader: None,
-            textured_shader: None,
-            multi_textured_shader: None,
-            vertex_textured_shader: None,
+            flat_shader: make_flat_shader(gl)?,
+            textured_shader,
+            multi_textured_shader: make_multitex_shader(gl, &vert_shader)?,
+            vertex_textured_shader: make_vertex_textured_shader(gl)?,
             textured_instancing_shader: None,
             textured_alpha_shader: None,
             screen_buffer: None,
@@ -256,94 +264,11 @@ impl Assets {
         // context.uniform1i(shader.texture_loc.as_ref(), 0);
         // context.uniform1f(shader.alpha_loc.as_ref(), 1.);
 
-        let vert_shader = compile_shader(
-            &gl,
-            GL::VERTEX_SHADER,
-            r#"
-            attribute vec2 vertexData;
-            uniform mat4 transform;
-            void main() {
-                gl_Position = transform * vec4(vertexData.xy, 0., 1.0);
-            }
-        "#,
-        )?;
-        let frag_shader = compile_shader(
-            &gl,
-            GL::FRAGMENT_SHADER,
-            r#"
-            precision mediump float;
-            uniform vec4 color;
-
-            void main() {
-                gl_FragColor = color;
-            }
-        "#,
-        )?;
-        let program = link_program(&gl, &vert_shader, &frag_shader)?;
-        self.flat_shader = Some(ShaderBundle::new(&gl, program.clone()));
-
         gl.enable(GL::BLEND);
         gl.blend_equation(GL::FUNC_ADD);
         gl.blend_func(GL::SRC_ALPHA, GL::ONE_MINUS_SRC_ALPHA);
 
         // self.assets.sprite_shader = Some(shader);
-
-        let vert_shader = compile_shader(
-            &gl,
-            GL::VERTEX_SHADER,
-            r#"
-            attribute vec2 vertexData;
-            uniform mat4 transform;
-            uniform mat3 texTransform;
-            varying vec2 texCoords;
-            void main() {
-                gl_Position = transform * vec4(vertexData.xy, 0., 1.0);
-
-                texCoords = (texTransform * vec3(vertexData.xy, 1.)).xy;
-            }
-        "#,
-        )?;
-        let frag_shader = compile_shader(
-            &gl,
-            GL::FRAGMENT_SHADER,
-            r#"
-            precision mediump float;
-
-            varying vec2 texCoords;
-
-            uniform sampler2D texture;
-            uniform float alpha;
-
-            void main() {
-                vec4 texColor = texture2D( texture, texCoords.xy );
-                gl_FragColor = vec4(texColor.rgb, texColor.a * alpha);
-                if(gl_FragColor.a < 0.01)
-                    discard;
-            }
-        "#,
-        )?;
-        let program = link_program(&gl, &vert_shader, &frag_shader)?;
-        gl.use_program(Some(&program));
-        console_log!("ShaderBundle textured_shader:");
-        self.textured_shader = Some(ShaderBundle::new(&gl, program));
-
-        gl.uniform1f(
-            self.textured_shader
-                .as_ref()
-                .and_then(|s| s.alpha_loc.as_ref()),
-            1.,
-        );
-
-        gl.active_texture(GL::TEXTURE0);
-        gl.uniform1i(
-            self.textured_shader
-                .as_ref()
-                .and_then(|s| s.texture_loc.as_ref()),
-            0,
-        );
-
-        self.multi_textured_shader = Some(make_multitex_shader(gl, &vert_shader)?);
-        self.vertex_textured_shader = Some(make_vertex_textured_shader(gl)?);
 
         let vert_shader_instancing = compile_shader(
             &gl,
@@ -488,6 +413,82 @@ impl Assets {
 
         Ok(())
     }
+}
+
+fn make_flat_shader(gl: &GL) -> Result<ShaderBundle, JsValue> {
+    let vert_shader = compile_shader(
+        &gl,
+        GL::VERTEX_SHADER,
+        r#"
+        attribute vec2 vertexData;
+        uniform mat4 transform;
+        void main() {
+            gl_Position = transform * vec4(vertexData.xy, 0., 1.0);
+        }
+    "#,
+    )?;
+    let frag_shader = compile_shader(
+        &gl,
+        GL::FRAGMENT_SHADER,
+        r#"
+        precision mediump float;
+        uniform vec4 color;
+
+        void main() {
+            gl_FragColor = color;
+        }
+    "#,
+    )?;
+    let program = link_program(&gl, &vert_shader, &frag_shader)?;
+    Ok(ShaderBundle::new(&gl, program))
+}
+
+fn make_textured_shader(gl: &GL) -> Result<(ShaderBundle, WebGlShader, WebGlShader), JsValue> {
+    let vert_shader = compile_shader(
+        &gl,
+        GL::VERTEX_SHADER,
+        r#"
+        attribute vec2 vertexData;
+        uniform mat4 transform;
+        uniform mat3 texTransform;
+        varying vec2 texCoords;
+        void main() {
+            gl_Position = transform * vec4(vertexData.xy, 0., 1.0);
+
+            texCoords = (texTransform * vec3(vertexData.xy, 1.)).xy;
+        }
+    "#,
+    )?;
+    let frag_shader = compile_shader(
+        &gl,
+        GL::FRAGMENT_SHADER,
+        r#"
+        precision mediump float;
+
+        varying vec2 texCoords;
+
+        uniform sampler2D texture;
+        uniform float alpha;
+
+        void main() {
+            vec4 texColor = texture2D( texture, texCoords.xy );
+            gl_FragColor = vec4(texColor.rgb, texColor.a * alpha);
+            if(gl_FragColor.a < 0.01)
+                discard;
+        }
+    "#,
+    )?;
+    let program = link_program(&gl, &vert_shader, &frag_shader)?;
+    gl.use_program(Some(&program));
+    console_log!("ShaderBundle textured_shader:");
+    let shader = ShaderBundle::new(&gl, program);
+
+    gl.uniform1f(shader.alpha_loc.as_ref(), 1.);
+
+    gl.active_texture(GL::TEXTURE0);
+    gl.uniform1i(shader.texture_loc.as_ref(), 0);
+
+    Ok((shader, vert_shader, frag_shader))
 }
 
 fn make_multitex_shader(gl: &GL, vert_shader: &WebGlShader) -> Result<ShaderBundle, JsValue> {

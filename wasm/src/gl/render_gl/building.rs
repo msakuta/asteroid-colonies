@@ -19,12 +19,13 @@ impl AsteroidColonies {
         let RenderContext {
             frac_frame,
             assets,
-            shader,
             offset,
             scale,
             tile_range,
             ..
         } = ctx;
+
+        let shader = &assets.textured_shader;
 
         gl.active_texture(GL::TEXTURE0);
 
@@ -158,9 +159,7 @@ impl AsteroidColonies {
                 _ => None,
             };
 
-            let Some(flat_shader) = assets.flat_shader.as_ref() else {
-                return;
-            };
+            let flat_shader = &assets.flat_shader;
 
             if let Some((t, max_time)) = task_target {
                 RenderBar {

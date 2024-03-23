@@ -16,12 +16,13 @@ impl AsteroidColonies {
     pub(super) fn render_gl_crews(&self, gl: &GL, ctx: &RenderContext) -> Result<(), JsValue> {
         let RenderContext {
             frac_frame,
-            shader,
             assets,
             offset,
             scale,
             ..
         } = ctx;
+
+        let shader = &assets.textured_shader;
 
         gl.use_program(Some(&shader.program));
         gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_crew));

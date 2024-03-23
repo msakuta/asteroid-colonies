@@ -29,12 +29,16 @@ impl AsteroidColonies {
 
 fn render_icon(gl: &GL, ctx: &RenderContext, pos: [i32; 2], tex: &WebGlTexture) {
     let RenderContext {
-        shader,
+        assets: super::Assets {
+            textured_shader: shader,
+            ..
+        },
         offset,
         to_screen,
         scale,
         ..
     } = ctx;
+
     let x = (pos[0] as f64 + offset[0] as f64 / TILE_SIZE) as f32;
     let y = (pos[1] as f64 + offset[1] as f64 / TILE_SIZE) as f32;
     gl.use_program(Some(&shader.program));

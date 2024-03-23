@@ -22,7 +22,7 @@ use wasm_bindgen::prelude::*;
 
 use web_sys::WebGlRenderingContext as GL;
 
-use super::{assets::Assets, shader_bundle::ShaderBundle};
+use super::assets::Assets;
 
 #[wasm_bindgen]
 impl AsteroidColonies {
@@ -66,7 +66,6 @@ struct RenderContext<'a> {
     /// depending on the scale.
     view_time: f64,
     assets: &'a Assets,
-    shader: &'a ShaderBundle,
     offset: [f64; 2],
     scale: Matrix4<f32>,
     to_screen: Matrix4<f32>,
@@ -79,11 +78,6 @@ impl<'a> RenderContext<'a> {
             console_log!("Warning: gl_assets are not initialized!");
             return Err(js_str!("gl_assets are not initialized"));
         };
-
-        let shader = assets
-            .textured_shader
-            .as_ref()
-            .ok_or_else(|| js_str!("Shader bundle not found!"))?;
 
         let vp = &ac.viewport;
         let scale_x = (vp.scale * TILE_SIZE) as f32 / (vp.size[0] as f32);
@@ -98,7 +92,6 @@ impl<'a> RenderContext<'a> {
             frac_frame,
             view_time,
             assets,
-            shader,
             offset,
             scale: Matrix4::from_nonuniform_scale(scale_x, scale_y, 1.),
             to_screen: Matrix4::from_nonuniform_scale(2., -2., 1.)
@@ -123,9 +116,7 @@ fn render_global_task_bar(
     t: f64,
     max_time: f64,
 ) {
-    let Some(ref shader) = ctx.assets.flat_shader else {
-        return;
-    };
+    let shader = &ctx.assets.flat_shader;
     gl.use_program(Some(&shader.program));
     gl.uniform4f(shader.color_loc.as_ref(), 0.1, 0.1, 0.1, 1.);
 
