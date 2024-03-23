@@ -5,9 +5,9 @@
     const dispatch = createEventDispatcher();
 
     export let text = "";
-    export let timeout = 30;
-    export let maxTimeout = 30;
-    $: opacity = Math.min(timeout / 10, 1);
+    export let timeout = 3;
+    export let maxTimeout = 3;
+    $: opacity = Math.min(timeout, 1);
 </script>
 
 <div class="messageOverlay noselect" style="display: block; opacity: {opacity}" on:pointerup={() => dispatch('click')}>

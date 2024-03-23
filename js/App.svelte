@@ -181,7 +181,7 @@
         });
 
         // Don't start timer until the assets are loaded, otherwise an error will be thrown
-        setInterval(timerProc, 25);
+        requestAnimationFrame(frameProc);
     });
 
     function resizeHandler() {
@@ -193,9 +193,11 @@
         game.set_size(bodyRect.width, bodyRect.height);
     }
 
-    const TICK_FRAMES = 4;
+    const FRAME_TIME = 0.1;
+    let lastUpdated = null;
+    let lastShowed = null;
 
-    function timerProc() {
+    function frameProc() {
         // Increment time before any await. Otherwise, this async function runs 2-4 times every tick for some reason.
         time++;
         // if (serverSync && time % syncPeriod === 0) {
@@ -204,14 +206,20 @@
         //     const dataText = await dataRes.text();
         //     game.deserialize(dataText);
         // }
-        if (time % TICK_FRAMES === 0) {
+        const now = performance.now();
+        const deltaTime = (now - lastShowed) / 1000;
+        if (lastUpdated === null) {
+            lastUpdated = now;
+        }
+        while (FRAME_TIME < (now - lastUpdated) / 1000) {
+            lastUpdated += FRAME_TIME * 1000;
             game.tick();
         }
         if (useWebGL) {
             const gl = canvas.getContext('webgl', { alpha: false });
             // gl.clearColor(0., 0.5, 0., 1.);
             // gl.clear(gl.COLOR_BUFFER_BIT);
-            game.render_gl(gl, time % TICK_FRAMES / TICK_FRAMES, performance.now() / 1000);
+            game.render_gl(gl, (now - lastUpdated) / FRAME_TIME / 1000, performance.now() / 1000);
         }
         else {
             const ctx = canvas.getContext('2d');
@@ -233,11 +241,13 @@
             }
         }
         if (showErrorMessage) {
-            errorMessageTimeout = errorMessageTimeout - 1;
+            errorMessageTimeout = errorMessageTimeout - deltaTime;
             if(errorMessageTimeout < 0) {
                 showErrorMessage = false;
             }
         }
+        lastShowed = now;
+        requestAnimationFrame(frameProc);
     }
 
     function updateHeartbeatOpacity() {
@@ -401,7 +411,7 @@
             catch (e) {
                 errorMessage = e;
                 showErrorMessage = true;
-                errorMessageTimeout = 30;
+                errorMessageTimeout = 3;
             }
         };
     }
