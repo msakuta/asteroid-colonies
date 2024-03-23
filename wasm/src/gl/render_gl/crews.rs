@@ -33,6 +33,12 @@ impl AsteroidColonies {
 
         for crew in self.game.iter_crew() {
             gl.use_program(Some(&shader.program));
+            gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_crew));
+            gl.uniform_matrix3fv_with_f32_array(
+                shader.tex_transform_loc.as_ref(),
+                false,
+                Matrix3::identity().flatten(),
+            );
             enable_buffer(gl, &assets.screen_buffer, 2, shader.vertex_position);
 
             let [x, y] = if let Some(next) = crew.path.as_ref().and_then(|p| p.last()) {
