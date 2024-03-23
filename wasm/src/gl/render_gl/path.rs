@@ -60,6 +60,5 @@ pub(super) fn render_path(gl: &GL, ctx: &RenderContext, path: &[[i32; 2]], color
     let transform =
         ctx.to_screen * ctx.scale * Matrix4::from_translation(Vector3::new(x as f32, y as f32, 0.));
     gl.uniform_matrix4fv_with_f32_array(shader.transform_loc.as_ref(), false, transform.flatten());
-    gl.line_width(5.);
     gl.draw_arrays(GL::TRIANGLE_STRIP, 0, vertices.len() as i32 / 2);
 }

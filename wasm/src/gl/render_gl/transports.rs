@@ -1,5 +1,5 @@
-use super::{super::utils::Flatten, lerp, RenderContext};
-use crate::AsteroidColonies;
+use super::{super::utils::Flatten, lerp, path::render_path, RenderContext};
+use crate::{gl::utils::enable_buffer, AsteroidColonies};
 
 use ::asteroid_colonies_logic::{ItemType, Transport, TILE_SIZE};
 use cgmath::{Matrix3, Matrix4, SquareMatrix, Vector3};
@@ -18,6 +18,7 @@ impl AsteroidColonies {
             ..
         } = ctx;
 
+        gl.use_program(Some(&shader.program));
         gl.uniform1f(shader.alpha_loc.as_ref(), 1.0);
         gl.uniform_matrix3fv_with_f32_array(
             shader.tex_transform_loc.as_ref(),
@@ -66,16 +67,9 @@ impl AsteroidColonies {
         };
 
         for t in self.game.iter_transport() {
-            // context.set_stroke_style(&JsValue::from("#ffff00"));
-            // context.set_line_width(2.);
-            // context.begin_path();
-            // for node in &t.path {
-            //     context.line_to(
-            //         (node[0] as f64 + 0.5) * TILE_SIZE + offset[0],
-            //         (node[1] as f64 + 0.5) * TILE_SIZE + offset[1],
-            //     );
-            // }
-            // context.stroke();
+            render_path(gl, ctx, &t.path, &[1., 1., 0., 1.]);
+            gl.use_program(Some(&shader.program));
+            enable_buffer(gl, &assets.screen_buffer, 2, shader.vertex_position);
             render_transport(&t);
         }
     }
