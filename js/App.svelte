@@ -187,7 +187,6 @@
         if (activePointers.length === 0) {
             zoomChanging = false;
         }
-        console.log(`activePointers ${activePointers.length}`);
     }
 
     onMount(async () => {
@@ -261,6 +260,11 @@
     let lastUpdated = null;
     let lastShowed = null;
 
+    // Usually, a tick is much shorter than a frame.
+    // If the user puts the browser tab into background, it may become dormant and
+    // takes longer. We limit the number of frames to catch up in that case.
+    const MAX_TICKS_PER_FRAME = 10;
+
     function frameProc() {
         // Increment time before any await. Otherwise, this async function runs 2-4 times every tick for some reason.
         time++;
@@ -274,6 +278,10 @@
         const deltaTime = (now - lastShowed) / 1000;
         if (lastUpdated === null) {
             lastUpdated = now;
+        }
+        if (MAX_TICKS_PER_FRAME * tickTime < deltaTime) {
+            console.log(`Skipping ${((now - lastUpdated) / 1000 / tickTime).toFixed(0)} frames`);
+            lastUpdated = now - tickTime * MAX_TICKS_PER_FRAME * 1000;
         }
         while (tickTime < (now - lastUpdated) / 1000) {
             lastUpdated += tickTime * 1000;
