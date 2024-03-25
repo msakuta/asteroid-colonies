@@ -135,7 +135,7 @@
     function pointerMove(evt) {
         const [x, y] = mousePos = toLogicalCoords(evt.clientX, evt.clientY);
         game.set_cursor(x, y);
-        infoResult = game.get_info(x, y);
+        infoResult = game.get_info();
         if (buildingConveyor) {
             try {
                 const [ix, iy] = game.transform_coords(x, y);
@@ -297,10 +297,7 @@
             const ctx = canvas.getContext('2d');
             game.render(ctx);
         }
-        if (mousePos !== null) {
-            const info = game.get_info(mousePos[0], mousePos[1]);
-            infoResult = info;
-        }
+        infoResult = game.get_info();
         if (websocket) {
             if (websocket.readyState === 1) {
                 heartbeatOpacity = Math.max(0, heartbeatOpacity - deltaTime);
