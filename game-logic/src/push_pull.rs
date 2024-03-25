@@ -311,14 +311,10 @@ where
         dest: dest.pos,
         path,
         item,
-        amount: 1,
+        amount: *amount,
     });
     dest.expected_transports.insert(id);
-    if *amount <= 1 {
-        src.inventory().remove(&item);
-    } else {
-        *amount -= 1;
-    }
+    src.inventory().remove(&item);
     Ok(())
 }
 

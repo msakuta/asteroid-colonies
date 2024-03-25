@@ -246,7 +246,7 @@ impl AsteroidColoniesGame {
         Ok(())
     }
 
-    pub fn move_item(&mut self, from: Pos, to: Pos) -> Result<(), String> {
+    pub fn move_item(&mut self, from: Pos, to: Pos, item: ItemType) -> Result<(), String> {
         let (src_id, mut src) = self
             .buildings
             .items_borrow_mut()
@@ -258,7 +258,7 @@ impl AsteroidColoniesGame {
             &mut *src,
             to,
             &self.buildings,
-            &|_| true,
+            &|it| it == item,
         )
         .or_else(|e| {
             let item = *src

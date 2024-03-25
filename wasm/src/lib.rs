@@ -14,7 +14,7 @@ use wasm_bindgen::prelude::*;
 use web_sys::{js_sys, WebGlRenderingContext};
 
 use asteroid_colonies_logic::{
-    building::BuildingType, get_build_menu, AsteroidColoniesGame, Pos, TileState, HEIGHT,
+    building::BuildingType, get_build_menu, AsteroidColoniesGame, ItemType, Pos, TileState, HEIGHT,
     TILE_SIZE, WIDTH,
 };
 
@@ -190,13 +190,16 @@ impl AsteroidColonies {
         }
     }
 
-    pub fn move_item(&mut self, dst_x: f64, dst_y: f64) -> Result<JsValue, JsValue> {
+    pub fn move_item(&mut self, dst_x: f64, dst_y: f64, item: JsValue) -> Result<JsValue, JsValue> {
+        let item: ItemType = serde_wasm_bindgen::from_value(item)?;
         let dpos = self.transform_pos(dst_x, dst_y);
         let src = self
             .move_item_cursor
             .ok_or_else(|| JsValue::from("Select a building to move items from first"))?;
         self.move_item_cursor = None;
-        self.game.move_item(src, dpos).map_err(JsValue::from)?;
+        self.game
+            .move_item(src, dpos, item)
+            .map_err(JsValue::from)?;
         Ok(serde_wasm_bindgen::to_value(&src)?)
     }
 
@@ -282,6 +285,16 @@ impl AsteroidColonies {
         let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
         let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
         self.game.cleanup_item([ix, iy]).map_err(JsValue::from)
+    }
+
+    pub fn get_inventory(&self) -> Result<JsValue, JsValue> {
+        let inventory = self.cursor.and_then(|cursor| {
+            self.game
+                .iter_building()
+                .find(|b| b.intersects(cursor))
+                .map(|building| building.inventory.clone())
+        });
+        serde_wasm_bindgen::to_value(&inventory).map_err(JsValue::from)
     }
 
     pub fn pan(&mut self, x: f64, y: f64) {

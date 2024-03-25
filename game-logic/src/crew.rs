@@ -243,18 +243,23 @@ impl Crew {
                 })
                 .or_else(|| {
                     let (idx, transport) = transports
-                        .items()
+                        .items_mut()
                         .find(|(_, t)| t.path.last() == Some(&src))?;
                     println!("Found transports: {idx}, {transport:?}");
                     let item = transport.item;
-                    *self.inventory.entry(item).or_default() += 1;
+                    let move_amount = transport.amount.min(1);
+                    if 0 < move_amount {
+                        *self.inventory.entry(item).or_default() += move_amount;
+                        transport.amount -= move_amount;
+                    }
+                    if transport.amount == 0 {
+                        transports.remove(idx);
+                    }
                     let path = find_path(self.pos, dest, |pos| {
                         matches!(tiles[pos].state, TileState::Empty) || pos == dest
                     })?;
                     self.path = Some(path);
                     self.task = CrewTask::Deliver { dst: dest, item };
-                    drop(transport);
-                    transports.remove(idx);
                     Some(())
                 });
         if res.is_none() {

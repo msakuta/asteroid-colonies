@@ -13,7 +13,7 @@ use ::serde::{Deserialize, Serialize};
 use actix_web_actors::ws;
 use asteroid_colonies_logic::{
     construction::{Construction, ConstructionType},
-    Pos, Position,
+    ItemType, Pos, Position,
 };
 
 /// Open a WebSocket instance and give it to the client.
@@ -139,6 +139,7 @@ enum WsMessage {
     MoveItem {
         from: Pos,
         to: Pos,
+        item: ItemType,
     },
     Build {
         pos: Pos,
@@ -216,8 +217,8 @@ impl SessionWs {
                 game.move_building(from, to)
                     .map_err(|e| anyhow::anyhow!("{e}"))?;
             }
-            WsMessage::MoveItem { from, to } => {
-                game.move_item(from, to)
+            WsMessage::MoveItem { from, to, item } => {
+                game.move_item(from, to, item)
                     .map_err(|e| anyhow::anyhow!("{e}"))?;
             }
             WsMessage::Build { pos, ty } => match ty {

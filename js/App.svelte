@@ -25,6 +25,7 @@
     import deconstructIcon from '../images/deconstruct.png';
     import cleanup from '../images/cleanup.png';
     import { loadAllIcons } from './graphics';
+    import ChooseItem from './ChooseItem.svelte';
 
     export let baseUrl = BASE_URL;
     export let port = 3883;
@@ -52,6 +53,9 @@
     let showRecipeMenu = false;
     let recipeItems = [];
     let recipePos = null;
+
+    let showMoveItemSelect = false;
+    let moveItems = [];
 
     const useWebGL = true;
 
@@ -372,8 +376,8 @@
         if (movingItem) {
             try {
                 const to = game.transform_coords(x, y);
-                const from = game.move_item(x, y);
-                requestWs("MoveItem", {from: [from[0], from[1]], to: [to[0], to[1]]});
+                const from = game.move_item(x, y, movingItem);
+                requestWs("MoveItem", {from: [from[0], from[1]], to: [to[0], to[1]], item: movingItem});
             }
             finally {
                 messageOverlayVisible = false;
@@ -401,13 +405,13 @@
             game.start_move_building(ix, iy);
             showBuildMenu = false;
             showRecipeMenu = false;
+            showMoveItemSelect = false;
             messageOverlayText = "Choose move building destination";
             messageOverlayVisible = "block";
             moving = true;
         }
         else if (name === "moveItem") {
-            const [ix, iy] = game.transform_coords(x, y);
-            startMoveItem(ix, iy);
+            showMoveItemSelect = true;
         }
         else if (name === "conveyor") {
             enterConveyorEdit();
@@ -447,6 +451,7 @@
         else {
             showBuildMenu = false;
             showRecipeMenu = false;
+            showMoveItemSelect = false;
             const [ix, iy] = game.transform_coords(x, y);
             if (name === "excavate") {
                 requestWs("Excavate", {x: ix, y: iy});
@@ -508,6 +513,7 @@
     function enterConveyorEdit() {
         showBuildMenu = false;
         showRecipeMenu = false;
+        showMoveItemSelect = false;
         messageOverlayText = "Drag to make build plan and click Ok";
         messageOverlayVisible = true;
         messageShowOk = true;
@@ -653,21 +659,28 @@
         setShowRecipeMenu(x, y);
     });
 
-    function startMoveItem(x, y) {
+    function startMoveItem(x, y, item) {
         if (game.start_move_item(x, y)) {
             showBuildMenu = false;
             showRecipeMenu = false;
+            showMoveItemSelect = false;
             messageOverlayText = "Choose move item destination";
             messageOverlayVisible = "block";
-            movingItem = true;
+            movingItem = item;
         }
     }
 
     let commandMoveItem = wrapErrorMessage(() => {
         showRadialMenu = false;
         const [x, y] = radialPos;
-        startMoveItem(x, y);
+        moveItems = game.get_inventory(x, y);
+        showMoveItemSelect = true;
     });
+
+    function clickMoveItem(evt) {
+        const [x, y] = radialPos;
+        startMoveItem(x, y, evt.detail);
+    }
 
     let commandCleanup = wrapErrorMessage(() => {
         showRadialMenu = false;
@@ -706,6 +719,11 @@
             on:click={setRecipe}
             on:clear={clearRecipe}
             on:close={() => showRecipeMenu = false}/>
+    {/if}
+    {#if showMoveItemSelect}
+        <ChooseItem items={moveItems}
+            on:click={clickMoveItem}
+            on:close={() => showMoveItemSelect = false}/>
     {/if}
     {#if showRadialMenu === RADIAL_MENU_MAIN}
         <RadialMenu
