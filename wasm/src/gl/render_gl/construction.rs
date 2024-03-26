@@ -1,4 +1,7 @@
-use super::{super::utils::Flatten, render_global_task_bar, RenderContext};
+use super::{
+    super::utils::Flatten, building::render_gl_building_texture, render_global_task_bar,
+    RenderContext,
+};
 use crate::{gl::utils::enable_buffer, AsteroidColonies};
 
 use ::asteroid_colonies_logic::{construction::ConstructionType, TILE_SIZE};
@@ -38,13 +41,12 @@ impl AsteroidColonies {
 
             match construction.get_type() {
                 ConstructionType::Building(ty) => {
-                    let Some(tex) = assets.building_to_tex(ty) else {
+                    if !render_gl_building_texture(gl, ctx, &ty) {
                         continue;
-                    };
+                    }
                     let size = ty.size();
                     let width = size[0] as f32;
                     let height = size[1] as f32;
-                    gl.bind_texture(GL::TEXTURE_2D, Some(tex));
                     let transform = to_screen
                         * scale
                         * Matrix4::from_translation(Vector3::new(x, y, 0.))

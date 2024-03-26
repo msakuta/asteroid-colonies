@@ -31,17 +31,6 @@ impl AsteroidColonies {
 
         gl.uniform1i(shader.texture_loc.as_ref(), 0);
 
-        let set_texture_transform = |tx, ty, sx, sy| {
-            let tex_transform = Matrix3::from_nonuniform_scale(sx, sy)
-                * Matrix3::from_translation(Vector2::new(tx as f32, ty as f32));
-
-            gl.uniform_matrix3fv_with_f32_array(
-                shader.tex_transform_loc.as_ref(),
-                false,
-                tex_transform.flatten(),
-            );
-        };
-
         let render_bldg = |building: &Building| {
             let pos = if let Task::Move(move_time, next) = &building.task {
                 next.last()
@@ -85,8 +74,6 @@ impl AsteroidColonies {
             pos
         };
 
-        let time = ctx.view_time / 0.1;
-
         // Render objects in the building perimeter. Subject to the culling, if the screen is out of view.
         let render_main = |building: &Building| {
             gl.use_program(Some(&shader.program));
@@ -94,62 +81,10 @@ impl AsteroidColonies {
 
             enable_buffer(&gl, &assets.screen_buffer, 2, shader.vertex_position);
 
-            let [x, y] = match building.type_ {
-                BuildingType::Power => {
-                    let (sx, sy) = ((time / 5. % 2.).floor() as f32, 0.);
-                    gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_atomic_battery));
-                    set_texture_transform(sx, sy, 0.5, 1.);
-                    render_bldg(&building)
-                }
-                BuildingType::Battery => {
-                    let sx = building
-                        .energy
-                        .zip(building.type_.energy_capacity())
-                        .map(|(c, max)| (c as f64 / max as f64 * 4.).floor().min(3.))
-                        .unwrap_or(0.);
-                    gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_battery));
-                    set_texture_transform(sx as f32, 0., 0.25, 1.);
-                    render_bldg(&building)
-                }
-                BuildingType::Excavator => {
-                    let sx = if let Task::Excavate(_, _) = building.task {
-                        ((time % 2.).floor() + 1.) as f32
-                    } else {
-                        0.
-                    };
-                    gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_excavator));
-                    set_texture_transform(sx, 0., 1. / 3., 1.);
-                    render_bldg(&building)
-                }
-                BuildingType::Assembler => {
-                    let sx = if !matches!(building.task, Task::None) {
-                        ((time % 2.).floor() + 1.) as f32
-                    } else {
-                        0.
-                    };
-                    gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_assembler));
-                    set_texture_transform(sx, 0., 1. / 3., 1.);
-                    render_bldg(&building)
-                }
-                BuildingType::Furnace => {
-                    let sx = if !matches!(building.task, Task::None) {
-                        ((time % 2.).floor() + 1.) as f32
-                    } else {
-                        0.
-                    };
-                    gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_furnace));
-                    set_texture_transform(sx, 0., 1. / 3., 1.);
-                    render_bldg(&building)
-                }
-                _ => {
-                    if let Some(tex) = assets.building_to_tex(building.type_) {
-                        gl.bind_texture(GL::TEXTURE_2D, Some(tex));
-                        set_texture_transform(0., 0., 1., 1.);
-                        render_bldg(&building)
-                    } else {
-                        [building.pos[0] as f64, building.pos[1] as f64]
-                    }
-                }
+            let [x, y] = if render_gl_building_texture(gl, ctx, building) {
+                render_bldg(&building)
+            } else {
+                [building.pos[0] as f64, building.pos[1] as f64]
             };
 
             let render_item = |item: &ItemType| {
@@ -248,6 +183,114 @@ impl AsteroidColonies {
         gl.use_program(Some(&shader.program));
 
         Ok(())
+    }
+}
+
+/// Set up texture matrix for textured_shader for this building and return true on success.
+/// The building may be an actual building or a ghost (construction plan).
+/// We use [`BuildingLike`] trait to allow sharing logic among actual and ghost buildings,
+/// because some building uses custom texture coordinates for animation.
+pub(super) fn render_gl_building_texture(
+    gl: &GL,
+    ctx: &RenderContext,
+    building: &impl BuildingLike,
+) -> bool {
+    let assets = &ctx.assets;
+    let time = ctx.view_time / 0.1;
+    let shader = &assets.textured_shader;
+    let set_texture_transform = |tx, ty, sx, sy| {
+        let tex_transform = Matrix3::from_nonuniform_scale(sx, sy)
+            * Matrix3::from_translation(Vector2::new(tx as f32, ty as f32));
+
+        gl.uniform_matrix3fv_with_f32_array(
+            shader.tex_transform_loc.as_ref(),
+            false,
+            tex_transform.flatten(),
+        );
+    };
+
+    match building.get_type() {
+        BuildingType::Power => {
+            gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_atomic_battery));
+            let (sx, sy) = ((time / 5. % 2.).floor() as f32, 0.);
+            set_texture_transform(sx, sy, 0.5, 1.);
+        }
+        BuildingType::Battery => {
+            let sx = building
+                .get_energy()
+                .zip(building.get_type().energy_capacity())
+                .map(|(c, max)| (c as f64 / max as f64 * 4.).floor().min(3.))
+                .unwrap_or(0.);
+            gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_battery));
+            set_texture_transform(sx as f32, 0., 0.25, 1.);
+        }
+        BuildingType::Excavator => {
+            let sx = if let Task::Excavate(_, _) = building.get_task() {
+                ((time % 2.).floor() + 1.) as f32
+            } else {
+                0.
+            };
+            gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_excavator));
+            set_texture_transform(sx, 0., 1. / 3., 1.);
+        }
+        BuildingType::Assembler => {
+            let sx = if !matches!(building.get_task(), Task::None) {
+                ((time % 2.).floor() + 1.) as f32
+            } else {
+                0.
+            };
+            gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_assembler));
+            set_texture_transform(sx, 0., 1. / 3., 1.);
+        }
+        BuildingType::Furnace => {
+            let sx = if !matches!(building.get_task(), Task::None) {
+                ((time % 2.).floor() + 1.) as f32
+            } else {
+                0.
+            };
+            gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_furnace));
+            set_texture_transform(sx, 0., 1. / 3., 1.);
+        }
+        _ => {
+            if let Some(tex) = assets.building_to_tex(building.get_type()) {
+                gl.bind_texture(GL::TEXTURE_2D, Some(tex));
+                set_texture_transform(0., 0., 1., 1.);
+            } else {
+                return false;
+            }
+        }
+    }
+    true
+}
+
+/// Mockable building, used for construction ghosts
+pub(super) trait BuildingLike {
+    fn get_type(&self) -> BuildingType;
+    fn get_energy(&self) -> Option<usize>;
+    fn get_task(&self) -> &Task;
+}
+
+impl BuildingLike for Building {
+    fn get_type(&self) -> BuildingType {
+        self.type_
+    }
+    fn get_energy(&self) -> Option<usize> {
+        self.energy
+    }
+    fn get_task(&self) -> &Task {
+        &self.task
+    }
+}
+
+impl BuildingLike for BuildingType {
+    fn get_type(&self) -> BuildingType {
+        *self
+    }
+    fn get_energy(&self) -> Option<usize> {
+        None
+    }
+    fn get_task(&self) -> &Task {
+        &Task::None
     }
 }
 
