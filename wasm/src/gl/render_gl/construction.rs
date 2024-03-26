@@ -87,8 +87,6 @@ impl AsteroidColonies {
             let size = construction.size();
             let width = size[0] as f32;
             let height = size[1] as f32;
-            // const SRC_WIDTH: f64 = 64.;
-            // const SRC_HEIGHT: f64 = 64.;
             let transform = to_screen
                 * scale
                 * Matrix4::from_translation(Vector3::new(x, y, 0.))
@@ -99,20 +97,17 @@ impl AsteroidColonies {
                 transform.flatten(),
             );
             gl.draw_arrays(GL::TRIANGLE_FAN, 0, 4);
-            // context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-            //     img, 0., 0., SRC_WIDTH, SRC_HEIGHT, x, y, width, height,
-            // )?;
-            render_global_task_bar(
-                gl,
-                ctx,
-                [ix, iy],
-                size[0] as f32,
-                construction.progress(),
-                construction.recipe.time,
-            );
-            // if let Some((t, pos, max_time)) = task_target {
-            //     render_global_task_bar(context, pos, t, max_time);
-            // }
+
+            if 0. < construction.progress() {
+                render_global_task_bar(
+                    gl,
+                    ctx,
+                    [ix, iy],
+                    size[0] as f32,
+                    construction.progress(),
+                    construction.recipe.time,
+                );
+            }
         }
     }
 }
