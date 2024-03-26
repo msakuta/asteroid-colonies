@@ -8,7 +8,7 @@ use crate::{
 use ::asteroid_colonies_logic::{
     building::{Building, BuildingType},
     task::{Task, EXCAVATE_TIME, MOVE_TIME},
-    Direction,
+    Direction, ItemType,
 };
 use cgmath::{Matrix3, Matrix4, Rad, SquareMatrix, Vector2, Vector3};
 use wasm_bindgen::JsValue;
@@ -152,32 +152,40 @@ impl AsteroidColonies {
                 }
             };
 
+            let render_item = |item: &ItemType| {
+                gl.bind_texture(GL::TEXTURE_2D, Some(assets.item_to_tex(*item)));
+                let x = (x + offset[0] as f64 / TILE_SIZE) as f32;
+                let y = (y + offset[1] as f64 / TILE_SIZE) as f32;
+                let size = building.type_.size();
+                gl.uniform_matrix3fv_with_f32_array(
+                    shader.tex_transform_loc.as_ref(),
+                    false,
+                    Matrix3::identity().flatten(),
+                );
+                let transform = ctx.to_screen
+                    * scale
+                    * Matrix4::from_translation(Vector3::new(x as f32, y as f32, 0.))
+                    * Matrix4::from_translation(Vector3::new(
+                        0.5 * size[0] as f32 - 0.25,
+                        0.5 * size[1] as f32 - 0.25,
+                        0.,
+                    ))
+                    * Matrix4::from_nonuniform_scale(0.5, 0.5, 1.);
+                gl.uniform_matrix4fv_with_f32_array(
+                    shader.transform_loc.as_ref(),
+                    false,
+                    transform.flatten(),
+                );
+                gl.draw_arrays(GL::TRIANGLE_FAN, 0, 4);
+            };
+
             if let Some(ref r) = building.recipe {
                 if let Some((item, _)) = r.outputs.iter().next() {
-                    gl.bind_texture(GL::TEXTURE_2D, Some(assets.item_to_tex(*item)));
-                    let x = (x + offset[0] as f64 / TILE_SIZE) as f32;
-                    let y = (y + offset[1] as f64 / TILE_SIZE) as f32;
-                    let size = building.type_.size();
-                    gl.uniform_matrix3fv_with_f32_array(
-                        shader.tex_transform_loc.as_ref(),
-                        false,
-                        Matrix3::identity().flatten(),
-                    );
-                    let transform = ctx.to_screen
-                        * scale
-                        * Matrix4::from_translation(Vector3::new(x as f32, y as f32, 0.))
-                        * Matrix4::from_translation(Vector3::new(
-                            0.5 * size[0] as f32 - 0.25,
-                            0.5 * size[1] as f32 - 0.25,
-                            0.,
-                        ))
-                        * Matrix4::from_nonuniform_scale(0.5, 0.5, 1.);
-                    gl.uniform_matrix4fv_with_f32_array(
-                        shader.transform_loc.as_ref(),
-                        false,
-                        transform.flatten(),
-                    );
-                    gl.draw_arrays(GL::TRIANGLE_FAN, 0, 4);
+                    render_item(item);
+                }
+            } else if let Task::Assemble { ref outputs, .. } = building.task {
+                if let Some((item, _)) = outputs.iter().next() {
+                    render_item(item);
                 }
             }
 
