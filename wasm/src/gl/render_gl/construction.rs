@@ -9,7 +9,6 @@ use web_sys::WebGlRenderingContext as GL;
 impl AsteroidColonies {
     pub(super) fn render_gl_constructions(&self, gl: &GL, ctx: &RenderContext) {
         let RenderContext {
-            frac_frame,
             assets,
             to_screen,
             offset,
@@ -19,23 +18,24 @@ impl AsteroidColonies {
 
         let shader = &assets.textured_shader;
 
-        gl.use_program(Some(&shader.program));
-        enable_buffer(gl, &assets.screen_buffer, 2, shader.vertex_position);
-
-        let view_time = (self.game.get_global_time() as f64 + frac_frame) * 0.1;
+        let view_time = ctx.view_time;
         let alpha = triangle(view_time as f32);
-
-        gl.uniform_matrix3fv_with_f32_array(
-            shader.tex_transform_loc.as_ref(),
-            false,
-            Matrix3::identity().flatten(),
-        );
 
         for construction in self.game.iter_construction() {
             let [ix, iy] = construction.pos;
             let x = (ix as f64 + offset[0] as f64 / TILE_SIZE) as f32;
             let y = (iy as f64 + offset[1] as f64 / TILE_SIZE) as f32;
+
+            gl.use_program(Some(&shader.program));
+            enable_buffer(gl, &assets.screen_buffer, 2, shader.vertex_position);
             gl.uniform1f(shader.alpha_loc.as_ref(), 0.5);
+
+            gl.uniform_matrix3fv_with_f32_array(
+                shader.tex_transform_loc.as_ref(),
+                false,
+                Matrix3::identity().flatten(),
+            );
+
             match construction.get_type() {
                 ConstructionType::Building(ty) => {
                     let Some(tex) = assets.building_to_tex(ty) else {
