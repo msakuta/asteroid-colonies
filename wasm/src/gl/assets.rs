@@ -6,7 +6,7 @@ use super::{
     shader_bundle::ShaderBundle,
     utils::{create_texture, load_texture, vertex_buffer_data},
 };
-use asteroid_colonies_logic::building::BuildingType;
+use asteroid_colonies_logic::{building::BuildingType, ItemType};
 
 use wasm_bindgen::{prelude::*, JsCast, JsValue};
 use web_sys::{
@@ -241,6 +241,23 @@ impl Assets {
             BuildingType::Furnace => &self.tex_furnace,
             _ => panic!("Uncovered building type!"),
         })
+    }
+
+    pub fn item_to_tex(&self, item: ItemType) -> &WebGlTexture {
+        match item {
+            ItemType::RawOre => &self.tex_raw_ore,
+            ItemType::IronIngot => &self.tex_iron_ingot,
+            ItemType::CopperIngot => &self.tex_copper_ingot,
+            ItemType::LithiumIngot => &self.tex_lithium_ingot,
+            ItemType::Cilicate => &self.tex_cilicate,
+            ItemType::Gear => &self.tex_gear,
+            ItemType::Wire => &self.tex_wire,
+            ItemType::Circuit => &self.tex_circuit,
+            ItemType::Battery => &self.tex_battery_item,
+            ItemType::PowerGridComponent => &self.tex_power_grid,
+            ItemType::ConveyorComponent => &self.tex_conveyor_item,
+            ItemType::AssemblerComponent => &self.tex_assembler_component,
+        }
     }
 }
 
