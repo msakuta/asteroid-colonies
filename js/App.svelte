@@ -441,9 +441,11 @@
             }
         }
         else if (name === "deconstruct") {
-            const pos = game.transform_coords(x, y);
-            requestWs("Deconstruct", {pos: [pos[0], pos[1]]});
-            game.deconstruct(pos[0], pos[1]);
+            const pos = game.get_cursor();
+            if (pos) {
+                requestWs("Deconstruct", {pos: [pos[0], pos[1]]});
+                game.deconstruct();
+            }
         }
         else if (name === "cleanup") {
             const pos = game.transform_coords(x, y);
@@ -627,9 +629,11 @@
 
     let commandDeconstruct = wrapErrorMessage(() => {
         showRadialMenu = false;
-        const [x, y] = radialPos;
-        requestWs("Deconstruct", {pos: [x, y]});
-        game.deconstruct(x, y);
+        const pos = game.get_cursor();
+        if (pos) {
+            requestWs("Deconstruct", {pos: [pos[0], pos[1]]});
+            game.deconstruct();
+        }
     });
 
     let commandCancelBuild = wrapErrorMessage(() => {
