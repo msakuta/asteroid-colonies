@@ -434,9 +434,11 @@
             setShowRecipeMenu(x, y);
         }
         else if (name === "cancel") {
-            const pos = game.transform_coords(x, y);
-            requestWs("CancelBuild", {pos: [pos[0], pos[1]]});
-            game.cancel_build(x, y);
+            const pos = game.get_cursor(x, y);
+            if (pos) {
+                requestWs("CancelBuild", {pos: [pos[0], pos[1]]});
+                game.cancel_build();
+            }
         }
         else if (name === "deconstruct") {
             const pos = game.transform_coords(x, y);
@@ -632,9 +634,11 @@
 
     let commandCancelBuild = wrapErrorMessage(() => {
         showRadialMenu = false;
-        const [x, y] = radialPos;
-        requestWs("CancelBuild", {pos: [x, y]});
-        game.cancel_build(x, y);
+        const pos = game.get_cursor();
+        if (pos) {
+            requestWs("CancelBuild", {pos: [pos[0], pos[1]]});
+            game.cancel_build();
+        }
     });
 
     let commandBuild = wrapErrorMessage((evt) => {

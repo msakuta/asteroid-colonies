@@ -233,10 +233,10 @@ impl AsteroidColonies {
         self.game.build(ix, iy, type_).map_err(|e| JsValue::from(e))
     }
 
-    pub fn cancel_build(&mut self, x: f64, y: f64) {
-        let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
-        let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
-        self.game.cancel_build(ix, iy)
+    pub fn cancel_build(&mut self) -> Result<(), JsValue> {
+        let [ix, iy] = self.cursor.ok_or("Cursor was not selected")?;
+        self.game.cancel_build(ix, iy);
+        Ok(())
     }
 
     pub fn find_building(&self, x: i32, y: i32) -> Result<bool, JsValue> {
@@ -300,6 +300,10 @@ impl AsteroidColonies {
     pub fn pan(&mut self, x: f64, y: f64) {
         self.viewport.offset[0] += x / self.viewport.scale;
         self.viewport.offset[1] += y / self.viewport.scale;
+    }
+
+    pub fn get_cursor(&self) -> Option<Vec<i32>> {
+        self.cursor.map(|c| c.to_vec())
     }
 
     pub fn get_pos(&self) -> Vec<f64> {
