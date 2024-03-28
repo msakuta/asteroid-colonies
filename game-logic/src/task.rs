@@ -103,7 +103,7 @@ impl AsteroidColoniesGame {
             return Err(String::from("Power grid is already installed in this tile"));
         }
         self.constructions
-            .insert(Construction::new_power_grid([ix, iy]));
+            .insert(Construction::new_power_grid([ix, iy], false));
         Ok(true)
     }
 

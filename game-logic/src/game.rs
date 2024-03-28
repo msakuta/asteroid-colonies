@@ -358,6 +358,34 @@ impl AsteroidColoniesGame {
         Ok(())
     }
 
+    pub fn deconstruct_conveyor(&mut self, ix: i32, iy: i32) -> Result<(), &'static str> {
+        let tile = self
+            .tiles
+            .try_get_mut([ix, iy])
+            .ok_or("Tile does not exist")?;
+        if matches!(tile.conveyor, Conveyor::None) {
+            return Err("Conveyor does not exist");
+        }
+        let decon = Construction::new_conveyor([ix, iy], tile.conveyor, true);
+        tile.conveyor = Conveyor::None;
+        self.constructions.insert(decon);
+        Ok(())
+    }
+
+    pub fn deconstruct_power_grid(&mut self, ix: i32, iy: i32) -> Result<(), &'static str> {
+        let tile = self
+            .tiles
+            .try_get_mut([ix, iy])
+            .ok_or("Tile does not exist")?;
+        if !tile.power_grid {
+            return Err("Power grid does not exist");
+        }
+        let decon = Construction::new_power_grid([ix, iy], true);
+        tile.power_grid = false;
+        self.constructions.insert(decon);
+        Ok(())
+    }
+
     pub fn get_recipes(&self, ix: i32, iy: i32) -> Result<Vec<&'static Recipe>, String> {
         if ix < 0 || WIDTH as i32 <= ix || iy < 0 || HEIGHT as i32 <= iy {
             return Err(String::from("Point outside tile"));

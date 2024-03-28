@@ -155,6 +155,12 @@ enum WsMessage {
     Deconstruct {
         pos: Pos,
     },
+    DeconstructConveyor {
+        pos: Pos,
+    },
+    DeconstructPowerGrid {
+        pos: Pos,
+    },
     SetRecipe {
         pos: Pos,
         name: Option<String>,
@@ -205,6 +211,10 @@ impl StreamHandler<WsResult> for SessionWs {
     }
 }
 
+fn map_err(s: &str) -> anyhow::Error {
+    anyhow::anyhow!("{s}")
+}
+
 impl SessionWs {
     fn handle_message(&mut self, payload: WsMessage) -> anyhow::Result<()> {
         let mut game = self.data.game.lock().unwrap();
@@ -241,6 +251,13 @@ impl SessionWs {
             WsMessage::Deconstruct { pos } => {
                 game.deconstruct(pos[0], pos[1])
                     .map_err(|e| anyhow::anyhow!("{e}"))?;
+            }
+            WsMessage::DeconstructConveyor { pos } => {
+                game.deconstruct_conveyor(pos[0], pos[1]).map_err(map_err)?;
+            }
+            WsMessage::DeconstructPowerGrid { pos } => {
+                game.deconstruct_power_grid(pos[0], pos[1])
+                    .map_err(map_err)?;
             }
             WsMessage::SetRecipe { pos, name } => {
                 game.set_recipe(pos[0], pos[1], name.as_ref().map(|s| s as &_))

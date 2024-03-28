@@ -90,6 +90,11 @@
         {caption: "Building", event: 'buildBuilding', icon: buildBuildingIcon},
         {caption: "Deconstruct", event: 'deconstruct', icon: deconstructIcon},
     ];
+    const RADIAL_MENU_DECONSTRUCT = [
+        {caption: "Power Grid", event: 'deconstructPowerGrid', icon: buildPowerGridIcon},
+        {caption: "Conveyor", event: 'deconstructConveyor', icon: buildConveyorIcon},
+        {caption: "Building", event: 'deconstructBuilding', icon: buildBuildingIcon},
+    ];
     let showRadialMenu = false;
     let radialScreenPos = null;
     let radialPos = null;
@@ -571,7 +576,7 @@
             RADIAL_MENU_BUILD[5].icon = cancelBuildIcon;
         }
         else {
-            RADIAL_MENU_BUILD[5].grayed = !game.find_building(radialPos[0], radialPos[1]);
+            RADIAL_MENU_BUILD[5].grayed = !game.find_building(radialPos[0], radialPos[1]) && !game.has_conveyor() && !game.has_power_grid();
             RADIAL_MENU_BUILD[5].caption = "Deconstruct";
             RADIAL_MENU_BUILD[5].event = "deconstruct";
             RADIAL_MENU_BUILD[5].icon = deconstructIcon;
@@ -628,12 +633,10 @@
     }
 
     let commandDeconstruct = wrapErrorMessage(() => {
-        showRadialMenu = false;
-        const pos = game.get_cursor();
-        if (pos) {
-            requestWs("Deconstruct", {pos: [pos[0], pos[1]]});
-            game.deconstruct();
-        }
+        RADIAL_MENU_DECONSTRUCT[0].grayed = !game.has_power_grid();
+        RADIAL_MENU_DECONSTRUCT[1].grayed = !game.has_conveyor();
+        RADIAL_MENU_DECONSTRUCT[2].grayed = !game.find_building(radialPos[0], radialPos[1]);
+        showRadialMenu = RADIAL_MENU_DECONSTRUCT;
     });
 
     let commandCancelBuild = wrapErrorMessage(() => {
@@ -642,6 +645,33 @@
         if (pos) {
             requestWs("CancelBuild", {pos: [pos[0], pos[1]]});
             game.cancel_build();
+        }
+    });
+
+    let deconstructPowerGrid = wrapErrorMessage(() => {
+        showRadialMenu = false;
+        const pos = game.get_cursor();
+        if (pos) {
+            requestWs("DeconstructPowerGrid", {pos: [pos[0], pos[1]]});
+            game.deconstruct_power_grid();
+        }
+    });
+
+    let deconstructConveyor = wrapErrorMessage(() => {
+        showRadialMenu = false;
+        const pos = game.get_cursor();
+        if (pos) {
+            requestWs("DeconstructConveyor", {pos: [pos[0], pos[1]]});
+            game.deconstruct_conveyor();
+        }
+    });
+
+    let deconstructBuilding = wrapErrorMessage(() => {
+        showRadialMenu = false;
+        const pos = game.get_cursor();
+        if (pos) {
+            requestWs("Deconstruct", {pos: [pos[0], pos[1]]});
+            game.deconstruct();
         }
     });
 
@@ -757,6 +787,15 @@
             on:buildMerger={buildMerger}
             on:deconstruct={commandDeconstruct}
             on:cancelBuild={commandCancelBuild}/>
+    {:else if showRadialMenu === RADIAL_MENU_DECONSTRUCT}
+        <RadialMenu
+            centerIcon={deconstructIcon}
+            pos={radialScreenPos}
+            items={showRadialMenu}
+            on:close={() => showRadialMenu = false}
+            on:deconstructPowerGrid={deconstructPowerGrid}
+            on:deconstructConveyor={deconstructConveyor}
+            on:deconstructBuilding={deconstructBuilding}/>
     {/if}
     {#if showErrorMessage}
         <ErrorMessage text={errorMessage} timeout={errorMessageTimeout} on:click={() => showErrorMessage = false}/>

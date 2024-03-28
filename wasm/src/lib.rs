@@ -14,8 +14,8 @@ use wasm_bindgen::prelude::*;
 use web_sys::{js_sys, WebGlRenderingContext};
 
 use asteroid_colonies_logic::{
-    building::BuildingType, get_build_menu, AsteroidColoniesGame, ItemType, Pos, TileState, HEIGHT,
-    TILE_SIZE, WIDTH,
+    building::BuildingType, get_build_menu, AsteroidColoniesGame, Conveyor, ItemType, Pos,
+    TileState, HEIGHT, TILE_SIZE, WIDTH,
 };
 
 use crate::{assets::Assets, render::calculate_back_image};
@@ -247,6 +247,16 @@ impl AsteroidColonies {
         Ok(self.game.iter_construction().any(|c| c.intersects([x, y])))
     }
 
+    pub fn has_conveyor(&self) -> Result<bool, JsValue> {
+        let pos = self.cursor.ok_or("Cursor was not selected")?;
+        Ok(!matches!(self.game.tiles()[pos].conveyor, Conveyor::None))
+    }
+
+    pub fn has_power_grid(&self) -> Result<bool, JsValue> {
+        let pos = self.cursor.ok_or("Cursor was not selected")?;
+        Ok(self.game.tiles()[pos].power_grid)
+    }
+
     pub fn build_plan(&mut self, constructions: Vec<JsValue>) -> Result<(), JsValue> {
         let constructions = constructions
             .into_iter()
@@ -260,6 +270,18 @@ impl AsteroidColonies {
     pub fn deconstruct(&mut self) -> Result<(), JsValue> {
         let [ix, iy] = self.cursor.ok_or("Cursor was not selected")?;
         Ok(self.game.deconstruct(ix, iy)?)
+    }
+
+    /// Puts a task to deconstruct a conveyor.
+    pub fn deconstruct_conveyor(&mut self) -> Result<(), JsValue> {
+        let [ix, iy] = self.cursor.ok_or("Cursor was not selected")?;
+        Ok(self.game.deconstruct_conveyor(ix, iy)?)
+    }
+
+    /// Puts a task to deconstruct a power grid.
+    pub fn deconstruct_power_grid(&mut self) -> Result<(), JsValue> {
+        let [ix, iy] = self.cursor.ok_or("Cursor was not selected")?;
+        Ok(self.game.deconstruct_power_grid(ix, iy)?)
     }
 
     pub fn get_recipes(&self, ix: i32, iy: i32) -> Result<Vec<JsValue>, JsValue> {
