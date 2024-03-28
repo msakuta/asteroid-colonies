@@ -526,12 +526,6 @@ impl AsteroidColoniesGame {
         chunks_digest: &HashMap<Position, u64>,
     ) -> Result<Vec<u8>, String> {
         let tiles = self.tiles.filter_with_diffs(chunks_digest)?;
-        if let Some((b, data)) = self.buildings.iter().next().and_then(|b| {
-            let bytes = bincode::serialize(&*b).ok()?;
-            Some((b, bytes))
-        }) {
-            println!("serialized bincode: {} {:?}", data.len(), b.type_);
-        }
         let ser_game = SerializeGame {
             tiles,
             buildings: self.buildings.clone(),
