@@ -268,7 +268,8 @@ pub(crate) fn send_item<'a, 'b>(
     dest_pos: Pos,
     buildings: &EntitySet<Building>,
     is_output: &impl Fn(ItemType) -> bool,
-) -> Result<(), String>
+    max_amount: usize,
+) -> Result<usize, String>
 where
     'b: 'a,
 {
@@ -280,6 +281,12 @@ where
         .iter_borrow_mut()
         .find(|b| b.intersects(dest_pos))
         .ok_or_else(|| "Destination did not have a building")?;
+    if transports
+        .iter()
+        .any(|t| t.path.last().is_some_and(|tpos| *tpos == pos))
+    {
+        return Err("Exit blocked by another transport".to_string());
+    }
     let expected_inventory_size = dest.inventory_size()
         + expected_deliveries(transports, &dest.expected_transports)
             .values()
@@ -306,16 +313,22 @@ where
         .find(|(t, count)| is_output(**t) && 0 < **count)
         .ok_or_else(|| "The designated item was not found")?;
 
+    let move_amount = (*amount).min(max_amount);
+
     let id = transports.insert(Transport {
         src: pos,
         dest: dest.pos,
         path,
         item,
-        amount: *amount,
+        amount: move_amount,
     });
     dest.expected_transports.insert(id);
-    src.inventory().remove(&item);
-    Ok(())
+    if move_amount == *amount {
+        src.inventory().remove(&item);
+    } else {
+        *amount -= move_amount;
+    }
+    Ok(move_amount)
 }
 
 fn push_pull_passable(

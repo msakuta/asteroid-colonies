@@ -59,6 +59,7 @@ impl Crew {
                     item: None,
                 },
             ),
+            _ => return None,
         };
         let path = find_path(from_building.pos, target, |pos| {
             matches!(tiles[pos].state, TileState::Empty) || pos == target

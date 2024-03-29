@@ -197,9 +197,7 @@ impl AsteroidColonies {
             .move_item_cursor
             .ok_or_else(|| JsValue::from("Select a building to move items from first"))?;
         self.move_item_cursor = None;
-        self.game
-            .move_item(src, dpos, item)
-            .map_err(JsValue::from)?;
+        self.game.move_item(src, dpos, item)?;
         Ok(serde_wasm_bindgen::to_value(&src)?)
     }
 

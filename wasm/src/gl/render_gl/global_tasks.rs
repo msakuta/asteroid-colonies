@@ -22,6 +22,11 @@ impl AsteroidColonies {
                 GlobalTask::Cleanup(pos) => {
                     render_icon(gl, ctx, *pos, &assets.tex_cleanup);
                 }
+                GlobalTask::MoveItem { src, .. } => {
+                    if let Some(bldg) = self.game.get_building(*src) {
+                        render_icon(gl, ctx, bldg.pos, &assets.tex_move_item);
+                    }
+                }
             }
         }
     }

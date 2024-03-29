@@ -30,6 +30,7 @@ import furnaceItem from '../images/furnaceItem.png';
 import construction from '../images/construction.png';
 import deconstruction from '../images/deconstruction.png';
 import cleanup from '../images/cleanup.png';
+import moveItemIcon from '../images/moveItem.png';
 import excavate from '../images/excavate.png';
 import path from '../images/path.png';
 import heart from '../images/heart.png';
@@ -84,6 +85,7 @@ export async function loadAllIcons() {
         ["construction", construction],
         ["deconstruction", deconstruction],
         ["cleanup", cleanup],
+        ["move_item", moveItemIcon],
         ["excavate", excavate],
         ["path", path],
     ].map(async ([name, src]) => {
