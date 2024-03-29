@@ -17,7 +17,7 @@ use crate::{
     items::{Inventory, ItemType},
     measure_time,
     push_pull::{pull_inputs, push_outputs},
-    task::{GlobalTask, Task, RAW_ORE_SMELT_TIME},
+    task::{BuildingTask, GlobalTask, RAW_ORE_SMELT_TIME},
     tile::Tiles,
     AsteroidColoniesGame, Crew, Direction, Pos, TileState, Transport, Xor128,
 };
@@ -120,7 +120,7 @@ pub struct Recipe {
 pub struct Building {
     pub pos: [i32; 2],
     pub type_: BuildingType,
-    pub task: Task,
+    pub task: BuildingTask,
     pub inventory: Inventory,
     /// The number of crews attending this building.
     pub crews: usize,
@@ -141,7 +141,7 @@ impl Building {
         Self {
             pos,
             type_,
-            task: Task::None,
+            task: BuildingTask::None,
             inventory: Inventory::new(),
             crews: type_.max_crews(),
             recipe: None,
@@ -155,7 +155,7 @@ impl Building {
         Self {
             pos,
             type_,
-            task: Task::None,
+            task: BuildingTask::None,
             inventory,
             crews: type_.max_crews(),
             recipe: None,
@@ -169,8 +169,8 @@ impl Building {
     pub fn power_gen(&self) -> isize {
         let base = self.type_.power_gen();
         let task_power = match self.task {
-            Task::Excavate(_, _) => 200,
-            Task::Assemble { .. } => 300,
+            BuildingTask::Excavate(_, _) => 200,
+            BuildingTask::Assemble { .. } => 300,
             _ => 0,
         };
         base - task_power
@@ -244,7 +244,7 @@ impl Building {
             });
         }
         let this = self;
-        if matches!(this.task, Task::None) {
+        if matches!(this.task, BuildingTask::None) {
             if let Some(recipe) = &this.recipe {
                 pull_inputs(
                     &recipe.inputs,
@@ -274,7 +274,7 @@ impl Building {
                         }
                     }
                 }
-                this.task = Task::Assemble {
+                this.task = BuildingTask::Assemble {
                     t: recipe.time,
                     max_t: recipe.time,
                     outputs: recipe.outputs.clone(),
@@ -359,7 +359,7 @@ impl Building {
                 push_outputs(tiles, transports, &mut *this, bldgs, &|t| {
                     !matches!(t, ItemType::RawOre)
                 });
-                if !matches!(this.task, Task::None) {
+                if !matches!(this.task, BuildingTask::None) {
                     return Ok(());
                 }
                 // A tentative recipe. The output does not have to represent the actual products yet.
@@ -390,7 +390,7 @@ impl Building {
                         6 => ItemType::CopperIngot,
                         _ => ItemType::LithiumIngot,
                     } => 1);
-                    this.task = Task::Assemble {
+                    this.task = BuildingTask::Assemble {
                         t: RAW_ORE_SMELT_TIME,
                         max_t: RAW_ORE_SMELT_TIME,
                         outputs,

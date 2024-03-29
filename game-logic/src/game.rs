@@ -12,7 +12,7 @@ use crate::{
     entity::{EntitySet, RefOption},
     items::{recipes, ItemType},
     push_pull::send_item,
-    task::{GlobalTask, Task, MOVE_TIME},
+    task::{BuildingTask, GlobalTask, MOVE_TIME},
     tile::CHUNK_SIZE,
     transport::{find_path, Transport},
     Pos, Position, Tile, TileState, Tiles, Xor128, HEIGHT, WIDTH,
@@ -213,7 +213,7 @@ impl AsteroidColoniesGame {
         if !building.type_.is_mobile() {
             return Err(String::from("Building at that position is not mobile"));
         }
-        if !matches!(building.task, Task::None) {
+        if !matches!(building.task, BuildingTask::None) {
             return Err(String::from(
                 "The building is busy; wait for the building to finish the current task",
             ));
@@ -242,7 +242,7 @@ impl AsteroidColoniesGame {
             return Err(String::from("Building does not exist at that position"));
         };
         path.pop();
-        building.task = Task::Move(MOVE_TIME, path);
+        building.task = BuildingTask::Move(MOVE_TIME, path);
         Ok(())
     }
 

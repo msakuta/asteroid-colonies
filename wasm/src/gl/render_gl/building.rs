@@ -7,7 +7,7 @@ use crate::{
 
 use ::asteroid_colonies_logic::{
     building::{Building, BuildingType},
-    task::{Task, EXCAVATE_TIME, MOVE_TIME},
+    task::{BuildingTask, EXCAVATE_TIME, MOVE_TIME},
     Direction, ItemType,
 };
 use cgmath::{Matrix3, Matrix4, Rad, SquareMatrix, Vector2, Vector3};
@@ -32,7 +32,7 @@ impl AsteroidColonies {
         gl.uniform1i(shader.texture_loc.as_ref(), 0);
 
         let render_bldg = |building: &Building| {
-            let pos = if let Task::Move(move_time, next) = &building.task {
+            let pos = if let BuildingTask::Move(move_time, next) = &building.task {
                 next.last()
                     .map(|next| {
                         lerp(
@@ -118,16 +118,16 @@ impl AsteroidColonies {
                 if let Some((item, _)) = r.outputs.iter().next() {
                     render_item(item);
                 }
-            } else if let Task::Assemble { ref outputs, .. } = building.task {
+            } else if let BuildingTask::Assemble { ref outputs, .. } = building.task {
                 if let Some((item, _)) = outputs.iter().next() {
                     render_item(item);
                 }
             }
 
             let task_target = match building.task {
-                Task::Excavate(t, _) => Some((t, EXCAVATE_TIME)),
-                Task::Move(t, _) => Some((t, MOVE_TIME)),
-                Task::Assemble { t, max_t, .. } => Some((t, max_t)),
+                BuildingTask::Excavate(t, _) => Some((t, EXCAVATE_TIME)),
+                BuildingTask::Move(t, _) => Some((t, MOVE_TIME)),
+                BuildingTask::Assemble { t, max_t, .. } => Some((t, max_t)),
                 _ => None,
             };
 
@@ -174,7 +174,7 @@ impl AsteroidColonies {
                 render_main(&building);
             }
 
-            if let Task::Move(_, path) = &building.task {
+            if let BuildingTask::Move(_, path) = &building.task {
                 render_path(gl, ctx, path, &[1., 0.5, 0.0, 1.]);
             }
         }
@@ -225,7 +225,7 @@ pub(super) fn render_gl_building_texture(
             set_texture_transform(sx as f32, 0., 0.25, 1.);
         }
         BuildingType::Excavator => {
-            let sx = if let Task::Excavate(_, _) = building.get_task() {
+            let sx = if let BuildingTask::Excavate(_, _) = building.get_task() {
                 ((time % 2.).floor() + 1.) as f32
             } else {
                 0.
@@ -234,7 +234,7 @@ pub(super) fn render_gl_building_texture(
             set_texture_transform(sx, 0., 1. / 3., 1.);
         }
         BuildingType::Assembler => {
-            let sx = if !matches!(building.get_task(), Task::None) {
+            let sx = if !matches!(building.get_task(), BuildingTask::None) {
                 ((time % 2.).floor() + 1.) as f32
             } else {
                 0.
@@ -243,7 +243,7 @@ pub(super) fn render_gl_building_texture(
             set_texture_transform(sx, 0., 1. / 3., 1.);
         }
         BuildingType::Furnace => {
-            let sx = if !matches!(building.get_task(), Task::None) {
+            let sx = if !matches!(building.get_task(), BuildingTask::None) {
                 ((time % 2.).floor() + 1.) as f32
             } else {
                 0.
@@ -267,7 +267,7 @@ pub(super) fn render_gl_building_texture(
 pub(super) trait BuildingLike {
     fn get_type(&self) -> BuildingType;
     fn get_energy(&self) -> Option<usize>;
-    fn get_task(&self) -> &Task;
+    fn get_task(&self) -> &BuildingTask;
 }
 
 impl BuildingLike for Building {
@@ -277,7 +277,7 @@ impl BuildingLike for Building {
     fn get_energy(&self) -> Option<usize> {
         self.energy
     }
-    fn get_task(&self) -> &Task {
+    fn get_task(&self) -> &BuildingTask {
         &self.task
     }
 }
@@ -289,8 +289,8 @@ impl BuildingLike for BuildingType {
     fn get_energy(&self) -> Option<usize> {
         None
     }
-    fn get_task(&self) -> &Task {
-        &Task::None
+    fn get_task(&self) -> &BuildingTask {
+        &BuildingTask::None
     }
 }
 

@@ -22,7 +22,7 @@ pub(crate) const RAW_ORE_SMELT_TIME: f64 = 30.;
 pub(crate) const EXCAVATE_ORE_AMOUNT: usize = 5;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum Task {
+pub enum BuildingTask {
     None,
     Excavate(f64, Direction),
     Move(f64, Vec<Pos>),
@@ -34,7 +34,7 @@ pub enum Task {
     // Smelt(usize),
 }
 
-impl Display for Task {
+impl Display for BuildingTask {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::None => write!(f, "None"),
@@ -66,7 +66,7 @@ impl AsteroidColoniesGame {
             }
             if let Some(dir) = choose_direction(&building.pos, ix, iy) {
                 building.direction = Some(dir);
-                building.task = Task::Excavate(EXCAVATE_TIME, dir);
+                building.task = BuildingTask::Excavate(EXCAVATE_TIME, dir);
                 return Ok(true);
             }
         }
@@ -126,9 +126,9 @@ impl AsteroidColoniesGame {
         calculate_back_image: Option<&mut CalculateBackImage>,
     ) -> Option<(ItemType, [i32; 2])> {
         match building.task {
-            Task::Excavate(ref mut t, dir) => {
+            BuildingTask::Excavate(ref mut t, dir) => {
                 if *t <= 0. {
-                    building.task = Task::None;
+                    building.task = BuildingTask::None;
                     *building.inventory.entry(ItemType::RawOre).or_default() += EXCAVATE_ORE_AMOUNT;
                     let dir_vec = dir.to_vec();
                     let pos = [building.pos[0] + dir_vec[0], building.pos[1] + dir_vec[1]];
@@ -140,7 +140,7 @@ impl AsteroidColoniesGame {
                     *t = (*t - power_ratio).max(0.);
                 }
             }
-            Task::Move(ref mut t, ref mut path) => {
+            BuildingTask::Move(ref mut t, ref mut path) => {
                 let next_t = *t - power_ratio;
                 if next_t <= 0. {
                     if let Some(next) = path.pop() {
@@ -153,7 +153,7 @@ impl AsteroidColoniesGame {
                         }
                         *t = next_t + MOVE_TIME;
                     } else {
-                        building.task = Task::None;
+                        building.task = BuildingTask::None;
                     }
                 } else {
                     if let Some(next) = path.last() {
@@ -165,7 +165,7 @@ impl AsteroidColoniesGame {
                     *t = next_t;
                 }
             }
-            Task::Assemble {
+            BuildingTask::Assemble {
                 ref mut t,
                 ref outputs,
                 ..
@@ -177,7 +177,7 @@ impl AsteroidColoniesGame {
                         for (i, c) in outputs {
                             *building.inventory.entry(*i).or_default() += c;
                         }
-                        building.task = Task::None;
+                        building.task = BuildingTask::None;
                     }
                 } else {
                     *t = (*t - power_ratio).max(0.);
