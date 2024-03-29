@@ -68,10 +68,16 @@ impl AsteroidColoniesGame {
             false
         };
 
-        let occupied: HashSet<_> = self
+        let occupied: HashMap<_, _> = self
             .transports
-            .iter()
-            .filter_map(|t| t.path.last().copied())
+            .items()
+            .filter_map(|(id, t)| {
+                if 2 <= t.path.len() {
+                    Some((t.path.get(t.path.len() - 2).copied()?, id))
+                } else {
+                    None
+                }
+            })
             .collect();
 
         for (id, t) in self.transports.items_mut() {
@@ -99,10 +105,10 @@ impl AsteroidColoniesGame {
                     }
                 }
             } else if t.path.len() <= 2
-                || t.path
-                    .get(t.path.len() - 2)
-                    .map(|pos| !occupied.contains(pos))
-                    .unwrap_or(true)
+                || t.path.get(t.path.len() - 2).map_or(true, |pos| {
+                    let predicted_id = occupied.get(pos);
+                    predicted_id == None || predicted_id == Some(&id)
+                })
             {
                 t.path.pop();
             }
