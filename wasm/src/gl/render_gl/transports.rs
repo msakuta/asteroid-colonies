@@ -1,4 +1,9 @@
-use super::{super::utils::Flatten, lerp, path::render_path, RenderContext};
+use super::{
+    super::utils::Flatten,
+    lerp,
+    path::{prepare_render_path, render_path},
+    RenderContext,
+};
 use crate::{gl::utils::enable_buffer, AsteroidColonies};
 
 use ::asteroid_colonies_logic::{Transport, TILE_SIZE};
@@ -54,9 +59,14 @@ impl AsteroidColonies {
             gl.draw_arrays(GL::TRIANGLE_FAN, 0, 4);
         };
 
+        prepare_render_path(gl, ctx);
+
         for t in self.game.iter_transport() {
             render_path(gl, ctx, &t.path, &[1., 1., 0., 1.]);
-            gl.use_program(Some(&shader.program));
+        }
+
+        gl.use_program(Some(&shader.program));
+        for t in self.game.iter_transport() {
             enable_buffer(gl, &assets.screen_buffer, 2, shader.vertex_position);
             render_transport(&t);
         }
