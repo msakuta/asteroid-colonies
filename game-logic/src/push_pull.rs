@@ -97,6 +97,7 @@ pub(crate) fn pull_inputs<'a>(
             path,
             item: *ty,
             amount,
+            is_blocked: false,
         });
         expected_transports.insert(id);
         if *src_count <= amount {
@@ -248,6 +249,7 @@ pub(crate) fn push_outputs<'a, 'b>(
                 path,
                 item,
                 amount: 1,
+                is_blocked: false,
             });
             dest.expected_transports.insert(id);
             // *dest.inventory.entry(*product.0).or_default() += 1;
@@ -344,6 +346,7 @@ where
         path,
         item,
         amount: move_amount,
+        is_blocked: false,
     });
     dest.expected_transports.insert(id);
     if move_amount == *amount {

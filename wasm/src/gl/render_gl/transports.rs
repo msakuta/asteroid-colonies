@@ -38,7 +38,7 @@ impl AsteroidColonies {
             };
             let tex = assets.item_to_tex(t.item);
             gl.bind_texture(GL::TEXTURE_2D, Some(tex));
-            let [x, y] = if 2 <= t.path.len() {
+            let [x, y] = if 2 <= t.path.len() && !t.is_blocked {
                 lerp(pos, t.path[t.path.len() - 2], *frac_frame)
             } else {
                 [pos[0] as f64, pos[1] as f64]
