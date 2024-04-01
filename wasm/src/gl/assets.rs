@@ -84,6 +84,7 @@ pub(crate) struct Assets {
     pub tex_construction: WebGlTexture,
     pub tex_deconstruction: WebGlTexture,
     pub tex_cleanup: WebGlTexture,
+    pub tex_move_item: WebGlTexture,
     pub tex_excavate: WebGlTexture,
     pub tex_path: WebGlTexture,
 
@@ -211,6 +212,7 @@ impl Assets {
             tex_construction: load_texture_local("construction")?,
             tex_deconstruction: load_texture_local("deconstruction")?,
             tex_cleanup: load_texture_local("cleanup")?,
+            tex_move_item: load_texture_local("move_item")?,
             tex_excavate: load_texture_local("excavate")?,
             tex_path: load_texture_local("path")?,
 

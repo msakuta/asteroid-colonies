@@ -1,7 +1,7 @@
 use super::{
     super::utils::{enable_buffer, Flatten},
     lerp,
-    path::render_path,
+    path::{prepare_render_path, render_path},
     RenderContext,
 };
 use crate::AsteroidColonies;
@@ -24,6 +24,14 @@ impl AsteroidColonies {
 
         let shader = &assets.textured_shader;
 
+        prepare_render_path(gl, ctx);
+
+        for crew in self.game.iter_crew() {
+            if let Some(path) = &crew.path {
+                render_path(gl, ctx, path, &[1., 0., 1., 1.]);
+            }
+        }
+
         gl.use_program(Some(&shader.program));
         gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_crew));
         gl.uniform_matrix3fv_with_f32_array(
@@ -31,17 +39,9 @@ impl AsteroidColonies {
             false,
             Matrix3::identity().flatten(),
         );
+        enable_buffer(gl, &assets.screen_buffer, 2, shader.vertex_position);
 
         for crew in self.game.iter_crew() {
-            gl.use_program(Some(&shader.program));
-            gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_crew));
-            gl.uniform_matrix3fv_with_f32_array(
-                shader.tex_transform_loc.as_ref(),
-                false,
-                Matrix3::identity().flatten(),
-            );
-            enable_buffer(gl, &assets.screen_buffer, 2, shader.vertex_position);
-
             let path = crew
                 .path
                 .as_ref()
@@ -65,10 +65,6 @@ impl AsteroidColonies {
                 transform.flatten(),
             );
             gl.draw_arrays(GL::TRIANGLE_FAN, 0, 4);
-
-            if let Some(path) = &crew.path {
-                render_path(gl, ctx, path, &[1., 0., 1., 1.]);
-            }
         }
         Ok(())
     }

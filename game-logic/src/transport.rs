@@ -19,6 +19,8 @@ pub struct Transport {
     pub item: ItemType,
     pub amount: usize,
     pub path: Vec<Pos>,
+    #[serde(skip)]
+    pub is_blocked: bool,
 }
 
 impl AsteroidColoniesGame {
@@ -68,13 +70,73 @@ impl AsteroidColoniesGame {
             false
         };
 
-        let occupied: HashSet<_> = self
+        let occupied: HashMap<_, _> = self
             .transports
-            .iter()
-            .filter_map(|t| t.path.last().copied())
+            .items()
+            .filter_map(|(id, t)| {
+                if 2 <= t.path.len() {
+                    Some((t.path.get(t.path.len() - 2).copied()?, id))
+                } else {
+                    None
+                }
+            })
             .collect();
 
+        let mut is_blocked_by = HashMap::new();
+        let mut is_blocking: HashMap<EntityId, Vec<EntityId>> = HashMap::new();
         for (id, t) in self.transports.items_mut() {
+            if t.path.len() <= 2 {
+                continue;
+            }
+            if let Some(blocker) = t
+                .path
+                .get(t.path.len() - 2)
+                .and_then(|pos| occupied.get(pos))
+                .filter(|id2| **id2 != id)
+            {
+                is_blocked_by.insert(id, *blocker);
+                is_blocking.entry(*blocker).or_default().push(id);
+            }
+        }
+
+        println!("is_blocked_by: {is_blocked_by:?}");
+
+        let mut process_queue = vec![];
+        fn follow_blocker(
+            transports: &EntitySet<Transport>,
+            id: EntityId,
+            is_blocked_by: &mut HashMap<EntityId, EntityId>,
+            is_blocking: &HashMap<EntityId, Vec<EntityId>>,
+            process_queue: &mut Vec<EntityId>,
+        ) {
+            if let Some(&blocker) = is_blocked_by.get(&id) {
+                if let Some(blockees) = is_blocking.get(&blocker) {
+                    for blockee in blockees {
+                        is_blocked_by.remove(blockee);
+                    }
+                }
+                follow_blocker(
+                    transports,
+                    blocker,
+                    is_blocked_by,
+                    is_blocking,
+                    process_queue,
+                );
+            }
+            process_queue.push(id);
+        }
+
+        for (id, _t) in self.transports.items() {
+            follow_blocker(
+                &self.transports,
+                id,
+                &mut is_blocked_by,
+                &is_blocking,
+                &mut process_queue,
+            );
+        }
+
+        let mut process_transport = |id, t: &mut Transport| {
             if t.path.len() <= 1 {
                 let delivered = check_construction(id, &mut *t) || check_building(&mut *t);
                 if !delivered {
@@ -99,12 +161,21 @@ impl AsteroidColoniesGame {
                     }
                 }
             } else if t.path.len() <= 2
-                || t.path
-                    .get(t.path.len() - 2)
-                    .map(|pos| !occupied.contains(pos))
-                    .unwrap_or(true)
+                || t.path.get(t.path.len() - 2).map_or(true, |pos| {
+                    let predicted_id = occupied.get(pos);
+                    predicted_id == None || predicted_id == Some(&id)
+                })
             {
                 t.path.pop();
+                t.is_blocked = false;
+            } else {
+                t.is_blocked = true;
+            }
+        };
+
+        for id in process_queue {
+            if let Some(t) = self.transports.get_mut(id) {
+                process_transport(id, t);
             }
         }
 

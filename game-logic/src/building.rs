@@ -306,6 +306,7 @@ impl Building {
                             }
                             pos
                         }
+                        _ => continue,
                     };
                     if crews.iter().any(|crew| crew.target() == Some(*goal_pos)) {
                         continue;

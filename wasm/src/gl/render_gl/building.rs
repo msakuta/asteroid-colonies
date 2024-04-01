@@ -1,4 +1,9 @@
-use super::{super::utils::Flatten, enable_buffer, lerp, path::render_path, RenderContext};
+use super::{
+    super::utils::Flatten,
+    enable_buffer, lerp,
+    path::{prepare_render_path, render_path},
+    RenderContext,
+};
 use crate::{
     gl::shader_bundle::ShaderBundle,
     render::{BAR_HEIGHT, BAR_MARGIN, BAR_WIDTH, TILE_SIZE},
@@ -173,7 +178,11 @@ impl AsteroidColonies {
             ) {
                 render_main(&building);
             }
+        }
 
+        prepare_render_path(gl, ctx);
+
+        for building in self.game.iter_building() {
             if let BuildingTask::Move(_, path) = &building.task {
                 render_path(gl, ctx, path, &[1., 0.5, 0.0, 1.]);
             }

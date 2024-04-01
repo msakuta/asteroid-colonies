@@ -9,9 +9,8 @@ use crate::{
     conveyor::Conveyor,
     crew::Crew,
     direction::Direction,
-    entity::{EntitySet, RefOption},
+    entity::{EntityId, EntitySet, RefOption},
     items::{recipes, ItemType},
-    push_pull::send_item,
     task::{BuildingTask, GlobalTask, MOVE_TIME},
     tile::CHUNK_SIZE,
     transport::{find_path, Transport},
@@ -179,6 +178,10 @@ impl AsteroidColoniesGame {
         self.buildings.iter()
     }
 
+    pub fn get_building(&self, id: EntityId) -> Option<RefOption<Building>> {
+        self.buildings.get(id)
+    }
+
     pub fn iter_construction(&self) -> impl Iterator<Item = RefOption<Construction>> {
         self.constructions.iter()
     }
@@ -247,43 +250,55 @@ impl AsteroidColoniesGame {
     }
 
     pub fn move_item(&mut self, from: Pos, to: Pos, item: ItemType) -> Result<(), String> {
-        let (src_id, mut src) = self
+        let (src_id, src) = self
             .buildings
             .items_borrow_mut()
             .find(|(_, b)| b.intersects(from))
             .ok_or_else(|| "Moving an item needs a building at the source")?;
-        send_item(
-            &mut self.tiles,
-            &mut self.transports,
-            &mut *src,
-            to,
-            &self.buildings,
-            &|it| it == item,
-        )
-        .or_else(|e| {
-            let item = *src
-                .inventory
-                .keys()
-                .next()
-                .ok_or_else(|| "Moving item source does not have an item")?;
-            let crew = if matches!(src.type_, BuildingType::CrewCabin) && 0 < src.crews {
-                Crew::new_deliver(src_id, src.pos, to, item, &self.tiles).map(|crew| (crew, src))
-            } else {
-                self.buildings.items_borrow_mut().find_map(|(from_id, b)| {
-                    Crew::new_pickup(from_id, b.pos, from, to, item, &self.tiles)
-                        .map(|crew| (crew, b))
-                })
-            };
-            if let Some((crew, mut cabin)) = crew {
-                self.crews.insert(crew);
-                cabin.crews -= 1;
-                Ok(())
-            } else {
-                Err(format!(
-                    "Neither conveyors ({e}) or a crew cannot move the item"
-                ))
-            }
-        })
+        if let Some(&amount) = src.inventory.get(&item) {
+            self.global_tasks.push(GlobalTask::MoveItem {
+                src: src_id,
+                dest: to,
+                item,
+                amount,
+            });
+            println!("Pushed {item:?} {amount} move_item");
+            Ok(())
+        } else {
+            Err("The building does not have the specified item".to_string())
+        }
+        // send_item(
+        //     &mut self.tiles,
+        //     &mut self.transports,
+        //     &mut *src,
+        //     to,
+        //     &self.buildings,
+        //     &|it| it == item,
+        // )
+        // .or_else(|e| {
+        //     let item = *src
+        //         .inventory
+        //         .keys()
+        //         .next()
+        //         .ok_or_else(|| "Moving item source does not have an item")?;
+        //     let crew = if matches!(src.type_, BuildingType::CrewCabin) && 0 < src.crews {
+        //         Crew::new_deliver(src_id, src.pos, to, item, &self.tiles).map(|crew| (crew, src))
+        //     } else {
+        //         self.buildings.items_borrow_mut().find_map(|(from_id, b)| {
+        //             Crew::new_pickup(from_id, b.pos, from, to, item, &self.tiles)
+        //                 .map(|crew| (crew, b))
+        //         })
+        //     };
+        //     if let Some((crew, mut cabin)) = crew {
+        //         self.crews.insert(crew);
+        //         cabin.crews -= 1;
+        //         Ok(())
+        //     } else {
+        //         Err(format!(
+        //             "Neither conveyors ({e}) or a crew cannot move the item"
+        //         ))
+        //     }
+        // })
     }
 
     pub fn build(&mut self, ix: i32, iy: i32, type_: BuildingType) -> Result<(), String> {

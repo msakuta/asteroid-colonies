@@ -203,6 +203,16 @@ impl<T> EntitySet<T> {
             .and_then(|entry| entry.payload.get_mut().as_mut())
     }
 
+    pub fn borrow_mut(&self, id: EntityId) -> Option<RefMutOption<T>> {
+        self.v.get(id.id as usize).and_then(|entry| {
+            if id.gen == entry.gen {
+                RefMutOption::new(&entry.payload)
+            } else {
+                None
+            }
+        })
+    }
+
     pub fn borrow_mut_at(&self, idx: usize) -> Option<RefMutOption<T>> {
         self.v
             .get(idx)

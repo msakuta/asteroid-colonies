@@ -32,6 +32,7 @@ pub(crate) struct Assets {
     pub img_construction: HtmlImageElement,
     pub img_deconstruction: HtmlImageElement,
     pub img_cleanup: HtmlImageElement,
+    pub img_move_item: HtmlImageElement,
 }
 
 impl Assets {
@@ -86,6 +87,7 @@ impl Assets {
             img_construction: load_texture("construction")?,
             img_deconstruction: load_texture("deconstruction")?,
             img_cleanup: load_texture("cleanup")?,
+            img_move_item: load_texture("move_item")?,
         })
     }
 

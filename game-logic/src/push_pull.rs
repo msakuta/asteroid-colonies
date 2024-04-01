@@ -97,6 +97,7 @@ pub(crate) fn pull_inputs<'a>(
             path,
             item: *ty,
             amount,
+            is_blocked: false,
         });
         expected_transports.insert(id);
         if *src_count <= amount {
@@ -248,6 +249,7 @@ pub(crate) fn push_outputs<'a, 'b>(
                 path,
                 item,
                 amount: 1,
+                is_blocked: false,
             });
             dest.expected_transports.insert(id);
             // *dest.inventory.entry(*product.0).or_default() += 1;
@@ -261,6 +263,29 @@ pub(crate) fn push_outputs<'a, 'b>(
     }
 }
 
+#[derive(Debug)]
+pub(crate) enum SendItemErr {
+    NoSrcBuilding,
+    ExitBlocked,
+    DestFull,
+    NoPathFound,
+    SrcEmpty,
+}
+
+impl std::fmt::Display for SendItemErr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NoSrcBuilding => write!(f, "Destination did not have a building"),
+            Self::ExitBlocked => write!(f, "Exit blocked by another transport"),
+            Self::DestFull => write!(f, "Destination capacity is full"),
+            Self::NoPathFound => write!(f, "Could not find a path from source to dest"),
+            Self::SrcEmpty => write!(f, "The designated item was not found"),
+        }
+    }
+}
+
+impl std::error::Error for SendItemErr {}
+
 pub(crate) fn send_item<'a, 'b>(
     tiles: &impl TileSampler,
     transports: &mut EntitySet<Transport>,
@@ -268,7 +293,8 @@ pub(crate) fn send_item<'a, 'b>(
     dest_pos: Pos,
     buildings: &EntitySet<Building>,
     is_output: &impl Fn(ItemType) -> bool,
-) -> Result<(), String>
+    max_amount: usize,
+) -> Result<usize, SendItemErr>
 where
     'b: 'a,
 {
@@ -279,13 +305,19 @@ where
     let mut dest = buildings
         .iter_borrow_mut()
         .find(|b| b.intersects(dest_pos))
-        .ok_or_else(|| "Destination did not have a building")?;
+        .ok_or(SendItemErr::NoSrcBuilding)?;
+    if transports
+        .iter()
+        .any(|t| t.path.last().is_some_and(|tpos| *tpos == pos))
+    {
+        return Err(SendItemErr::ExitBlocked);
+    }
     let expected_inventory_size = dest.inventory_size()
         + expected_deliveries(transports, &dest.expected_transports)
             .values()
             .sum::<usize>();
     if dest.type_.capacity() <= expected_inventory_size {
-        return Err("Destination capacity is full".to_string());
+        return Err(SendItemErr::DestFull);
     }
     let path = find_multipath_should_expand(
         start_pos(),
@@ -298,24 +330,31 @@ where
         },
         |to, pos, from| push_pull_should_expand(tiles, to, pos, from),
     )
-    .ok_or_else(|| "Could not find a path from source to dest")?;
+    .ok_or(SendItemErr::NoPathFound)?;
 
     let (&item, amount) = src
         .inventory()
         .iter_mut()
         .find(|(t, count)| is_output(**t) && 0 < **count)
-        .ok_or_else(|| "The designated item was not found")?;
+        .ok_or(SendItemErr::SrcEmpty)?;
+
+    let move_amount = (*amount).min(max_amount);
 
     let id = transports.insert(Transport {
         src: pos,
         dest: dest.pos,
         path,
         item,
-        amount: *amount,
+        amount: move_amount,
+        is_blocked: false,
     });
     dest.expected_transports.insert(id);
-    src.inventory().remove(&item);
-    Ok(())
+    if move_amount == *amount {
+        src.inventory().remove(&item);
+    } else {
+        *amount -= move_amount;
+    }
+    Ok(move_amount)
 }
 
 fn push_pull_passable(

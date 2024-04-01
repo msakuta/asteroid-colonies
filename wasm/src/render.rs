@@ -378,6 +378,14 @@ impl AsteroidColonies {
                     context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
                         &self.assets.img_cleanup, 0., 0., 32., 32., x, y, 32., 32.)?;
                 }
+                GlobalTask::MoveItem { src, .. } => {
+                    if let Some(bldg) = self.game.get_building(*src) {
+                        let x = bldg.pos[0] as f64 * TILE_SIZE + offset[0];
+                        let y = bldg.pos[1] as f64 * TILE_SIZE + offset[1];
+                        context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+                            &self.assets.img_move_item, 0., 0., 32., 32., x, y, 32., 32.)?;
+                    }
+                }
             }
         }
 

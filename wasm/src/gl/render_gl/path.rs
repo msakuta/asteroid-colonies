@@ -11,7 +11,7 @@ use cgmath::{vec2, InnerSpace, Matrix3, Matrix4, SquareMatrix, Vector2, Vector3}
 const PATH_WIDTH: f32 = 0.1;
 const TEX_SCROLL_SCALE: f32 = 0.5;
 
-pub(super) fn render_path(gl: &GL, ctx: &RenderContext, path: &[[i32; 2]], color: &[f32; 4]) {
+pub(super) fn prepare_render_path(gl: &GL, ctx: &RenderContext) {
     let shader = &ctx.assets.vertex_textured_shader;
     gl.use_program(Some(&shader.program));
     gl.bind_texture(GL::TEXTURE_2D, Some(&ctx.assets.tex_path));
@@ -21,6 +21,10 @@ pub(super) fn render_path(gl: &GL, ctx: &RenderContext, path: &[[i32; 2]], color
         false,
         Matrix3::identity().flatten(),
     );
+}
+
+pub(super) fn render_path(gl: &GL, ctx: &RenderContext, path: &[[i32; 2]], color: &[f32; 4]) {
+    let shader = &ctx.assets.vertex_textured_shader;
 
     let mut vertices = Vec::with_capacity(path.len() * 8);
     let mut add_vertex = |pos: Vector2<f32>, normal: Vector2<f32>, t: f32| {

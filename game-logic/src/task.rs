@@ -4,12 +4,15 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     building::{Building, BuildingType},
+    console_log,
     construction::Construction,
     direction::Direction,
+    entity::{EntityId, EntitySet},
     game::CalculateBackImage,
     items::ItemType,
+    push_pull::send_item,
     transport::find_path,
-    AsteroidColoniesGame, Pos, TileState, Tiles,
+    AsteroidColoniesGame, Crew, Pos, TileState, Tiles, Transport,
 };
 
 pub const EXCAVATE_TIME: f64 = 10.;
@@ -31,7 +34,6 @@ pub enum BuildingTask {
         max_t: f64,
         outputs: HashMap<ItemType, usize>,
     },
-    // Smelt(usize),
 }
 
 impl Display for BuildingTask {
@@ -50,6 +52,12 @@ pub enum GlobalTask {
     /// Excavate using human labor. Very slow and inefficient.
     Excavate(f64, [i32; 2]),
     Cleanup(Pos),
+    MoveItem {
+        src: EntityId,
+        dest: Pos,
+        item: ItemType,
+        amount: usize,
+    },
 }
 
 impl AsteroidColoniesGame {
@@ -204,8 +212,93 @@ impl AsteroidColoniesGame {
         self.global_tasks.retain_mut(|task| match task {
             GlobalTask::Excavate(ref mut t, _) => !(*t <= 0.),
             GlobalTask::Cleanup(pos) => self.transports.iter().any(|t| t.path.last() == Some(pos)),
+            GlobalTask::MoveItem {
+                src: src_id,
+                dest,
+                item,
+                amount,
+            } => {
+                let res = process_move_item_task(
+                    &mut self.tiles,
+                    &mut self.buildings,
+                    &mut self.transports,
+                    &mut self.crews,
+                    *src_id,
+                    *dest,
+                    *item,
+                    amount,
+                );
+                if res {
+                    println!("Succeeded moveitem: {}", self.global_time);
+                }
+                res
+            }
         });
     }
+}
+
+fn process_move_item_task(
+    tiles: &mut Tiles,
+    buildings: &mut EntitySet<Building>,
+    transports: &mut EntitySet<Transport>,
+    crews: &mut EntitySet<Crew>,
+    src_id: EntityId,
+    dest: Pos,
+    item: ItemType,
+    amount: &mut usize,
+) -> bool {
+    if *amount == 0 {
+        return false;
+    }
+    let Some(mut src) = buildings.borrow_mut(src_id) else {
+        return false;
+    };
+    let res = send_item(
+        tiles,
+        transports,
+        &mut *src,
+        dest,
+        buildings,
+        &|it| it == item,
+        1,
+    );
+    let e = match res {
+        Ok(move_amount) => {
+            *amount -= move_amount;
+            println!("send_item succeeded: {}", *amount);
+            return true;
+        }
+        Err(e) => e,
+    };
+    println!("send_item failed: {e}");
+
+    if matches!(src.type_, BuildingType::CrewCabin) && 0 < src.crews {
+        let src_pos = src.pos;
+        if let Some(inv_amount) = src.inventory.get_mut(&item) {
+            if 0 < *inv_amount {
+                if let Some(crew) = Crew::new_deliver(src_id, src_pos, dest, item, tiles) {
+                    *inv_amount -= 1;
+                    *amount -= 1;
+                    crews.insert(crew);
+                    src.crews -= 1;
+                    return true;
+                }
+            }
+        }
+    } else {
+        if let Some((crew, mut b)) = buildings.items_borrow_mut().find_map(|(from_id, b)| {
+            if !matches!(src.type_, BuildingType::CrewCabin) || src.crews == 0 {
+                return None;
+            }
+            Crew::new_pickup(from_id, b.pos, src.pos, dest, item, tiles).map(|crew| (crew, b))
+        }) {
+            crews.insert(crew);
+            b.crews -= 1;
+            return true;
+        }
+    }
+    console_log!("Neither conveyors ({}) or a crew cannot move the item", e);
+    false
 }
 
 fn choose_direction(pos: &[i32; 2], ix: i32, iy: i32) -> Option<Direction> {
