@@ -312,8 +312,15 @@ impl Crew {
             construction.ingredients_satisfied()
         });
 
-        if let Some(construction) = construction {
+        if let Some((construction, path)) = construction.and_then(|construction| {
+            let dest = construction.pos;
+            let path = find_path(self.pos, dest, |pos| {
+                matches!(tiles[pos].state, TileState::Empty) || pos == dest
+            })?;
+            Some((construction, path))
+        }) {
             self.task = CrewTask::Build(construction.pos);
+            self.path = Some(path);
             return true;
         }
         let Some(from_building) = buildings.get(self.from) else {
