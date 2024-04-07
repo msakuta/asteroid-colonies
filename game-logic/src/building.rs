@@ -300,6 +300,9 @@ impl Building {
                             if *t <= 0. {
                                 continue;
                             }
+                            if bldgs.iter().any(|b| matches!(b.task, BuildingTask::Excavate(_, other_id) if other_id == gt_id)) {
+                                continue;
+                            }
                             goal_pos
                         }
                         GlobalTask::Cleanup(pos) => {
