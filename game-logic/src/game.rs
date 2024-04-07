@@ -24,7 +24,7 @@ pub struct AsteroidColoniesGame {
     pub(crate) tiles: Tiles,
     pub(crate) buildings: EntitySet<Building>,
     pub(crate) crews: EntitySet<Crew>,
-    pub(crate) global_tasks: Vec<GlobalTask>,
+    pub(crate) global_tasks: EntitySet<GlobalTask>,
     pub(crate) power_ratio: f64,
     /// Used power for the last tick, in kW
     pub(crate) used_power: f64,
@@ -135,7 +135,7 @@ impl AsteroidColoniesGame {
             tiles,
             buildings,
             crews: EntitySet::new(),
-            global_tasks: vec![],
+            global_tasks: EntitySet::new(),
             power_ratio: 1.,
             used_power: 0.,
             global_time: 0,
@@ -187,7 +187,7 @@ impl AsteroidColoniesGame {
         self.crews.iter()
     }
 
-    pub fn iter_global_task(&self) -> impl Iterator<Item = &GlobalTask> {
+    pub fn iter_global_task(&self) -> impl Iterator<Item = RefOption<GlobalTask>> {
         self.global_tasks.iter()
     }
 
@@ -424,7 +424,7 @@ impl AsteroidColoniesGame {
     }
 
     pub fn cleanup_item(&mut self, pos: Pos) -> Result<(), String> {
-        self.global_tasks.push(GlobalTask::Cleanup(pos));
+        self.global_tasks.insert(GlobalTask::Cleanup(pos));
         Ok(())
     }
 
@@ -545,7 +545,7 @@ pub struct SerializeGame {
     tiles: Tiles,
     buildings: EntitySet<Building>,
     crews: EntitySet<Crew>,
-    global_tasks: Vec<GlobalTask>,
+    global_tasks: EntitySet<GlobalTask>,
     global_time: usize,
     transports: EntitySet<Transport>,
     constructions: EntitySet<Construction>,

@@ -233,7 +233,7 @@ impl Building {
         transports: &mut EntitySet<Transport>,
         constructions: &mut EntitySet<Construction>,
         crews: &mut EntitySet<Crew>,
-        gtasks: &[GlobalTask],
+        gtasks: &EntitySet<GlobalTask>,
         rng: &mut Xor128,
     ) -> Result<(), String> {
         // Try pushing out products
@@ -292,7 +292,7 @@ impl Building {
                     return Ok(());
                 }
                 for gtask in gtasks {
-                    let goal_pos = match gtask {
+                    let goal_pos = match &*gtask {
                         GlobalTask::Excavate(t, goal_pos) => {
                             if *t <= 0. {
                                 continue;
@@ -310,7 +310,7 @@ impl Building {
                     if crews.iter().any(|crew| crew.target() == Some(*goal_pos)) {
                         continue;
                     }
-                    if let Some(crew) = Crew::new_task(id, this, gtask, tiles) {
+                    if let Some(crew) = Crew::new_task(id, this, &*gtask, tiles) {
                         crews.insert(crew);
                         this.crews -= 1;
                         return Ok(());
@@ -436,10 +436,11 @@ impl AsteroidColoniesGame {
                 crate::console_log!("Building::tick error: {}", e);
             };
         }
-        for building in self.buildings.iter_mut() {
+        for mut building in self.buildings.iter_borrow_mut() {
             if let Some((item, dest)) = Self::process_task(
                 &mut self.tiles,
-                building,
+                &mut *building,
+                &self.buildings,
                 &mut self.global_tasks,
                 power_ratio,
                 self.calculate_back_image.as_mut(),

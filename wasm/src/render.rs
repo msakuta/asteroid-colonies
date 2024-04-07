@@ -13,7 +13,7 @@ use asteroid_colonies_logic::{
     construction::ConstructionType,
     conveyor::Conveyor,
     new_hasher,
-    task::{BuildingTask, GlobalTask, EXCAVATE_TIME, LABOR_EXCAVATE_TIME, MOVE_TIME},
+    task::{BuildingTask, GlobalTask, LABOR_EXCAVATE_TIME, MOVE_TIME},
     Chunk, Direction, ImageIdx, ItemType, Position, TileState, Tiles, CHUNK_SIZE,
 };
 
@@ -281,7 +281,6 @@ impl AsteroidColonies {
             }
 
             let task_target = match building.task {
-                BuildingTask::Excavate(t, _) => Some((t, EXCAVATE_TIME)),
                 BuildingTask::Move(t, _) => Some((t, MOVE_TIME)),
                 BuildingTask::Assemble { t, max_t, .. } => Some((t, max_t)),
                 _ => None,
@@ -366,7 +365,7 @@ impl AsteroidColonies {
         }
 
         for task in self.game.iter_global_task() {
-            match task {
+            match &*task {
                 GlobalTask::Excavate(t, pos) => {
                     let x = pos[0] as f64 * TILE_SIZE + offset[0];
                     let y = pos[1] as f64 * TILE_SIZE + offset[1];

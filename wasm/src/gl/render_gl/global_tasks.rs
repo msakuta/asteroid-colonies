@@ -1,5 +1,5 @@
 use super::{super::utils::Flatten, render_global_task_bar, RenderContext};
-use crate::AsteroidColonies;
+use crate::{gl::utils::enable_buffer, AsteroidColonies};
 
 use ::asteroid_colonies_logic::{
     task::{GlobalTask, LABOR_EXCAVATE_TIME},
@@ -14,7 +14,7 @@ impl AsteroidColonies {
         let RenderContext { assets, .. } = ctx;
 
         for task in self.game.iter_global_task() {
-            match task {
+            match &*task {
                 GlobalTask::Excavate(t, pos) => {
                     render_icon(gl, ctx, *pos, &assets.tex_excavate);
                     render_global_task_bar(gl, ctx, *pos, 1., *t, LABOR_EXCAVATE_TIME);
@@ -52,5 +52,6 @@ fn render_icon(gl: &GL, ctx: &RenderContext, pos: [i32; 2], tex: &WebGlTexture) 
 
     let transform = to_screen * scale * Matrix4::from_translation(Vector3::new(x, y, 0.));
     gl.uniform_matrix4fv_with_f32_array(shader.transform_loc.as_ref(), false, transform.flatten());
+    enable_buffer(gl, &ctx.assets.screen_buffer, 2, shader.vertex_position);
     gl.draw_arrays(GL::TRIANGLE_FAN, 0, 4);
 }

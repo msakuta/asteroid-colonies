@@ -6,7 +6,6 @@ use crate::{
     console_log,
     construction::Construction,
     entity::{EntityId, EntitySet},
-    hash_map,
     items::{Inventory, ItemType},
     task::{GlobalTask, EXCAVATE_ORE_AMOUNT, LABOR_EXCAVATE_TIME},
     transport::{find_path, Transport},
@@ -39,7 +38,7 @@ pub struct Crew {
     pub path: Option<Vec<Pos>>,
     pub from: EntityId,
     task: CrewTask,
-    inventory: HashMap<ItemType, usize>,
+    inventory: Inventory,
 }
 
 impl Crew {
@@ -68,7 +67,7 @@ impl Crew {
             path: Some(path),
             from: from_id,
             task,
-            inventory: HashMap::new(),
+            inventory: Inventory::new(),
         })
     }
 
@@ -81,7 +80,7 @@ impl Crew {
             path: Some(path),
             from: from_id,
             task: CrewTask::Build(dest),
-            inventory: HashMap::new(),
+            inventory: Inventory::new(),
         })
     }
 
@@ -113,7 +112,7 @@ impl Crew {
                 dest,
                 item: Some(item),
             },
-            inventory: HashMap::new(),
+            inventory: Inventory::new(),
         })
     }
 
@@ -132,7 +131,7 @@ impl Crew {
             path: Some(path),
             from: from_id,
             task: CrewTask::Deliver { dst: dest, item },
-            inventory: hash_map!(item => 1),
+            inventory: Inventory::from([(item, 1)]),
         })
     }
 
@@ -144,29 +143,15 @@ impl Crew {
         }
     }
 
-    fn process_excavate_task(&mut self, global_tasks: &mut [GlobalTask], ct_pos: Pos) {
-        const ORE_PERIOD: f64 = LABOR_EXCAVATE_TIME as f64 / EXCAVATE_ORE_AMOUNT as f64;
+    fn process_excavate_task(&mut self, global_tasks: &mut EntitySet<GlobalTask>, ct_pos: Pos) {
         for gtask in global_tasks.iter_mut() {
             let GlobalTask::Excavate(t, gt_pos) = gtask else {
                 continue;
             };
-            if ct_pos == *gt_pos && 0. < *t {
-                *t -= 1.;
-                // crate::console_log!(
-                //     "crew excavate: t: {}, t % T: {} (t - 1) % T: {}",
-                //     t,
-                //     t.rem_euclid(ORE_PERIOD),
-                //     (*t - 1.).rem_euclid(ORE_PERIOD)
-                // );
-                if t.rem_euclid(ORE_PERIOD) < (*t - 1.).rem_euclid(ORE_PERIOD) {
-                    let entry = self.inventory.entry(ItemType::RawOre).or_default();
-                    *entry += 1;
-                    if 1 <= *entry {
-                        self.task = CrewTask::None;
-                    }
-                    // crate::console_log!("crew {:?}", crew.inventory);
+            if ct_pos == *gt_pos {
+                if proceed_excavate(t, 1., &mut self.inventory) && self.inventory.is_empty() {
+                    return;
                 }
-                return;
             }
         }
         self.task = CrewTask::None;
@@ -495,4 +480,19 @@ pub(crate) fn expected_crew_deliveries(
             *acc.entry(cur).or_default() += 1;
             acc
         })
+}
+
+pub(crate) fn proceed_excavate(t: &mut f64, speed: f64, inventory: &mut Inventory) -> bool {
+    if 0. < *t {
+        let before_amount = (*t / LABOR_EXCAVATE_TIME * EXCAVATE_ORE_AMOUNT as f64).ceil() as usize;
+        *t = (*t - speed).max(0.);
+        let after_amount = (*t / LABOR_EXCAVATE_TIME * EXCAVATE_ORE_AMOUNT as f64).ceil() as usize;
+        for _ in after_amount..before_amount {
+            let entry = inventory.entry(ItemType::RawOre).or_default();
+            *entry += 1;
+        }
+        true
+    } else {
+        false
+    }
 }

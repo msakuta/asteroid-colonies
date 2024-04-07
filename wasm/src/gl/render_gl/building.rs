@@ -7,7 +7,7 @@ use crate::{
 
 use ::asteroid_colonies_logic::{
     building::{Building, BuildingType},
-    task::{BuildingTask, EXCAVATE_TIME, MOVE_TIME},
+    task::{BuildingTask, MOVE_TIME},
     Direction, ItemType,
 };
 use cgmath::{Matrix3, Matrix4, Rad, SquareMatrix, Vector2, Vector3};
@@ -32,8 +32,12 @@ impl AsteroidColonies {
         gl.uniform1i(shader.texture_loc.as_ref(), 0);
 
         let render_bldg = |building: &Building| {
-            let pos = if let BuildingTask::Move(move_time, next) = &building.task {
-                next.last()
+            let pos = match &building.task {
+                BuildingTask::Move(move_time, path)
+                | BuildingTask::MoveToExcavate {
+                    t: move_time, path, ..
+                } => path
+                    .last()
                     .map(|next| {
                         lerp(
                             building.pos,
@@ -42,10 +46,11 @@ impl AsteroidColonies {
                                 / MOVE_TIME,
                         )
                     })
-                    .unwrap_or_else(|| [building.pos[0] as f64, building.pos[1] as f64])
-            } else {
-                [building.pos[0] as f64, building.pos[1] as f64]
-                // [crew.pos[0] as f64, crew.pos[1] as f64]
+                    .unwrap_or_else(|| [building.pos[0] as f64, building.pos[1] as f64]),
+                _ => {
+                    [building.pos[0] as f64, building.pos[1] as f64]
+                    // [crew.pos[0] as f64, crew.pos[1] as f64]
+                }
             };
             let [sx, sy] = building.type_.size();
             let direction = building.direction;
@@ -125,7 +130,6 @@ impl AsteroidColonies {
             }
 
             let task_target = match building.task {
-                BuildingTask::Excavate(t, _) => Some((t, EXCAVATE_TIME)),
                 BuildingTask::Move(t, _) => Some((t, MOVE_TIME)),
                 BuildingTask::Assemble { t, max_t, .. } => Some((t, max_t)),
                 _ => None,
@@ -174,7 +178,9 @@ impl AsteroidColonies {
                 render_main(&building);
             }
 
-            if let BuildingTask::Move(_, path) = &building.task {
+            if let BuildingTask::Move(_, path) | BuildingTask::MoveToExcavate { path, .. } =
+                &building.task
+            {
                 render_path(gl, ctx, path, &[1., 0.5, 0.0, 1.]);
             }
         }
