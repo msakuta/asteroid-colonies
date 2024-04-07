@@ -440,6 +440,7 @@ impl AsteroidColoniesGame {
             if let Some((item, dest)) = Self::process_task(
                 &mut self.tiles,
                 building,
+                &mut self.global_tasks,
                 power_ratio,
                 self.calculate_back_image.as_mut(),
             ) {

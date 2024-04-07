@@ -25,6 +25,9 @@ mod tile;
 mod transport;
 mod xor128;
 
+#[cfg(target_family = "wasm")]
+use wasm_bindgen::prelude::*;
+
 #[macro_export]
 macro_rules! hash_map {
     { $($key:expr => $value:expr),+ } => {
@@ -67,15 +70,15 @@ macro_rules! console_log {
     }
 }
 
-#[cfg(target = "wasm32-unknown-unknown")]
+#[cfg(target_family = "wasm")]
 #[wasm_bindgen]
 extern "C" {
     #[wasm_bindgen(js_namespace = console)]
-    pub(crate) fn log(s: &str);
+    pub fn log(s: &str);
 }
 
-#[cfg(not(target = "wasm32-unknown-unknown"))]
-pub(crate) fn log(s: &str) {
+#[cfg(not(target_family = "wasm"))]
+pub fn log(s: &str) {
     println!("{}", s);
 }
 

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display};
+use std::{collections::HashMap, fmt::Display, path};
 
 use serde::{Deserialize, Serialize};
 
@@ -26,6 +26,7 @@ pub enum BuildingTask {
     None,
     Excavate(f64, Direction),
     Move(f64, Vec<Pos>),
+    MoveToExcavate(f64, Vec<Pos>),
     Assemble {
         t: f64,
         max_t: f64,
@@ -40,6 +41,7 @@ impl Display for BuildingTask {
             Self::None => write!(f, "None"),
             Self::Excavate(_, _) => write!(f, "Excavate"),
             Self::Move(_, _) => write!(f, "Move"),
+            Self::MoveToExcavate(_, _) => write!(f, "MoveToExcavate"),
             Self::Assemble { .. } => write!(f, "BuildItem"),
         }
     }
@@ -57,19 +59,19 @@ impl AsteroidColoniesGame {
         if !matches!(self.tiles[[ix, iy]].state, TileState::Solid) {
             return Err("Already excavated".to_string());
         }
-        for building in self.buildings.iter_mut() {
-            if building.type_ != BuildingType::Excavator {
-                continue;
-            }
-            if building.type_.capacity() <= building.inventory_size() {
-                continue;
-            }
-            if let Some(dir) = choose_direction(&building.pos, ix, iy) {
-                building.direction = Some(dir);
-                building.task = BuildingTask::Excavate(EXCAVATE_TIME, dir);
-                return Ok(true);
-            }
-        }
+        // for building in self.buildings.iter_mut() {
+        //     if building.type_ != BuildingType::Excavator {
+        //         continue;
+        //     }
+        //     if building.type_.capacity() <= building.inventory_size() {
+        //         continue;
+        //     }
+        //     if let Some(dir) = choose_direction(&building.pos, ix, iy) {
+        //         building.direction = Some(dir);
+        //         building.task = BuildingTask::Excavate(EXCAVATE_TIME, dir);
+        //         return Ok(true);
+        //     }
+        // }
         if self
             .buildings
             .iter()
