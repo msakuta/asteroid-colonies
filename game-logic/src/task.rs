@@ -70,35 +70,6 @@ impl AsteroidColoniesGame {
         if !matches!(self.tiles[[ix, iy]].state, TileState::Solid) {
             return Err("Already excavated".to_string());
         }
-        // for building in self.buildings.iter_mut() {
-        //     if building.type_ != BuildingType::Excavator {
-        //         continue;
-        //     }
-        //     if building.type_.capacity() <= building.inventory_size() {
-        //         continue;
-        //     }
-        //     if let Some(dir) = choose_direction(&building.pos, ix, iy) {
-        //         building.direction = Some(dir);
-        //         building.task = BuildingTask::Excavate(EXCAVATE_TIME, dir);
-        //         return Ok(true);
-        //     }
-        // }
-        if self
-            .buildings
-            .iter()
-            .find(|b| {
-                matches!(b.type_, BuildingType::CrewCabin)
-                    && find_path(b.pos, [ix, iy], |pos| {
-                        matches!(self.tiles[pos].state, TileState::Empty) || pos == [ix, iy]
-                    })
-                    .is_some()
-            })
-            .is_none()
-        {
-            return Err(String::from(
-                "No crew cabin that can reach the position found",
-            ));
-        }
         self.global_tasks
             .insert(GlobalTask::Excavate(LABOR_EXCAVATE_TIME, [ix, iy]));
         Ok(true)
@@ -176,7 +147,9 @@ impl AsteroidColoniesGame {
                     building.task = BuildingTask::None;
                     return None;
                 };
-                if !proceed_excavate(t, EXCAVATOR_SPEED * power_ratio, &mut building.inventory) {
+                if !proceed_excavate(t, EXCAVATOR_SPEED * power_ratio, &mut building.inventory)
+                    || building.type_.capacity() <= building.inventory.values().map(|v| *v).sum()
+                {
                     building.task = BuildingTask::None;
                 }
             }
@@ -252,6 +225,9 @@ impl AsteroidColoniesGame {
         //     building.pos,
         //     task_pos
         // );
+        if building.type_.capacity() <= building.inventory.values().map(|v| *v).sum() {
+            return None;
+        }
 
         let intersects = |pos: [i32; 2]| {
             buildings.iter().any(|b| {
