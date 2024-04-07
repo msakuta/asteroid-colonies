@@ -7,11 +7,11 @@ use crate::{
     building::{Building, BuildingType},
     crew::{expected_crew_deliveries, Crew},
     direction::Direction,
-    entity::{EntityId, EntitySet},
+    entity::EntitySet,
     items::{Inventory, ItemType},
     push_pull::{pull_inputs, push_outputs, HasInventory},
     task::{BUILD_CONVEYOR_TIME, BUILD_POWER_GRID_TIME},
-    transport::{expected_deliveries, Transport},
+    transport::{expected_deliveries, Transport, TransportId},
     Conveyor, Pos,
 };
 
@@ -37,7 +37,7 @@ pub struct Construction {
     pub progress: f64,
     #[serde(skip)]
     /// A cache of expected transports
-    expected_transports: HashSet<EntityId>,
+    expected_transports: HashSet<TransportId>,
 }
 
 impl Construction {
@@ -225,11 +225,11 @@ impl Construction {
         )
     }
 
-    pub fn insert_expected_transports(&mut self, id: EntityId) {
+    pub fn insert_expected_transports(&mut self, id: TransportId) {
         self.expected_transports.insert(id);
     }
 
-    pub fn clear_expected(&mut self, id: EntityId) {
+    pub fn clear_expected(&mut self, id: TransportId) {
         self.expected_transports.remove(&id);
     }
 

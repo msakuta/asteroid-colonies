@@ -11,6 +11,8 @@ use crate::{
     AsteroidColoniesGame, Conveyor, Pos,
 };
 
+pub type TransportId = EntityId<Transport>;
+
 /// Transporting item
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Transport {
@@ -115,7 +117,7 @@ impl AsteroidColoniesGame {
 /// Count all items in delivery flight and sum up in a single HashMap.
 pub(crate) fn expected_deliveries(
     transports: &EntitySet<Transport>,
-    expected_transports: &HashSet<EntityId>,
+    expected_transports: &HashSet<TransportId>,
 ) -> HashMap<ItemType, usize> {
     let mut expected = HashMap::new();
     for t in expected_transports

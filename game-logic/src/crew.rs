@@ -2,12 +2,12 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::{
-    building::Building,
+    building::{Building, BuildingId},
     console_log,
     construction::Construction,
-    entity::{EntityId, EntitySet},
+    entity::EntitySet,
     items::{Inventory, ItemType},
-    task::{GlobalTask, EXCAVATE_ORE_AMOUNT, LABOR_EXCAVATE_TIME},
+    task::{GlobalTask, GlobalTaskId, EXCAVATE_ORE_AMOUNT, LABOR_EXCAVATE_TIME},
     transport::{find_path, Transport},
     AsteroidColoniesGame, Pos, TileState, Tiles,
 };
@@ -17,7 +17,7 @@ enum CrewTask {
     None,
     Idle(usize),
     Return,
-    Excavate(EntityId),
+    Excavate(GlobalTaskId),
     Build(Pos),
     /// A task to pickup an item and move to the destination.
     /// Optionally has an item filter.
@@ -36,16 +36,16 @@ enum CrewTask {
 pub struct Crew {
     pub pos: Pos,
     pub path: Option<Vec<Pos>>,
-    pub from: EntityId,
+    pub from: BuildingId,
     task: CrewTask,
     inventory: Inventory,
 }
 
 impl Crew {
     pub fn new_task(
-        from_id: EntityId,
+        from_id: BuildingId,
         from_building: &mut Building,
-        gt_id: EntityId,
+        gt_id: GlobalTaskId,
         gtask: &GlobalTask,
         tiles: &Tiles,
     ) -> Option<Self> {
@@ -72,7 +72,7 @@ impl Crew {
         })
     }
 
-    pub fn new_build(from_id: EntityId, from_pos: Pos, dest: Pos, tiles: &Tiles) -> Option<Self> {
+    pub fn new_build(from_id: BuildingId, from_pos: Pos, dest: Pos, tiles: &Tiles) -> Option<Self> {
         let path = find_path(from_pos, dest, |pos| {
             matches!(tiles[pos].state, TileState::Empty) || pos == dest
         })?;
@@ -86,7 +86,7 @@ impl Crew {
     }
 
     pub fn new_pickup(
-        from_id: EntityId,
+        from_id: BuildingId,
         from_pos: Pos,
         src: Pos,
         dest: Pos,
@@ -118,7 +118,7 @@ impl Crew {
     }
 
     pub fn new_deliver(
-        from_id: EntityId,
+        from_id: BuildingId,
         from_pos: Pos,
         dest: Pos,
         item: ItemType,
@@ -137,7 +137,7 @@ impl Crew {
     }
 
     /// Returns the id of the global task
-    pub fn gt_id(&self) -> Option<EntityId> {
+    pub fn gt_id(&self) -> Option<GlobalTaskId> {
         match self.task {
             CrewTask::Excavate(id) => Some(id),
             _ => None,
@@ -151,7 +151,11 @@ impl Crew {
         }
     }
 
-    fn process_excavate_task(&mut self, global_tasks: &mut EntitySet<GlobalTask>, gt_id: EntityId) {
+    fn process_excavate_task(
+        &mut self,
+        global_tasks: &mut EntitySet<GlobalTask>,
+        gt_id: GlobalTaskId,
+    ) {
         if let Some(GlobalTask::Excavate(t, _)) = global_tasks.get_mut(gt_id) {
             if proceed_excavate(t, 1., &mut self.inventory) && self.inventory.is_empty() {
                 return;

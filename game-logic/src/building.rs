@@ -19,8 +19,11 @@ use crate::{
     push_pull::{pull_inputs, push_outputs},
     task::{BuildingTask, GlobalTask, RAW_ORE_SMELT_TIME},
     tile::Tiles,
+    transport::TransportId,
     AsteroidColoniesGame, Crew, Direction, Pos, TileState, Transport, Xor128,
 };
+
+pub type BuildingId = EntityId<Building>;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[non_exhaustive]
@@ -133,7 +136,7 @@ pub struct Building {
     pub energy: Option<usize>,
     #[serde(skip)]
     /// A cache of expected transports
-    pub expected_transports: HashSet<EntityId>,
+    pub expected_transports: HashSet<TransportId>,
 }
 
 impl Building {
@@ -227,7 +230,7 @@ impl Building {
 
     pub fn tick(
         &mut self,
-        id: EntityId,
+        id: BuildingId,
         bldgs: &EntitySet<Building>,
         tiles: &Tiles,
         transports: &mut EntitySet<Transport>,

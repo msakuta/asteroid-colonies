@@ -24,17 +24,19 @@ pub const MOVE_ITEM_TIME: f64 = 2.;
 pub(crate) const RAW_ORE_SMELT_TIME: f64 = 30.;
 pub(crate) const EXCAVATE_ORE_AMOUNT: usize = 5;
 
+pub type GlobalTaskId = EntityId<GlobalTask>;
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum BuildingTask {
     None,
-    Excavate(Direction, EntityId),
+    Excavate(Direction, GlobalTaskId),
     Move(f64, Vec<Pos>),
     MoveToExcavate {
         t: f64,
         path: Vec<Pos>,
         dir: Direction,
         /// The target global task id for the excavation
-        target: EntityId,
+        target: GlobalTaskId,
     },
     Assemble {
         t: f64,
@@ -239,7 +241,7 @@ impl AsteroidColoniesGame {
         building: &mut Building,
         buildings: &EntitySet<Building>,
         tiles: &Tiles,
-        gt_id: EntityId,
+        gt_id: GlobalTaskId,
         gt: &GlobalTask,
     ) -> Option<()> {
         let GlobalTask::Excavate(_, task_pos) = *gt else {
