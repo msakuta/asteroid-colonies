@@ -291,7 +291,7 @@ impl Building {
                 if this.crews == 0 {
                     return Ok(());
                 }
-                for gtask in gtasks {
+                for (gt_id, gtask) in gtasks.items() {
                     let goal_pos = match &*gtask {
                         GlobalTask::Excavate(t, goal_pos) => {
                             if *t <= 0. {
@@ -307,10 +307,13 @@ impl Building {
                             pos
                         }
                     };
-                    if crews.iter().any(|crew| crew.target() == Some(*goal_pos)) {
+                    if crews
+                        .iter()
+                        .any(|crew| crew.gt_id() == Some(gt_id) || crew.target() == Some(*goal_pos))
+                    {
                         continue;
                     }
-                    if let Some(crew) = Crew::new_task(id, this, &*gtask, tiles) {
+                    if let Some(crew) = Crew::new_task(id, this, gt_id, &*gtask, tiles) {
                         crews.insert(crew);
                         this.crews -= 1;
                         return Ok(());

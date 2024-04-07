@@ -17,7 +17,7 @@ enum CrewTask {
     None,
     Idle(usize),
     Return,
-    Excavate(Pos),
+    Excavate(EntityId),
     Build(Pos),
     /// A task to pickup an item and move to the destination.
     /// Optionally has an item filter.
@@ -45,11 +45,12 @@ impl Crew {
     pub fn new_task(
         from_id: EntityId,
         from_building: &mut Building,
+        gt_id: EntityId,
         gtask: &GlobalTask,
         tiles: &Tiles,
     ) -> Option<Self> {
         let (target, task) = match gtask {
-            GlobalTask::Excavate(_, pos) => (*pos, CrewTask::Excavate(*pos)),
+            GlobalTask::Excavate(_, pos) => (*pos, CrewTask::Excavate(gt_id)),
             GlobalTask::Cleanup(spos) => (
                 *spos,
                 CrewTask::Pickup {
@@ -135,23 +136,25 @@ impl Crew {
         })
     }
 
+    /// Returns the id of the global task
+    pub fn gt_id(&self) -> Option<EntityId> {
+        match self.task {
+            CrewTask::Excavate(id) => Some(id),
+            _ => None,
+        }
+    }
+
     pub fn target(&self) -> Option<Pos> {
         match self.task {
-            CrewTask::Excavate(pos) => Some(pos),
             CrewTask::Build(pos) => Some(pos),
             _ => None,
         }
     }
 
-    fn process_excavate_task(&mut self, global_tasks: &mut EntitySet<GlobalTask>, ct_pos: Pos) {
-        for gtask in global_tasks.iter_mut() {
-            let GlobalTask::Excavate(t, gt_pos) = gtask else {
-                continue;
-            };
-            if ct_pos == *gt_pos {
-                if proceed_excavate(t, 1., &mut self.inventory) && self.inventory.is_empty() {
-                    return;
-                }
+    fn process_excavate_task(&mut self, global_tasks: &mut EntitySet<GlobalTask>, gt_id: EntityId) {
+        if let Some(GlobalTask::Excavate(t, _)) = global_tasks.get_mut(gt_id) {
+            if proceed_excavate(t, 1., &mut self.inventory) && self.inventory.is_empty() {
+                return;
             }
         }
         self.task = CrewTask::None;
@@ -359,8 +362,8 @@ impl AsteroidColoniesGame {
                 return true;
             }
             match crew.task {
-                CrewTask::Excavate(ct_pos) => {
-                    crew.process_excavate_task(&mut self.global_tasks, ct_pos);
+                CrewTask::Excavate(gt_id) => {
+                    crew.process_excavate_task(&mut self.global_tasks, gt_id);
                 }
                 CrewTask::Build(ct_pos) => {
                     crew.process_build_task(&mut self.constructions, ct_pos);
