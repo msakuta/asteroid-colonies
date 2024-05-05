@@ -395,6 +395,7 @@ impl<T> Display for EntityId<T> {
 /// An extension trait to allow a container to iterate over valid items
 pub trait EntityIterExt<T> {
     /// Iterate items in each entry's payload
+    #[allow(dead_code)]
     fn items<'a>(&'a self) -> impl Iterator<Item = RefOption<'a, T>>
     where
         T: 'a;
@@ -403,6 +404,7 @@ pub trait EntityIterExt<T> {
 /// An extension trait to allow a container to mutably iterate over valid items
 pub trait EntityIterMutExt<T>: EntityIterExt<T> {
     /// Mutably iterate items in each entry's payload
+    #[allow(dead_code)]
     fn items_mut<'a>(&'a mut self) -> impl Iterator<Item = &'a mut T>
     where
         T: 'a;
