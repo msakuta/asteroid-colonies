@@ -1,7 +1,7 @@
 use super::{super::utils::Flatten, lerp, path::render_path, RenderContext};
 use crate::{gl::utils::enable_buffer, AsteroidColonies};
 
-use ::asteroid_colonies_logic::{ItemType, Transport, TILE_SIZE};
+use ::asteroid_colonies_logic::{Transport, TILE_SIZE};
 use cgmath::{Matrix3, Matrix4, SquareMatrix, Vector3};
 
 use web_sys::WebGlRenderingContext as GL;
@@ -31,20 +31,7 @@ impl AsteroidColonies {
             let Some(&pos) = t.path.last() else {
                 return;
             };
-            let tex = match t.item {
-                ItemType::RawOre => &assets.tex_raw_ore,
-                ItemType::IronIngot => &assets.tex_iron_ingot,
-                ItemType::CopperIngot => &assets.tex_copper_ingot,
-                ItemType::LithiumIngot => &assets.tex_lithium_ingot,
-                ItemType::Cilicate => &assets.tex_cilicate,
-                ItemType::Gear => &assets.tex_gear,
-                ItemType::Wire => &assets.tex_wire,
-                ItemType::Circuit => &assets.tex_circuit,
-                ItemType::Battery => &assets.tex_battery_item,
-                ItemType::PowerGridComponent => &assets.tex_power_grid,
-                ItemType::ConveyorComponent => &assets.tex_conveyor_item,
-                ItemType::AssemblerComponent => &assets.tex_assembler_component,
-            };
+            let tex = assets.item_to_tex(t.item);
             gl.bind_texture(GL::TEXTURE_2D, Some(tex));
             let [x, y] = if 2 <= t.path.len() {
                 lerp(pos, t.path[t.path.len() - 2], *frac_frame)

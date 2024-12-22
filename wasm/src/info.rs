@@ -38,44 +38,50 @@ struct GetInfoResult {
 
 #[wasm_bindgen]
 impl AsteroidColonies {
-    pub fn get_info(&self, x: f64, y: f64) -> Result<JsValue, JsValue> {
-        let [ix, iy] = self.transform_pos(x, y);
-        let intersects = |pos: Pos, size: [usize; 2]| {
-            pos[0] <= ix
-                && ix < size[0] as i32 + pos[0]
-                && pos[1] <= iy
-                && iy < size[1] as i32 + pos[1]
-        };
-        let bldg_result = self
-            .game
-            .iter_building()
-            .find(|b| intersects(b.pos, b.type_.size()))
-            .map(|building| {
-                let recipe = building.recipe.clone();
-                GetBuildingInfoResult {
-                    type_: building.type_,
-                    recipe,
-                    task: format!("{}", building.task),
-                    inventory: building.inventory.clone(),
-                    crews: building.crews,
-                    max_crews: building.type_.max_crews(),
-                    ore_accum: if matches!(building.type_, BuildingType::Furnace) {
-                        Some(building.ore_accum)
-                    } else {
-                        None
-                    },
+    pub fn get_info(&self) -> Result<JsValue, JsValue> {
+        // let [ix, iy] = self.transform_pos(x, y);
+        let mut building = None;
+        let mut construction = None;
+
+        if let Some([ix, iy]) = self.cursor {
+            let intersects = |pos: Pos, size: [usize; 2]| {
+                pos[0] <= ix
+                    && ix < size[0] as i32 + pos[0]
+                    && pos[1] <= iy
+                    && iy < size[1] as i32 + pos[1]
+            };
+            building = self
+                .game
+                .iter_building()
+                .find(|b| intersects(b.pos, b.type_.size()))
+                .map(|building| {
+                    let recipe = building.recipe.clone();
+                    GetBuildingInfoResult {
+                        type_: building.type_,
+                        recipe,
+                        task: format!("{}", building.task),
+                        inventory: building.inventory.clone(),
+                        crews: building.crews,
+                        max_crews: building.type_.max_crews(),
+                        ore_accum: if matches!(building.type_, BuildingType::Furnace) {
+                            Some(building.ore_accum)
+                        } else {
+                            None
+                        },
+                    }
+                });
+            construction = self.game.iter_construction().find_map(|c| {
+                if !intersects(c.pos, c.size()) {
+                    return None;
                 }
+                Some(GetConstructionInfoResult {
+                    type_: c.get_type(),
+                    recipe: c.recipe.clone(),
+                    ingredients: c.ingredients.clone(),
+                })
             });
-        let construction = self.game.iter_construction().find_map(|c| {
-            if !intersects(c.pos, c.size()) {
-                return None;
-            }
-            Some(GetConstructionInfoResult {
-                type_: c.get_type(),
-                recipe: c.recipe.clone(),
-                ingredients: c.ingredients.clone(),
-            })
-        });
+        }
+
         // We want to count power generation and consumption separately
         let (energy, dischargeable, power_supply, power_demand) = self
             .game
@@ -91,7 +97,7 @@ impl AsteroidColonies {
             });
 
         let result = GetInfoResult {
-            building: bldg_result,
+            building,
             construction,
             energy,
             power_demand,

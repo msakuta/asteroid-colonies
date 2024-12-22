@@ -1,12 +1,9 @@
 use crate::{
-    construction::Construction,
-    entity::{EntityId, EntitySet},
-    push_pull::HasInventory,
-    transport::find_multipath,
-    Crew, TileState, Tiles, Transport,
+    construction::Construction, entity::EntitySet, push_pull::HasInventory,
+    transport::find_multipath, Crew, TileState, Tiles, Transport,
 };
 
-use super::Building;
+use super::{Building, BuildingId};
 
 pub(super) struct Envs<'a> {
     pub buildings: &'a EntitySet<Building>,
@@ -18,7 +15,7 @@ pub(super) struct Envs<'a> {
 impl Building {
     pub(super) fn try_find_deliver(
         &mut self,
-        from_id: EntityId,
+        from_id: BuildingId,
         construction: &Construction,
         envs: &Envs,
     ) -> Option<Crew> {
@@ -71,7 +68,7 @@ impl Building {
 
     pub(super) fn try_find_pickup_and_deliver(
         &mut self,
-        from_id: EntityId,
+        from_id: BuildingId,
         construction: &Construction,
         envs: &Envs,
     ) -> Option<Crew> {
@@ -96,7 +93,7 @@ impl Building {
 
     pub(super) fn try_send_to_build(
         &mut self,
-        from_id: EntityId,
+        from_id: BuildingId,
         construction: &Construction,
         envs: &Envs,
     ) -> Option<Crew> {

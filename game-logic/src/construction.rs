@@ -7,11 +7,11 @@ use crate::{
     building::{Building, BuildingType},
     crew::{expected_crew_deliveries, Crew},
     direction::Direction,
-    entity::{EntityId, EntitySet},
+    entity::EntitySet,
     items::{Inventory, ItemType},
     push_pull::{pull_inputs, push_outputs, HasInventory},
     task::{BUILD_CONVEYOR_TIME, BUILD_POWER_GRID_TIME},
-    transport::{expected_deliveries, Transport},
+    transport::{expected_deliveries, Transport, TransportId},
     Conveyor, Pos,
 };
 
@@ -37,53 +37,78 @@ pub struct Construction {
     pub progress: f64,
     #[serde(skip)]
     /// A cache of expected transports
-    expected_transports: HashSet<EntityId>,
+    expected_transports: HashSet<TransportId>,
 }
 
 impl Construction {
-    fn new_ex(type_: ConstructionType, item: &'static BuildMenuItem, pos: Pos) -> Self {
+    fn new_ex(
+        type_: ConstructionType,
+        item: &'static BuildMenuItem,
+        pos: Pos,
+        canceling: bool,
+    ) -> Self {
         Self {
             type_,
             pos,
-            ingredients: Inventory::new(),
+            ingredients: if canceling {
+                item.ingredients.iter().map(|(k, v)| (*k, *v)).collect()
+            } else {
+                Inventory::new()
+            },
             recipe: (*item).clone(),
-            canceling: false,
-            progress: 0.,
+            canceling,
+            progress: if canceling { item.time } else { 0. },
             expected_transports: HashSet::new(),
         }
     }
 
     pub fn new(item: &'static BuildMenuItem, pos: Pos) -> Self {
-        Self::new_ex(item.type_, item, pos)
+        Self::new_ex(item.type_, item, pos, false)
     }
 
-    pub fn new_power_grid(pos: Pos) -> Self {
+    pub fn new_power_grid(pos: Pos, canceling: bool) -> Self {
         static BUILD: OnceLock<BuildMenuItem> = OnceLock::new();
         let recipe = &*BUILD.get_or_init(|| BuildMenuItem {
             type_: ConstructionType::PowerGrid,
             ingredients: hash_map!(ItemType::PowerGridComponent => 1),
             time: BUILD_POWER_GRID_TIME,
         });
-        Self::new(recipe, pos)
+        Self::new_ex(ConstructionType::PowerGrid, recipe, pos, canceling)
     }
 
-    pub fn new_conveyor(pos: Pos, conv: Conveyor) -> Self {
+    fn build_recipe() -> &'static BuildMenuItem {
         static BUILD: OnceLock<BuildMenuItem> = OnceLock::new();
+        &*BUILD.get_or_init(|| BuildMenuItem {
+            type_: ConstructionType::Conveyor(Conveyor::One(Direction::Left, Direction::Right)),
+            ingredients: hash_map!(ItemType::ConveyorComponent => 1),
+            time: BUILD_CONVEYOR_TIME,
+        })
+    }
+
+    fn splitter_recipe() -> &'static BuildMenuItem {
+        static BUILD_SPLITTER: OnceLock<BuildMenuItem> = OnceLock::new();
+        &*BUILD_SPLITTER.get_or_init(|| BuildMenuItem {
+            type_: ConstructionType::Conveyor(Conveyor::One(Direction::Left, Direction::Right)),
+            ingredients: hash_map!(ItemType::ConveyorComponent => 1, ItemType::Circuit => 1, ItemType::Gear => 1),
+            time: BUILD_CONVEYOR_TIME,
+        })
+    }
+
+    pub fn new_conveyor(pos: Pos, conv: Conveyor, canceling: bool) -> Self {
         if matches!(conv, Conveyor::Splitter(_) | Conveyor::Merger(_)) {
-            static BUILD_SPLITTER: OnceLock<BuildMenuItem> = OnceLock::new();
-            let recipe = &*BUILD_SPLITTER.get_or_init(|| BuildMenuItem {
-                type_: ConstructionType::Conveyor(Conveyor::One(Direction::Left, Direction::Right)),
-                ingredients: hash_map!(ItemType::ConveyorComponent => 1, ItemType::Circuit => 1, ItemType::Gear => 1),
-                time: BUILD_CONVEYOR_TIME,
-            });
-            Self::new_ex(ConstructionType::Conveyor(conv), recipe, pos)
+            Self::new_ex(
+                ConstructionType::Conveyor(conv),
+                Self::splitter_recipe(),
+                pos,
+                canceling,
+            )
         } else {
-            let recipe = &*BUILD.get_or_init(|| BuildMenuItem {
-                type_: ConstructionType::Conveyor(Conveyor::One(Direction::Left, Direction::Right)),
-                ingredients: hash_map!(ItemType::ConveyorComponent => 1),
-                time: BUILD_CONVEYOR_TIME,
-            });
-            Self::new_ex(ConstructionType::Conveyor(conv), recipe, pos)
+            Self::new_ex(
+                ConstructionType::Conveyor(conv),
+                Self::build_recipe(),
+                pos,
+                canceling,
+            )
         }
     }
 
@@ -200,11 +225,11 @@ impl Construction {
         )
     }
 
-    pub fn insert_expected_transports(&mut self, id: EntityId) {
+    pub fn insert_expected_transports(&mut self, id: TransportId) {
         self.expected_transports.insert(id);
     }
 
-    pub fn clear_expected(&mut self, id: EntityId) {
+    pub fn clear_expected(&mut self, id: TransportId) {
         self.expected_transports.remove(&id);
     }
 

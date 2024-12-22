@@ -1,6 +1,7 @@
 use std::{
     cell::{Ref, RefCell, RefMut},
     fmt::Display,
+    marker::PhantomData,
     ops::{Deref, DerefMut},
 };
 
@@ -65,7 +66,7 @@ impl<T> EntitySet<T> {
     /// Return an iterator over (id, Ref<T>)
     /// It is convenient when you want the EntityId of the iterated items.
     /// It borrows the T immutably.
-    pub fn items(&self) -> impl Iterator<Item = (EntityId, RefOption<T>)> {
+    pub fn items(&self) -> impl Iterator<Item = (EntityId<T>, RefOption<T>)> {
         self.v.iter().enumerate().filter_map(|(i, v)| {
             Some((EntityId::new(i as u32, v.gen), RefOption::new(&v.payload)?))
         })
@@ -74,7 +75,7 @@ impl<T> EntitySet<T> {
     /// Return an iterator over (id, &mut T).
     /// It is convenient when you want the EntityId of the iterated items.
     /// It does not borrow the T with a RefMut, because the self is already exclusively referenced.
-    pub fn items_mut(&mut self) -> impl Iterator<Item = (EntityId, &mut T)> {
+    pub fn items_mut(&mut self) -> impl Iterator<Item = (EntityId<T>, &mut T)> {
         self.v.iter_mut().enumerate().filter_map(|(i, v)| {
             Some((
                 EntityId::new(i as u32, v.gen),
@@ -86,7 +87,7 @@ impl<T> EntitySet<T> {
     /// Return an iterator over (id, RefMut<T>), skipping already borrowed items.
     /// It is convenient when you want the EntityId of the iterated items.
     /// It borrows the T mutablly.
-    pub fn items_borrow_mut(&self) -> impl Iterator<Item = (EntityId, RefMutOption<T>)> {
+    pub fn items_borrow_mut(&self) -> impl Iterator<Item = (EntityId<T>, RefMutOption<T>)> {
         self.v.iter().enumerate().filter_map(|(i, v)| {
             Some((
                 EntityId::new(i as u32, v.gen),
@@ -113,7 +114,7 @@ impl<T> EntitySet<T> {
     //     Some((center.payload.as_mut()?.get_mut(), EntitySliceMut([first, last])))
     // }
 
-    pub fn insert(&mut self, val: T) -> EntityId {
+    pub fn insert(&mut self, val: T) -> EntityId<T> {
         for (i, entry) in self.v.iter_mut().enumerate() {
             let payload = entry.payload.get_mut();
             if payload.is_none() {
@@ -126,7 +127,7 @@ impl<T> EntitySet<T> {
         EntityId::new(self.v.len() as u32 - 1, 0)
     }
 
-    pub fn remove(&mut self, id: EntityId) -> Option<T> {
+    pub fn remove(&mut self, id: EntityId<T>) -> Option<T> {
         self.v.get_mut(id.id as usize).and_then(|entry| {
             if id.gen == entry.gen {
                 entry.payload.get_mut().take()
@@ -159,7 +160,7 @@ impl<T> EntitySet<T> {
         }
     }
 
-    pub fn retain_borrow_mut(&self, mut f: impl FnMut(&mut T, EntityId) -> bool) {
+    pub fn retain_borrow_mut(&self, mut f: impl FnMut(&mut T, EntityId<T>) -> bool) {
         for (id, entry) in self.v.iter().enumerate() {
             let Ok(mut payload) = entry.payload.try_borrow_mut() else {
                 continue;
@@ -176,7 +177,7 @@ impl<T> EntitySet<T> {
         }
     }
 
-    pub fn get(&self, id: EntityId) -> Option<RefOption<T>> {
+    pub fn get(&self, id: EntityId<T>) -> Option<RefOption<T>> {
         self.v.get(id.id as usize).and_then(|entry| {
             if id.gen == entry.gen {
                 RefOption::new(&entry.payload)
@@ -186,7 +187,7 @@ impl<T> EntitySet<T> {
         })
     }
 
-    pub fn get_mut(&mut self, id: EntityId) -> Option<&mut T> {
+    pub fn get_mut(&mut self, id: EntityId<T>) -> Option<&mut T> {
         self.v.get_mut(id.id as usize).and_then(|entry| {
             if id.gen == entry.gen {
                 entry.payload.get_mut().as_mut()
@@ -337,19 +338,55 @@ impl<A> FromIterator<A> for EntitySet<A> {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct EntityId {
+#[derive(Eq, Serialize, Deserialize)]
+pub struct EntityId<T> {
     id: u32,
     gen: u32,
+    _ph: PhantomData<fn(T)>,
 }
 
-impl EntityId {
-    fn new(id: u32, gen: u32) -> Self {
-        Self { id, gen }
+impl<T> std::clone::Clone for EntityId<T> {
+    fn clone(&self) -> Self {
+        Self {
+            id: self.id,
+            gen: self.gen,
+            _ph: self._ph,
+        }
     }
 }
 
-impl Display for EntityId {
+impl<T> std::marker::Copy for EntityId<T> {}
+
+impl<T> std::fmt::Debug for EntityId<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "EntityId({}, {})", self.id, self.gen)
+    }
+}
+
+impl<T> std::cmp::PartialEq for EntityId<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id && self.gen == other.gen
+    }
+}
+
+impl<T> std::hash::Hash for EntityId<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+        self.gen.hash(state);
+    }
+}
+
+impl<T> EntityId<T> {
+    fn new(id: u32, gen: u32) -> Self {
+        Self {
+            id,
+            gen,
+            _ph: PhantomData,
+        }
+    }
+}
+
+impl<T> Display for EntityId<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "({},{})", self.id, self.gen)
     }
@@ -358,6 +395,7 @@ impl Display for EntityId {
 /// An extension trait to allow a container to iterate over valid items
 pub trait EntityIterExt<T> {
     /// Iterate items in each entry's payload
+    #[allow(dead_code)]
     fn items<'a>(&'a self) -> impl Iterator<Item = RefOption<'a, T>>
     where
         T: 'a;
@@ -366,6 +404,7 @@ pub trait EntityIterExt<T> {
 /// An extension trait to allow a container to mutably iterate over valid items
 pub trait EntityIterMutExt<T>: EntityIterExt<T> {
     /// Mutably iterate items in each entry's payload
+    #[allow(dead_code)]
     fn items_mut<'a>(&'a mut self) -> impl Iterator<Item = &'a mut T>
     where
         T: 'a;

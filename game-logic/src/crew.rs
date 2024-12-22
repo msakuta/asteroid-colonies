@@ -2,13 +2,12 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::{
-    building::Building,
+    building::{Building, BuildingId},
     console_log,
     construction::Construction,
-    entity::{EntityId, EntitySet},
-    hash_map,
+    entity::EntitySet,
     items::{Inventory, ItemType},
-    task::{GlobalTask, EXCAVATE_ORE_AMOUNT, LABOR_EXCAVATE_TIME},
+    task::{GlobalTask, GlobalTaskId, EXCAVATE_ORE_AMOUNT, LABOR_EXCAVATE_TIME},
     transport::{find_path, Transport},
     AsteroidColoniesGame, Pos, TileState, Tiles,
 };
@@ -18,7 +17,7 @@ enum CrewTask {
     None,
     Idle(usize),
     Return,
-    Excavate(Pos),
+    Excavate(GlobalTaskId),
     Build(Pos),
     /// A task to pickup an item and move to the destination.
     /// Optionally has an item filter.
@@ -37,20 +36,21 @@ enum CrewTask {
 pub struct Crew {
     pub pos: Pos,
     pub path: Option<Vec<Pos>>,
-    pub from: EntityId,
+    pub from: BuildingId,
     task: CrewTask,
-    inventory: HashMap<ItemType, usize>,
+    inventory: Inventory,
 }
 
 impl Crew {
     pub fn new_task(
-        from_id: EntityId,
+        from_id: BuildingId,
         from_building: &mut Building,
+        gt_id: GlobalTaskId,
         gtask: &GlobalTask,
         tiles: &Tiles,
     ) -> Option<Self> {
         let (target, task) = match gtask {
-            GlobalTask::Excavate(_, pos) => (*pos, CrewTask::Excavate(*pos)),
+            GlobalTask::Excavate(_, pos) => (*pos, CrewTask::Excavate(gt_id)),
             GlobalTask::Cleanup(spos) => (
                 *spos,
                 CrewTask::Pickup {
@@ -68,11 +68,11 @@ impl Crew {
             path: Some(path),
             from: from_id,
             task,
-            inventory: HashMap::new(),
+            inventory: Inventory::new(),
         })
     }
 
-    pub fn new_build(from_id: EntityId, from_pos: Pos, dest: Pos, tiles: &Tiles) -> Option<Self> {
+    pub fn new_build(from_id: BuildingId, from_pos: Pos, dest: Pos, tiles: &Tiles) -> Option<Self> {
         let path = find_path(from_pos, dest, |pos| {
             matches!(tiles[pos].state, TileState::Empty) || pos == dest
         })?;
@@ -81,12 +81,12 @@ impl Crew {
             path: Some(path),
             from: from_id,
             task: CrewTask::Build(dest),
-            inventory: HashMap::new(),
+            inventory: Inventory::new(),
         })
     }
 
     pub fn new_pickup(
-        from_id: EntityId,
+        from_id: BuildingId,
         from_pos: Pos,
         src: Pos,
         dest: Pos,
@@ -113,12 +113,12 @@ impl Crew {
                 dest,
                 item: Some(item),
             },
-            inventory: HashMap::new(),
+            inventory: Inventory::new(),
         })
     }
 
     pub fn new_deliver(
-        from_id: EntityId,
+        from_id: BuildingId,
         from_pos: Pos,
         dest: Pos,
         item: ItemType,
@@ -132,40 +132,32 @@ impl Crew {
             path: Some(path),
             from: from_id,
             task: CrewTask::Deliver { dst: dest, item },
-            inventory: hash_map!(item => 1),
+            inventory: Inventory::from([(item, 1)]),
         })
+    }
+
+    /// Returns the id of the global task
+    pub fn gt_id(&self) -> Option<GlobalTaskId> {
+        match self.task {
+            CrewTask::Excavate(id) => Some(id),
+            _ => None,
+        }
     }
 
     pub fn target(&self) -> Option<Pos> {
         match self.task {
-            CrewTask::Excavate(pos) => Some(pos),
             CrewTask::Build(pos) => Some(pos),
             _ => None,
         }
     }
 
-    fn process_excavate_task(&mut self, global_tasks: &mut [GlobalTask], ct_pos: Pos) {
-        const ORE_PERIOD: f64 = LABOR_EXCAVATE_TIME as f64 / EXCAVATE_ORE_AMOUNT as f64;
-        for gtask in global_tasks.iter_mut() {
-            let GlobalTask::Excavate(t, gt_pos) = gtask else {
-                continue;
-            };
-            if ct_pos == *gt_pos && 0. < *t {
-                *t -= 1.;
-                // crate::console_log!(
-                //     "crew excavate: t: {}, t % T: {} (t - 1) % T: {}",
-                //     t,
-                //     t.rem_euclid(ORE_PERIOD),
-                //     (*t - 1.).rem_euclid(ORE_PERIOD)
-                // );
-                if t.rem_euclid(ORE_PERIOD) < (*t - 1.).rem_euclid(ORE_PERIOD) {
-                    let entry = self.inventory.entry(ItemType::RawOre).or_default();
-                    *entry += 1;
-                    if 1 <= *entry {
-                        self.task = CrewTask::None;
-                    }
-                    // crate::console_log!("crew {:?}", crew.inventory);
-                }
+    fn process_excavate_task(
+        &mut self,
+        global_tasks: &mut EntitySet<GlobalTask>,
+        gt_id: GlobalTaskId,
+    ) {
+        if let Some(GlobalTask::Excavate(t, _)) = global_tasks.get_mut(gt_id) {
+            if proceed_excavate(t, 1., &mut self.inventory) && self.inventory.is_empty() {
                 return;
             }
         }
@@ -243,18 +235,23 @@ impl Crew {
                 })
                 .or_else(|| {
                     let (idx, transport) = transports
-                        .items()
+                        .items_mut()
                         .find(|(_, t)| t.path.last() == Some(&src))?;
                     println!("Found transports: {idx}, {transport:?}");
                     let item = transport.item;
-                    *self.inventory.entry(item).or_default() += 1;
+                    let move_amount = transport.amount.min(1);
+                    if 0 < move_amount {
+                        *self.inventory.entry(item).or_default() += move_amount;
+                        transport.amount -= move_amount;
+                    }
+                    if transport.amount == 0 {
+                        transports.remove(idx);
+                    }
                     let path = find_path(self.pos, dest, |pos| {
                         matches!(tiles[pos].state, TileState::Empty) || pos == dest
                     })?;
                     self.path = Some(path);
                     self.task = CrewTask::Deliver { dst: dest, item };
-                    drop(transport);
-                    transports.remove(idx);
                     Some(())
                 });
         if res.is_none() {
@@ -307,8 +304,15 @@ impl Crew {
             construction.ingredients_satisfied()
         });
 
-        if let Some(construction) = construction {
+        if let Some((construction, path)) = construction.and_then(|construction| {
+            let dest = construction.pos;
+            let path = find_path(self.pos, dest, |pos| {
+                matches!(tiles[pos].state, TileState::Empty) || pos == dest
+            })?;
+            Some((construction, path))
+        }) {
             self.task = CrewTask::Build(construction.pos);
+            self.path = Some(path);
             return true;
         }
         let Some(from_building) = buildings.get(self.from) else {
@@ -362,8 +366,8 @@ impl AsteroidColoniesGame {
                 return true;
             }
             match crew.task {
-                CrewTask::Excavate(ct_pos) => {
-                    crew.process_excavate_task(&mut self.global_tasks, ct_pos);
+                CrewTask::Excavate(gt_id) => {
+                    crew.process_excavate_task(&mut self.global_tasks, gt_id);
                 }
                 CrewTask::Build(ct_pos) => {
                     crew.process_build_task(&mut self.constructions, ct_pos);
@@ -483,4 +487,19 @@ pub(crate) fn expected_crew_deliveries(
             *acc.entry(cur).or_default() += 1;
             acc
         })
+}
+
+pub(crate) fn proceed_excavate(t: &mut f64, speed: f64, inventory: &mut Inventory) -> bool {
+    if 0. < *t {
+        let before_amount = (*t / LABOR_EXCAVATE_TIME * EXCAVATE_ORE_AMOUNT as f64).ceil() as usize;
+        *t = (*t - speed).max(0.);
+        let after_amount = (*t / LABOR_EXCAVATE_TIME * EXCAVATE_ORE_AMOUNT as f64).ceil() as usize;
+        for _ in after_amount..before_amount {
+            let entry = inventory.entry(ItemType::RawOre).or_default();
+            *entry += 1;
+        }
+        true
+    } else {
+        false
+    }
 }

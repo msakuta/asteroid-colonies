@@ -14,8 +14,8 @@ use wasm_bindgen::prelude::*;
 use web_sys::{js_sys, WebGlRenderingContext};
 
 use asteroid_colonies_logic::{
-    building::BuildingType, get_build_menu, AsteroidColoniesGame, Pos, TileState, HEIGHT,
-    TILE_SIZE, WIDTH,
+    building::BuildingType, get_build_menu, AsteroidColoniesGame, Conveyor, ItemType, Pos,
+    TileState, HEIGHT, TILE_SIZE, WIDTH,
 };
 
 use crate::{assets::Assets, render::calculate_back_image};
@@ -190,13 +190,16 @@ impl AsteroidColonies {
         }
     }
 
-    pub fn move_item(&mut self, dst_x: f64, dst_y: f64) -> Result<JsValue, JsValue> {
+    pub fn move_item(&mut self, dst_x: f64, dst_y: f64, item: JsValue) -> Result<JsValue, JsValue> {
+        let item: ItemType = serde_wasm_bindgen::from_value(item)?;
         let dpos = self.transform_pos(dst_x, dst_y);
         let src = self
             .move_item_cursor
             .ok_or_else(|| JsValue::from("Select a building to move items from first"))?;
         self.move_item_cursor = None;
-        self.game.move_item(src, dpos).map_err(JsValue::from)?;
+        self.game
+            .move_item(src, dpos, item)
+            .map_err(JsValue::from)?;
         Ok(serde_wasm_bindgen::to_value(&src)?)
     }
 
@@ -230,10 +233,10 @@ impl AsteroidColonies {
         self.game.build(ix, iy, type_).map_err(|e| JsValue::from(e))
     }
 
-    pub fn cancel_build(&mut self, x: f64, y: f64) {
-        let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
-        let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
-        self.game.cancel_build(ix, iy)
+    pub fn cancel_build(&mut self) -> Result<(), JsValue> {
+        let [ix, iy] = self.cursor.ok_or("Cursor was not selected")?;
+        self.game.cancel_build(ix, iy);
+        Ok(())
     }
 
     pub fn find_building(&self, x: i32, y: i32) -> Result<bool, JsValue> {
@@ -242,6 +245,16 @@ impl AsteroidColonies {
 
     pub fn find_construction(&self, x: i32, y: i32) -> Result<bool, JsValue> {
         Ok(self.game.iter_construction().any(|c| c.intersects([x, y])))
+    }
+
+    pub fn has_conveyor(&self) -> Result<bool, JsValue> {
+        let pos = self.cursor.ok_or("Cursor was not selected")?;
+        Ok(!matches!(self.game.tiles()[pos].conveyor, Conveyor::None))
+    }
+
+    pub fn has_power_grid(&self) -> Result<bool, JsValue> {
+        let pos = self.cursor.ok_or("Cursor was not selected")?;
+        Ok(self.game.tiles()[pos].power_grid)
     }
 
     pub fn build_plan(&mut self, constructions: Vec<JsValue>) -> Result<(), JsValue> {
@@ -254,13 +267,24 @@ impl AsteroidColonies {
     }
 
     /// Puts a task to deconstruct a building. It is different from `cancel_build` in that it destroys already built ones.
-    pub fn deconstruct(&mut self, ix: i32, iy: i32) -> Result<(), JsValue> {
-        self.game.deconstruct(ix, iy).map_err(JsValue::from)
+    pub fn deconstruct(&mut self) -> Result<(), JsValue> {
+        let [ix, iy] = self.cursor.ok_or("Cursor was not selected")?;
+        Ok(self.game.deconstruct(ix, iy)?)
     }
 
-    pub fn get_recipes(&self, x: f64, y: f64) -> Result<Vec<JsValue>, JsValue> {
-        let ix = (x - self.viewport.offset[0]).div_euclid(TILE_SIZE) as i32;
-        let iy = (y - self.viewport.offset[1]).div_euclid(TILE_SIZE) as i32;
+    /// Puts a task to deconstruct a conveyor.
+    pub fn deconstruct_conveyor(&mut self) -> Result<(), JsValue> {
+        let [ix, iy] = self.cursor.ok_or("Cursor was not selected")?;
+        Ok(self.game.deconstruct_conveyor(ix, iy)?)
+    }
+
+    /// Puts a task to deconstruct a power grid.
+    pub fn deconstruct_power_grid(&mut self) -> Result<(), JsValue> {
+        let [ix, iy] = self.cursor.ok_or("Cursor was not selected")?;
+        Ok(self.game.deconstruct_power_grid(ix, iy)?)
+    }
+
+    pub fn get_recipes(&self, ix: i32, iy: i32) -> Result<Vec<JsValue>, JsValue> {
         let recipes = self.game.get_recipes(ix, iy).map_err(JsValue::from)?;
 
         recipes
@@ -286,9 +310,23 @@ impl AsteroidColonies {
         self.game.cleanup_item([ix, iy]).map_err(JsValue::from)
     }
 
+    pub fn get_inventory(&self) -> Result<JsValue, JsValue> {
+        let inventory = self.cursor.and_then(|cursor| {
+            self.game
+                .iter_building()
+                .find(|b| b.intersects(cursor))
+                .map(|building| building.inventory.clone())
+        });
+        serde_wasm_bindgen::to_value(&inventory).map_err(JsValue::from)
+    }
+
     pub fn pan(&mut self, x: f64, y: f64) {
         self.viewport.offset[0] += x / self.viewport.scale;
         self.viewport.offset[1] += y / self.viewport.scale;
+    }
+
+    pub fn get_cursor(&self) -> Option<Vec<i32>> {
+        self.cursor.map(|c| c.to_vec())
     }
 
     pub fn get_pos(&self) -> Vec<f64> {

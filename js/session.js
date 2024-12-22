@@ -1,6 +1,7 @@
 
 export let sessionId = null;
 export let websocket = null;
+export let tickTime = 0.2;
 
 export async function fetchSessionId({port, baseUrl, game}) {
     let loaded = false;
@@ -13,6 +14,7 @@ export async function fetchSessionId({port, baseUrl, game}) {
             const dataRes = await fetch(`${baseUrl}/api/load`);
             const dataText = await dataRes.text();
             game.deserialize(dataText);
+            tickTime = await (await fetch(`${baseUrl}/api/tick_time`)).json();
             loaded = true;
         } catch (e) {
             console.log(`session api returned an error: ${e}`);

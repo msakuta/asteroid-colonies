@@ -61,8 +61,8 @@ struct Args {
     push_period_s: f64,
     #[clap(long, default_value = "60")]
     cleanup_period_s: f64,
-    #[clap(long, default_value = "0.1", help = "Tick frequency in Hz")]
-    tick_freq: f64,
+    #[clap(long, default_value = "0.2", help = "Tick time in seconds")]
+    tick_time: f64,
     #[cfg(not(debug_assertions))]
     #[clap(
         long,
@@ -87,6 +87,8 @@ struct ServerData {
     last_pushed: Mutex<Instant>,
     last_cleanup: Mutex<Instant>,
     autosave_file: PathBuf,
+    /// Real time span for a simulation tick. It determines how fast the simulation evolves.
+    tick_time: f64,
     /// A signal from the websocket sessions to send synchronization data,
     /// when it invoked a command to change game state.
     ///
@@ -148,6 +150,10 @@ async fn get_state(data: web::Data<ServerData>) -> actix_web::Result<HttpRespons
     Ok(HttpResponse::Ok()
         .content_type("application/json")
         .body(serialized))
+}
+
+async fn get_tick_time(data: web::Data<ServerData>) -> actix_web::Result<web::Json<f64>> {
+    Ok(web::Json(data.tick_time))
 }
 
 #[cfg(not(debug_assertions))]
@@ -240,6 +246,7 @@ async fn main() -> std::io::Result<()> {
         last_pushed: Mutex::new(Instant::now()),
         last_cleanup: Mutex::new(Instant::now()),
         autosave_file: args.autosave_file,
+        tick_time: args.tick_time,
         signal_push: AtomicBool::new(false),
         srv: ChatServer::new().start(),
         sessions: RwLock::new(HashSet::new()),
@@ -254,7 +261,7 @@ async fn main() -> std::io::Result<()> {
 
     actix_web::rt::spawn(async move {
         let mut interval =
-            actix_web::rt::time::interval(std::time::Duration::from_secs_f64(args.tick_freq));
+            actix_web::rt::time::interval(std::time::Duration::from_secs_f64(args.tick_time));
         loop {
             interval.tick().await;
 
@@ -342,7 +349,8 @@ async fn main() -> std::io::Result<()> {
             .app_data(data.clone())
             .service(websocket_index)
             .route("/api/session", web::post().to(new_session))
-            .route("/api/load", web::get().to(get_state));
+            .route("/api/load", web::get().to(get_state))
+            .route("/api/tick_time", web::get().to(get_tick_time));
         // .route("/api/time_scale", web::post().to(set_timescale));
         #[cfg(not(debug_assertions))]
         {

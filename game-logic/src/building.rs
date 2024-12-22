@@ -17,10 +17,13 @@ use crate::{
     items::{Inventory, ItemType},
     measure_time,
     push_pull::{pull_inputs, push_outputs},
-    task::{GlobalTask, Task, RAW_ORE_SMELT_TIME},
+    task::{BuildingTask, GlobalTask, RAW_ORE_SMELT_TIME},
     tile::Tiles,
+    transport::TransportId,
     AsteroidColoniesGame, Crew, Direction, Pos, TileState, Transport, Xor128,
 };
+
+pub type BuildingId = EntityId<Building>;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[non_exhaustive]
@@ -120,7 +123,7 @@ pub struct Recipe {
 pub struct Building {
     pub pos: [i32; 2],
     pub type_: BuildingType,
-    pub task: Task,
+    pub task: BuildingTask,
     pub inventory: Inventory,
     /// The number of crews attending this building.
     pub crews: usize,
@@ -134,7 +137,7 @@ pub struct Building {
     pub ore_accum: OreAccum,
     #[serde(skip)]
     /// A cache of expected transports
-    pub expected_transports: HashSet<EntityId>,
+    pub expected_transports: HashSet<TransportId>,
 }
 
 impl Building {
@@ -142,7 +145,7 @@ impl Building {
         Self {
             pos,
             type_,
-            task: Task::None,
+            task: BuildingTask::None,
             inventory: Inventory::new(),
             crews: type_.max_crews(),
             recipe: None,
@@ -157,7 +160,7 @@ impl Building {
         Self {
             pos,
             type_,
-            task: Task::None,
+            task: BuildingTask::None,
             inventory,
             crews: type_.max_crews(),
             recipe: None,
@@ -172,8 +175,8 @@ impl Building {
     pub fn power_gen(&self) -> isize {
         let base = self.type_.power_gen();
         let task_power = match self.task {
-            Task::Excavate(_, _) => 200,
-            Task::Assemble { .. } => 300,
+            BuildingTask::Excavate(_, _) => 200,
+            BuildingTask::Assemble { .. } => 300,
             _ => 0,
         };
         base - task_power
@@ -230,13 +233,13 @@ impl Building {
 
     pub fn tick(
         &mut self,
-        id: EntityId,
+        id: BuildingId,
         bldgs: &EntitySet<Building>,
         tiles: &Tiles,
         transports: &mut EntitySet<Transport>,
         constructions: &mut EntitySet<Construction>,
         crews: &mut EntitySet<Crew>,
-        gtasks: &[GlobalTask],
+        gtasks: &EntitySet<GlobalTask>,
         rng: &mut Xor128,
     ) -> Result<(), String> {
         // Try pushing out products
@@ -247,7 +250,7 @@ impl Building {
             });
         }
         let this = self;
-        if matches!(this.task, Task::None) {
+        if matches!(this.task, BuildingTask::None) {
             if let Some(recipe) = &this.recipe {
                 pull_inputs(
                     &recipe.inputs,
@@ -277,7 +280,7 @@ impl Building {
                         }
                     }
                 }
-                this.task = Task::Assemble {
+                this.task = BuildingTask::Assemble {
                     t: recipe.time,
                     max_t: recipe.time,
                     outputs: recipe.outputs.clone(),
@@ -294,10 +297,13 @@ impl Building {
                 if this.crews == 0 {
                     return Ok(());
                 }
-                for gtask in gtasks {
-                    let goal_pos = match gtask {
+                for (gt_id, gtask) in gtasks.items() {
+                    let goal_pos = match &*gtask {
                         GlobalTask::Excavate(t, goal_pos) => {
                             if *t <= 0. {
+                                continue;
+                            }
+                            if bldgs.iter().any(|b| matches!(b.task, BuildingTask::Excavate(_, other_id) if other_id == gt_id)) {
                                 continue;
                             }
                             goal_pos
@@ -310,10 +316,13 @@ impl Building {
                             pos
                         }
                     };
-                    if crews.iter().any(|crew| crew.target() == Some(*goal_pos)) {
+                    if crews
+                        .iter()
+                        .any(|crew| crew.gt_id() == Some(gt_id) || crew.target() == Some(*goal_pos))
+                    {
                         continue;
                     }
-                    if let Some(crew) = Crew::new_task(id, this, gtask, tiles) {
+                    if let Some(crew) = Crew::new_task(id, this, gt_id, &*gtask, tiles) {
                         crews.insert(crew);
                         this.crews -= 1;
                         return Ok(());
@@ -362,7 +371,7 @@ impl Building {
                 push_outputs(tiles, transports, &mut *this, bldgs, &|t| {
                     !matches!(t, ItemType::RawOre)
                 });
-                if !matches!(this.task, Task::None) {
+                if !matches!(this.task, BuildingTask::None) {
                     return Ok(());
                 }
                 // A tentative recipe. The output does not have to represent the actual products yet.
@@ -438,10 +447,12 @@ impl AsteroidColoniesGame {
                 crate::console_log!("Building::tick error: {}", e);
             };
         }
-        for building in self.buildings.iter_mut() {
+        for mut building in self.buildings.iter_borrow_mut() {
             if let Some((item, dest)) = Self::process_task(
                 &mut self.tiles,
-                building,
+                &mut *building,
+                &self.buildings,
+                &mut self.global_tasks,
                 power_ratio,
                 self.calculate_back_image.as_mut(),
             ) {

@@ -13,7 +13,7 @@ use ::serde::{Deserialize, Serialize};
 use actix_web_actors::ws;
 use asteroid_colonies_logic::{
     construction::{Construction, ConstructionType},
-    Pos, Position,
+    ItemType, Pos, Position,
 };
 
 /// Open a WebSocket instance and give it to the client.
@@ -139,6 +139,7 @@ enum WsMessage {
     MoveItem {
         from: Pos,
         to: Pos,
+        item: ItemType,
     },
     Build {
         pos: Pos,
@@ -152,6 +153,12 @@ enum WsMessage {
         pos: Pos,
     },
     Deconstruct {
+        pos: Pos,
+    },
+    DeconstructConveyor {
+        pos: Pos,
+    },
+    DeconstructPowerGrid {
         pos: Pos,
     },
     SetRecipe {
@@ -204,6 +211,10 @@ impl StreamHandler<WsResult> for SessionWs {
     }
 }
 
+fn map_err(s: &str) -> anyhow::Error {
+    anyhow::anyhow!("{s}")
+}
+
 impl SessionWs {
     fn handle_message(&mut self, payload: WsMessage) -> anyhow::Result<()> {
         let mut game = self.data.game.lock().unwrap();
@@ -216,8 +227,8 @@ impl SessionWs {
                 game.move_building(from, to)
                     .map_err(|e| anyhow::anyhow!("{e}"))?;
             }
-            WsMessage::MoveItem { from, to } => {
-                game.move_item(from, to)
+            WsMessage::MoveItem { from, to, item } => {
+                game.move_item(from, to, item)
                     .map_err(|e| anyhow::anyhow!("{e}"))?;
             }
             WsMessage::Build { pos, ty } => match ty {
@@ -240,6 +251,13 @@ impl SessionWs {
             WsMessage::Deconstruct { pos } => {
                 game.deconstruct(pos[0], pos[1])
                     .map_err(|e| anyhow::anyhow!("{e}"))?;
+            }
+            WsMessage::DeconstructConveyor { pos } => {
+                game.deconstruct_conveyor(pos[0], pos[1]).map_err(map_err)?;
+            }
+            WsMessage::DeconstructPowerGrid { pos } => {
+                game.deconstruct_power_grid(pos[0], pos[1])
+                    .map_err(map_err)?;
             }
             WsMessage::SetRecipe { pos, name } => {
                 game.set_recipe(pos[0], pos[1], name.as_ref().map(|s| s as &_))

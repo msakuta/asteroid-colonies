@@ -42,7 +42,11 @@ impl AsteroidColonies {
             );
             enable_buffer(gl, &assets.screen_buffer, 2, shader.vertex_position);
 
-            let [x, y] = if let Some(next) = crew.path.as_ref().and_then(|p| p.last()) {
+            let path = crew
+                .path
+                .as_ref()
+                .and_then(|p| if p.len() <= 1 { None } else { p.last() });
+            let [x, y] = if let Some(next) = path {
                 lerp(crew.pos, *next, *frac_frame)
             } else {
                 [crew.pos[0] as f64, crew.pos[1] as f64]

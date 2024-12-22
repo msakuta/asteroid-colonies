@@ -13,7 +13,7 @@ use asteroid_colonies_logic::{
     construction::ConstructionType,
     conveyor::Conveyor,
     new_hasher,
-    task::{GlobalTask, Task, EXCAVATE_TIME, LABOR_EXCAVATE_TIME, MOVE_TIME},
+    task::{BuildingTask, GlobalTask, LABOR_EXCAVATE_TIME, MOVE_TIME},
     Chunk, Direction, ImageIdx, ItemType, Position, TileState, Tiles, CHUNK_SIZE,
 };
 
@@ -229,21 +229,21 @@ impl AsteroidColonies {
                     0.,
                 ),
                 BuildingType::Excavator => {
-                    if let Task::Excavate(_, _) = building.task {
+                    if let BuildingTask::Excavate(_, _) = building.task {
                         ((time % 2 + 1) as f64 * TILE_SIZE, 0.)
                     } else {
                         (0., 0.)
                     }
                 }
                 BuildingType::Assembler => {
-                    if !matches!(building.task, Task::None) {
+                    if !matches!(building.task, BuildingTask::None) {
                         ((time % 2 + 1) as f64 * TILE_SIZE * 2., 0.)
                     } else {
                         (0., 0.)
                     }
                 }
                 BuildingType::Furnace => {
-                    if !matches!(building.task, Task::None) {
+                    if !matches!(building.task, BuildingTask::None) {
                         ((time % 2 + 1) as f64 * TILE_SIZE * 2., 0.)
                     } else {
                         (0., 0.)
@@ -281,9 +281,8 @@ impl AsteroidColonies {
             }
 
             let task_target = match building.task {
-                Task::Excavate(t, _) => Some((t, EXCAVATE_TIME)),
-                Task::Move(t, _) => Some((t, MOVE_TIME)),
-                Task::Assemble { t, max_t, .. } => Some((t, max_t)),
+                BuildingTask::Move(t, _) => Some((t, MOVE_TIME)),
+                BuildingTask::Assemble { t, max_t, .. } => Some((t, max_t)),
                 _ => None,
             };
 
@@ -314,7 +313,7 @@ impl AsteroidColonies {
                 .render_bar();
             }
 
-            if let Task::Move(_, path) = &building.task {
+            if let BuildingTask::Move(_, path) = &building.task {
                 context.set_stroke_style(&JsValue::from("#ff7f00"));
                 context.set_line_width(3.);
                 context.begin_path();
@@ -366,7 +365,7 @@ impl AsteroidColonies {
         }
 
         for task in self.game.iter_global_task() {
-            match task {
+            match &*task {
                 GlobalTask::Excavate(t, pos) => {
                     let x = pos[0] as f64 * TILE_SIZE + offset[0];
                     let y = pos[1] as f64 * TILE_SIZE + offset[1];

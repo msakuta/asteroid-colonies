@@ -6,7 +6,7 @@
     import ButtonFrames from './ButtonFrames.svelte';
     import DebugButton from './DebugButton.svelte';
     import InfoPanel from './InfoPanel.svelte';
-    import { websocket, fetchSessionId, reconnectWebSocket } from './session';
+    import { websocket, fetchSessionId, reconnectWebSocket, tickTime } from './session';
     import BuildMenu from './BuildMenu.svelte';
     import RecipeMenu from './RecipeMenu.svelte';
     import ErrorMessage from './ErrorMessage.svelte';
@@ -25,6 +25,7 @@
     import deconstructIcon from '../images/deconstruct.png';
     import cleanup from '../images/cleanup.png';
     import { loadAllIcons } from './graphics';
+    import ChooseItem from './ChooseItem.svelte';
 
     export let baseUrl = BASE_URL;
     export let port = 3883;
@@ -52,6 +53,9 @@
     let showRecipeMenu = false;
     let recipeItems = [];
     let recipePos = null;
+
+    let showMoveItemSelect = false;
+    let moveItems = [];
 
     const useWebGL = true;
 
@@ -85,6 +89,11 @@
         {caption: "Merger", event: 'buildMerger', icon: buildMergerIcon},
         {caption: "Building", event: 'buildBuilding', icon: buildBuildingIcon},
         {caption: "Deconstruct", event: 'deconstruct', icon: deconstructIcon},
+    ];
+    const RADIAL_MENU_DECONSTRUCT = [
+        {caption: "Power Grid", event: 'deconstructPowerGrid', icon: buildPowerGridIcon},
+        {caption: "Conveyor", event: 'deconstructConveyor', icon: buildConveyorIcon},
+        {caption: "Building", event: 'deconstructBuilding', icon: buildBuildingIcon},
     ];
     let showRadialMenu = false;
     let radialScreenPos = null;
@@ -135,7 +144,7 @@
     function pointerMove(evt) {
         const [x, y] = mousePos = toLogicalCoords(evt.clientX, evt.clientY);
         game.set_cursor(x, y);
-        infoResult = game.get_info(x, y);
+        infoResult = game.get_info();
         if (buildingConveyor) {
             try {
                 const [ix, iy] = game.transform_coords(x, y);
@@ -187,7 +196,6 @@
         if (activePointers.length === 0) {
             zoomChanging = false;
         }
-        console.log(`activePointers ${activePointers.length}`);
     }
 
     onMount(async () => {
@@ -258,9 +266,13 @@
         game.set_size(bodyRect.width, bodyRect.height);
     }
 
-    const FRAME_TIME = 0.1;
     let lastUpdated = null;
     let lastShowed = null;
+
+    // Usually, a tick is much shorter than a frame.
+    // If the user puts the browser tab into background, it may become dormant and
+    // takes longer. We limit the number of frames to catch up in that case.
+    const MAX_TICKS_PER_FRAME = 10;
 
     function frameProc() {
         // Increment time before any await. Otherwise, this async function runs 2-4 times every tick for some reason.
@@ -276,24 +288,25 @@
         if (lastUpdated === null) {
             lastUpdated = now;
         }
-        while (FRAME_TIME < (now - lastUpdated) / 1000) {
-            lastUpdated += FRAME_TIME * 1000;
+        if (MAX_TICKS_PER_FRAME * tickTime < deltaTime) {
+            console.log(`Skipping ${((now - lastUpdated) / 1000 / tickTime).toFixed(0)} frames`);
+            lastUpdated = now - tickTime * MAX_TICKS_PER_FRAME * 1000;
+        }
+        while (tickTime < (now - lastUpdated) / 1000) {
+            lastUpdated += tickTime * 1000;
             game.tick();
         }
         if (useWebGL) {
             const gl = canvas.getContext('webgl', { alpha: false });
             // gl.clearColor(0., 0.5, 0., 1.);
             // gl.clear(gl.COLOR_BUFFER_BIT);
-            game.render_gl(gl, (now - lastUpdated) / FRAME_TIME / 1000, performance.now() / 1000);
+            game.render_gl(gl, (now - lastUpdated) / tickTime / 1000, performance.now() / 1000);
         }
         else {
             const ctx = canvas.getContext('2d');
             game.render(ctx);
         }
-        if (mousePos !== null) {
-            const info = game.get_info(mousePos[0], mousePos[1]);
-            infoResult = info;
-        }
+        infoResult = game.get_info();
         if (websocket) {
             if (websocket.readyState === 1) {
                 heartbeatOpacity = Math.max(0, heartbeatOpacity - deltaTime);
@@ -368,8 +381,8 @@
         if (movingItem) {
             try {
                 const to = game.transform_coords(x, y);
-                const from = game.move_item(x, y);
-                requestWs("MoveItem", {from: [from[0], from[1]], to: [to[0], to[1]]});
+                const from = game.move_item(x, y, movingItem);
+                requestWs("MoveItem", {from: [from[0], from[1]], to: [to[0], to[1]], item: movingItem});
             }
             finally {
                 messageOverlayVisible = false;
@@ -397,13 +410,13 @@
             game.start_move_building(ix, iy);
             showBuildMenu = false;
             showRecipeMenu = false;
+            showMoveItemSelect = false;
             messageOverlayText = "Choose move building destination";
             messageOverlayVisible = "block";
             moving = true;
         }
         else if (name === "moveItem") {
-            const [ix, iy] = game.transform_coords(x, y);
-            startMoveItem(ix, iy);
+            showMoveItemSelect = true;
         }
         else if (name === "conveyor") {
             enterConveyorEdit();
@@ -426,14 +439,18 @@
             setShowRecipeMenu(x, y);
         }
         else if (name === "cancel") {
-            const pos = game.transform_coords(x, y);
-            requestWs("CancelBuild", {pos: [pos[0], pos[1]]});
-            game.cancel_build(x, y);
+            const pos = game.get_cursor(x, y);
+            if (pos) {
+                requestWs("CancelBuild", {pos: [pos[0], pos[1]]});
+                game.cancel_build();
+            }
         }
         else if (name === "deconstruct") {
-            const pos = game.transform_coords(x, y);
-            requestWs("Deconstruct", {pos: [pos[0], pos[1]]});
-            game.deconstruct(pos[0], pos[1]);
+            const pos = game.get_cursor();
+            if (pos) {
+                requestWs("Deconstruct", {pos: [pos[0], pos[1]]});
+                game.deconstruct();
+            }
         }
         else if (name === "cleanup") {
             const pos = game.transform_coords(x, y);
@@ -443,6 +460,7 @@
         else {
             showBuildMenu = false;
             showRecipeMenu = false;
+            showMoveItemSelect = false;
             const [ix, iy] = game.transform_coords(x, y);
             if (name === "excavate") {
                 requestWs("Excavate", {x: ix, y: iy});
@@ -504,6 +522,7 @@
     function enterConveyorEdit() {
         showBuildMenu = false;
         showRecipeMenu = false;
+        showMoveItemSelect = false;
         messageOverlayText = "Drag to make build plan and click Ok";
         messageOverlayVisible = true;
         messageShowOk = true;
@@ -557,7 +576,7 @@
             RADIAL_MENU_BUILD[5].icon = cancelBuildIcon;
         }
         else {
-            RADIAL_MENU_BUILD[5].grayed = !game.find_building(radialPos[0], radialPos[1]);
+            RADIAL_MENU_BUILD[5].grayed = !game.find_building(radialPos[0], radialPos[1]) && !game.has_conveyor() && !game.has_power_grid();
             RADIAL_MENU_BUILD[5].caption = "Deconstruct";
             RADIAL_MENU_BUILD[5].event = "deconstruct";
             RADIAL_MENU_BUILD[5].icon = deconstructIcon;
@@ -614,17 +633,46 @@
     }
 
     let commandDeconstruct = wrapErrorMessage(() => {
-        showRadialMenu = false;
-        const [x, y] = radialPos;
-        requestWs("Deconstruct", {pos: [x, y]});
-        game.deconstruct(x, y);
+        RADIAL_MENU_DECONSTRUCT[0].grayed = !game.has_power_grid();
+        RADIAL_MENU_DECONSTRUCT[1].grayed = !game.has_conveyor();
+        RADIAL_MENU_DECONSTRUCT[2].grayed = !game.find_building(radialPos[0], radialPos[1]);
+        showRadialMenu = RADIAL_MENU_DECONSTRUCT;
     });
 
     let commandCancelBuild = wrapErrorMessage(() => {
         showRadialMenu = false;
-        const [x, y] = radialPos;
-        requestWs("CancelBuild", {pos: [x, y]});
-        game.cancel_build(x, y);
+        const pos = game.get_cursor();
+        if (pos) {
+            requestWs("CancelBuild", {pos: [pos[0], pos[1]]});
+            game.cancel_build();
+        }
+    });
+
+    let deconstructPowerGrid = wrapErrorMessage(() => {
+        showRadialMenu = false;
+        const pos = game.get_cursor();
+        if (pos) {
+            requestWs("DeconstructPowerGrid", {pos: [pos[0], pos[1]]});
+            game.deconstruct_power_grid();
+        }
+    });
+
+    let deconstructConveyor = wrapErrorMessage(() => {
+        showRadialMenu = false;
+        const pos = game.get_cursor();
+        if (pos) {
+            requestWs("DeconstructConveyor", {pos: [pos[0], pos[1]]});
+            game.deconstruct_conveyor();
+        }
+    });
+
+    let deconstructBuilding = wrapErrorMessage(() => {
+        showRadialMenu = false;
+        const pos = game.get_cursor();
+        if (pos) {
+            requestWs("Deconstruct", {pos: [pos[0], pos[1]]});
+            game.deconstruct();
+        }
     });
 
     let commandBuild = wrapErrorMessage((evt) => {
@@ -638,32 +686,39 @@
     function setShowRecipeMenu(x, y) {
         showRadialMenu = false;
         showBuildMenu = false;
+        recipePos = [x, y];
         recipeItems = game.get_recipes(x, y);
         showRecipeMenu = true;
-        recipePos = game.transform_coords(x, y);
     }
 
     let commandRecipeShow = wrapErrorMessage(() => {
         showRadialMenu = false;
-        const [x, y] = radialScreenPos;
+        const [x, y] = radialPos;
         setShowRecipeMenu(x, y);
     });
 
-    function startMoveItem(x, y) {
+    function startMoveItem(x, y, item) {
         if (game.start_move_item(x, y)) {
             showBuildMenu = false;
             showRecipeMenu = false;
+            showMoveItemSelect = false;
             messageOverlayText = "Choose move item destination";
             messageOverlayVisible = "block";
-            movingItem = true;
+            movingItem = item;
         }
     }
 
     let commandMoveItem = wrapErrorMessage(() => {
         showRadialMenu = false;
         const [x, y] = radialPos;
-        startMoveItem(x, y);
+        moveItems = game.get_inventory(x, y);
+        showMoveItemSelect = true;
     });
+
+    function clickMoveItem(evt) {
+        const [x, y] = radialPos;
+        startMoveItem(x, y, evt.detail);
+    }
 
     let commandCleanup = wrapErrorMessage(() => {
         showRadialMenu = false;
@@ -703,6 +758,11 @@
             on:clear={clearRecipe}
             on:close={() => showRecipeMenu = false}/>
     {/if}
+    {#if showMoveItemSelect}
+        <ChooseItem items={moveItems}
+            on:click={clickMoveItem}
+            on:close={() => showMoveItemSelect = false}/>
+    {/if}
     {#if showRadialMenu === RADIAL_MENU_MAIN}
         <RadialMenu
             pos={radialScreenPos}
@@ -727,6 +787,15 @@
             on:buildMerger={buildMerger}
             on:deconstruct={commandDeconstruct}
             on:cancelBuild={commandCancelBuild}/>
+    {:else if showRadialMenu === RADIAL_MENU_DECONSTRUCT}
+        <RadialMenu
+            centerIcon={deconstructIcon}
+            pos={radialScreenPos}
+            items={showRadialMenu}
+            on:close={() => showRadialMenu = false}
+            on:deconstructPowerGrid={deconstructPowerGrid}
+            on:deconstructConveyor={deconstructConveyor}
+            on:deconstructBuilding={deconstructBuilding}/>
     {/if}
     {#if showErrorMessage}
         <ErrorMessage text={errorMessage} timeout={errorMessageTimeout} on:click={() => showErrorMessage = false}/>

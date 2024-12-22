@@ -8,9 +8,12 @@ use crate::{
     building::Building,
     conveyor::Conveyor,
     direction::Direction,
-    entity::{EntityEntry, EntityId, EntitySet, RefMutOption},
+    entity::{EntityEntry, EntitySet, RefMutOption},
     items::{Inventory, ItemType},
-    transport::{expected_deliveries, find_multipath_should_expand, CPos, LevelTarget, Transport},
+    transport::{
+        expected_deliveries, find_multipath_should_expand, CPos, LevelTarget, Transport,
+        TransportId,
+    },
     Pos, Tile, Tiles, WIDTH,
 };
 
@@ -43,7 +46,7 @@ pub(crate) fn pull_inputs<'a>(
     inputs: impl IntoIterator<Item = (&'a ItemType, &'a usize)>,
     tiles: &impl TileSampler,
     transports: &mut EntitySet<Transport>,
-    expected_transports: &mut HashSet<EntityId>,
+    expected_transports: &mut HashSet<TransportId>,
     this_pos: Pos,
     this_size: [usize; 2],
     this_inventory: &mut Inventory,
@@ -311,14 +314,10 @@ where
         dest: dest.pos,
         path,
         item,
-        amount: 1,
+        amount: *amount,
     });
     dest.expected_transports.insert(id);
-    if *amount <= 1 {
-        src.inventory().remove(&item);
-    } else {
-        *amount -= 1;
-    }
+    src.inventory().remove(&item);
     Ok(())
 }
 

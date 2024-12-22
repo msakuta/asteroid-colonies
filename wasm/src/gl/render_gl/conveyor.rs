@@ -132,6 +132,7 @@ impl AsteroidColonies {
 
     pub(super) fn render_gl_conveyor_plan(&self, gl: &GL, ctx: &RenderContext) {
         let assets = &ctx.assets;
+        gl.use_program(Some(&assets.textured_shader.program));
         gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_conveyor));
         gl.uniform1f(assets.textured_shader.alpha_loc.as_ref(), 0.5);
         for (pos, conv) in self.game.iter_conveyor_plan() {

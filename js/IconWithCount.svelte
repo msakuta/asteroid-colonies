@@ -1,4 +1,8 @@
 <script>
+    import { createEventDispatcher } from 'svelte';
+
+    const dispatch = createEventDispatcher();
+
     export let itemUrl;
     export let count = null;
     export const widthFactor = 1;
@@ -9,7 +13,8 @@
 <div class="item" style="
 background-image: url({itemUrl});
 background-size: {32 * widthFactor}px {32 * heightFactor}px;
-">
+"
+    on:pointerup={() => dispatch('click')}>
 {#if count !== null}
     <div class="overlay noselect">
     {count}
@@ -23,6 +28,11 @@ background-size: {32 * widthFactor}px {32 * heightFactor}px;
         position: relative;
         width: 32px;
         height: 32px;
+    }
+
+    div:hover {
+        border: 1px solid black;
+        background-color: #ffff7f;
     }
 
     .overlay{

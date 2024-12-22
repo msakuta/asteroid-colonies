@@ -12,7 +12,7 @@ use crate::{
     entity::{EntitySet, RefOption},
     items::{recipes, ItemType},
     push_pull::send_item,
-    task::{GlobalTask, Task, MOVE_TIME},
+    task::{BuildingTask, GlobalTask, MOVE_TIME},
     tile::CHUNK_SIZE,
     transport::{find_path, Transport},
     Pos, Position, Tile, TileState, Tiles, Xor128, HEIGHT, WIDTH,
@@ -24,7 +24,7 @@ pub struct AsteroidColoniesGame {
     pub(crate) tiles: Tiles,
     pub(crate) buildings: EntitySet<Building>,
     pub(crate) crews: EntitySet<Crew>,
-    pub(crate) global_tasks: Vec<GlobalTask>,
+    pub(crate) global_tasks: EntitySet<GlobalTask>,
     pub(crate) power_ratio: f64,
     /// Used power for the last tick, in kW
     pub(crate) used_power: f64,
@@ -135,7 +135,7 @@ impl AsteroidColoniesGame {
             tiles,
             buildings,
             crews: EntitySet::new(),
-            global_tasks: vec![],
+            global_tasks: EntitySet::new(),
             power_ratio: 1.,
             used_power: 0.,
             global_time: 0,
@@ -187,7 +187,7 @@ impl AsteroidColoniesGame {
         self.crews.iter()
     }
 
-    pub fn iter_global_task(&self) -> impl Iterator<Item = &GlobalTask> {
+    pub fn iter_global_task(&self) -> impl Iterator<Item = RefOption<GlobalTask>> {
         self.global_tasks.iter()
     }
 
@@ -213,7 +213,7 @@ impl AsteroidColoniesGame {
         if !building.type_.is_mobile() {
             return Err(String::from("Building at that position is not mobile"));
         }
-        if !matches!(building.task, Task::None) {
+        if !matches!(building.task, BuildingTask::None) {
             return Err(String::from(
                 "The building is busy; wait for the building to finish the current task",
             ));
@@ -242,11 +242,11 @@ impl AsteroidColoniesGame {
             return Err(String::from("Building does not exist at that position"));
         };
         path.pop();
-        building.task = Task::Move(MOVE_TIME, path);
+        building.task = BuildingTask::Move(MOVE_TIME, path);
         Ok(())
     }
 
-    pub fn move_item(&mut self, from: Pos, to: Pos) -> Result<(), String> {
+    pub fn move_item(&mut self, from: Pos, to: Pos, item: ItemType) -> Result<(), String> {
         let (src_id, mut src) = self
             .buildings
             .items_borrow_mut()
@@ -258,7 +258,7 @@ impl AsteroidColoniesGame {
             &mut *src,
             to,
             &self.buildings,
-            &|_| true,
+            &|it| it == item,
         )
         .or_else(|e| {
             let item = *src
@@ -358,6 +358,34 @@ impl AsteroidColoniesGame {
         Ok(())
     }
 
+    pub fn deconstruct_conveyor(&mut self, ix: i32, iy: i32) -> Result<(), &'static str> {
+        let tile = self
+            .tiles
+            .try_get_mut([ix, iy])
+            .ok_or("Tile does not exist")?;
+        if matches!(tile.conveyor, Conveyor::None) {
+            return Err("Conveyor does not exist");
+        }
+        let decon = Construction::new_conveyor([ix, iy], tile.conveyor, true);
+        tile.conveyor = Conveyor::None;
+        self.constructions.insert(decon);
+        Ok(())
+    }
+
+    pub fn deconstruct_power_grid(&mut self, ix: i32, iy: i32) -> Result<(), &'static str> {
+        let tile = self
+            .tiles
+            .try_get_mut([ix, iy])
+            .ok_or("Tile does not exist")?;
+        if !tile.power_grid {
+            return Err("Power grid does not exist");
+        }
+        let decon = Construction::new_power_grid([ix, iy], true);
+        tile.power_grid = false;
+        self.constructions.insert(decon);
+        Ok(())
+    }
+
     pub fn get_recipes(&self, ix: i32, iy: i32) -> Result<Vec<&'static Recipe>, String> {
         if ix < 0 || WIDTH as i32 <= ix || iy < 0 || HEIGHT as i32 <= iy {
             return Err(String::from("Point outside tile"));
@@ -396,7 +424,7 @@ impl AsteroidColoniesGame {
     }
 
     pub fn cleanup_item(&mut self, pos: Pos) -> Result<(), String> {
-        self.global_tasks.push(GlobalTask::Cleanup(pos));
+        self.global_tasks.insert(GlobalTask::Cleanup(pos));
         Ok(())
     }
 
@@ -498,12 +526,6 @@ impl AsteroidColoniesGame {
         chunks_digest: &HashMap<Position, u64>,
     ) -> Result<Vec<u8>, String> {
         let tiles = self.tiles.filter_with_diffs(chunks_digest)?;
-        if let Some((b, data)) = self.buildings.iter().next().and_then(|b| {
-            let bytes = bincode::serialize(&*b).ok()?;
-            Some((b, bytes))
-        }) {
-            println!("serialized bincode: {} {:?}", data.len(), b.type_);
-        }
         let ser_game = SerializeGame {
             tiles,
             buildings: self.buildings.clone(),
@@ -523,7 +545,7 @@ pub struct SerializeGame {
     tiles: Tiles,
     buildings: EntitySet<Building>,
     crews: EntitySet<Crew>,
-    global_tasks: Vec<GlobalTask>,
+    global_tasks: EntitySet<GlobalTask>,
     global_time: usize,
     transports: EntitySet<Transport>,
     constructions: EntitySet<Construction>,

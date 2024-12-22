@@ -267,12 +267,12 @@ impl AsteroidColoniesGame {
     pub fn commit_build_conveyor(&mut self) -> Vec<Construction> {
         for (pos, conv) in self.conveyor_staged.iter() {
             self.constructions
-                .insert(Construction::new_conveyor(*pos, *conv));
+                .insert(Construction::new_conveyor(*pos, *conv, false));
         }
         self.conveyor_preview.clear();
         std::mem::take(&mut self.conveyor_staged)
             .into_iter()
-            .map(|(pos, conv)| Construction::new_conveyor(pos, conv))
+            .map(|(pos, conv)| Construction::new_conveyor(pos, conv, false))
             .collect()
     }
 }
