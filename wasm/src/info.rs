@@ -15,7 +15,7 @@ struct GetBuildingInfoResult {
     inventory: Inventory,
     crews: usize,
     max_crews: usize,
-    ore_accum: OreAccum,
+    ore_accum: Option<OreAccum>,
 }
 
 #[derive(Serialize)]
@@ -59,7 +59,11 @@ impl AsteroidColonies {
                     inventory: building.inventory.clone(),
                     crews: building.crews,
                     max_crews: building.type_.max_crews(),
-                    ore_accum: building.ore_accum,
+                    ore_accum: if matches!(building.type_, BuildingType::Furnace) {
+                        Some(building.ore_accum)
+                    } else {
+                        None
+                    },
                 }
             });
         let construction = self.game.iter_construction().find_map(|c| {

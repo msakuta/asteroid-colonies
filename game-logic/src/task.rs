@@ -3,13 +3,13 @@ use std::{collections::HashMap, fmt::Display};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    building::{Building, BuildingType},
+    building::{Building, BuildingType, OreAccum},
     construction::Construction,
     direction::Direction,
     game::CalculateBackImage,
     items::ItemType,
     transport::find_path,
-    AsteroidColoniesGame, Pos, TileState, Tiles,
+    AsteroidColoniesGame, Inventory, Pos, TileState, Tiles,
 };
 
 pub const EXCAVATE_TIME: f64 = 10.;
@@ -31,7 +31,11 @@ pub enum Task {
         max_t: f64,
         outputs: HashMap<ItemType, usize>,
     },
-    // Smelt(usize),
+    Smelt {
+        t: f64,
+        max_t: f64,
+        output_ores: OreAccum,
+    },
 }
 
 impl Display for Task {
@@ -41,6 +45,7 @@ impl Display for Task {
             Self::Excavate(_, _) => write!(f, "Excavate"),
             Self::Move(_, _) => write!(f, "Move"),
             Self::Assemble { .. } => write!(f, "BuildItem"),
+            Self::Smelt { .. } => write!(f, "Smelt"),
         }
     }
 }
@@ -126,6 +131,7 @@ impl AsteroidColoniesGame {
         calculate_back_image: Option<&mut CalculateBackImage>,
     ) -> Option<(ItemType, [i32; 2])> {
         match building.task {
+            Task::None => {}
             Task::Excavate(ref mut t, dir) => {
                 if *t <= 0. {
                     building.task = Task::None;
@@ -183,7 +189,48 @@ impl AsteroidColoniesGame {
                     *t = (*t - power_ratio).max(0.);
                 }
             }
-            _ => {}
+            Task::Smelt {
+                ref mut t,
+                ref max_t,
+                ref output_ores,
+                ..
+            } => {
+                let smelt = |dst: &mut f64, src, inventory: &mut Inventory| {
+                    *dst += src * power_ratio / max_t;
+                    while 1. <= *dst {
+                        inventory
+                            .entry(ItemType::Cilicate)
+                            .and_modify(|v| *v += 1)
+                            .or_insert(1);
+                        *dst -= 1.;
+                    }
+                };
+                if *t <= 0. {
+                    building.task = Task::None;
+                } else {
+                    smelt(
+                        &mut building.ore_accum.cilicate,
+                        output_ores.cilicate,
+                        &mut building.inventory,
+                    );
+                    smelt(
+                        &mut building.ore_accum.iron,
+                        output_ores.iron,
+                        &mut building.inventory,
+                    );
+                    smelt(
+                        &mut building.ore_accum.copper,
+                        output_ores.copper,
+                        &mut building.inventory,
+                    );
+                    smelt(
+                        &mut building.ore_accum.lithium,
+                        output_ores.lithium,
+                        &mut building.inventory,
+                    );
+                    *t = (*t - power_ratio).max(0.);
+                }
+            }
         }
         None
     }

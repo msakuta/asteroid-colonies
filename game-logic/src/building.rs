@@ -386,17 +386,16 @@ impl Building {
                         return Ok(());
                     };
                     *source -= 1;
-                    let dice = rng.nexti() % 8;
-                    let outputs = hash_map!(match dice {
-                        0..=3 => ItemType::Cilicate,
-                        4..=5 => ItemType::IronIngot,
-                        6 => ItemType::CopperIngot,
-                        _ => ItemType::LithiumIngot,
-                    } => 1);
-                    this.task = Task::Assemble {
+                    let outputs = OreAccum {
+                        cilicate: rng.next() * 3.,
+                        iron: rng.next() * 2.,
+                        copper: rng.next() * 1.,
+                        lithium: rng.next() * 2.,
+                    };
+                    this.task = Task::Smelt {
                         t: RAW_ORE_SMELT_TIME,
                         max_t: RAW_ORE_SMELT_TIME,
-                        outputs,
+                        output_ores: outputs,
                     };
                 }
             }
@@ -492,8 +491,7 @@ impl AsteroidColoniesGame {
     }
 }
 
-
-#[derive(Clone, Copy, Serialize, Deserialize, Default)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, Default)]
 pub struct OreAccum {
     pub cilicate: f64,
     pub iron: f64,

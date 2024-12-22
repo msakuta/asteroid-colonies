@@ -8,7 +8,7 @@
     let buildingType = "";
     let task = "";
     let recipe = null;
-    let oreAccum = "";
+    let oreAccum = null;
     let inventory = new Map();
     let crews = "-";
     let construction = null;
@@ -21,9 +21,7 @@
             recipe = building.recipe;
             inventory = building.inventory;
             crews = formatCrews(building);
-            oreAccum = `iron: ${building.ore_accum.iron}` +
-                `copper: ${building.ore_accum.copper}` +
-                `cilicate: ${building.ore_accum.cilicate}`;
+            oreAccum = building.ore_accum;
         }
         else {
             buildingType = "";
@@ -31,7 +29,7 @@
             recipe = null;
             inventory = new Map();
             crews = "-";
-            oreAccum = "";
+            oreAccum = null;
         }
         construction = result?.construction;
 
@@ -55,7 +53,29 @@ Recipe: {#if recipe}
 {:else}
 None
 {/if}
-Ores: {oreAccum}
+</pre>
+{#if oreAccum}
+<div style="font-family: monospace">
+Ores:<br>
+&nbsp;Cilicate: <span class="barBackground" style="" >
+    <span class="bar" style="width: {oreAccum.cilicate * 100}px" />
+    <span class="barText">{(oreAccum.cilicate * 100).toFixed(0)}</span>
+  </span><br>
+&nbsp;Iron: <span class="barBackground">
+    <span class="bar" style="width: {oreAccum.iron * 100}px" />
+    <span class="barText">{(oreAccum.iron * 100).toFixed(0)}%</span>
+  </span><br>
+&nbsp;Copper: <span class="barBackground">
+    <span class="bar" style="width: {oreAccum.copper * 100}px" />
+    <span class="barText">{(oreAccum.copper * 100).toFixed(0)}%</span>
+  </span><br>
+&nbsp;Lithium: <span class="barBackground">
+    <span class="bar" style="width: {oreAccum.lithium * 100}px" />
+    <span class="barText">{(oreAccum.lithium * 100).toFixed(0)}%</span>
+  </span><br>
+</div>
+{/if}
+<pre>
 Inventory: <Inventory items={inventory} />
 Crews: {crews}
 Construction: {#if construction}
@@ -81,5 +101,33 @@ Construction: {#if construction}
 
     .infoPanel {
         margin: 0;
+    }
+
+    .barBackground {
+        position: relative;
+        display: inline-block;
+        left: 0px;
+        top: 0px;
+        height: 16px;
+        width: 100px;
+        background-color: #000;
+    }
+
+    .barText {
+        position: absolute;
+        left: 0px;
+        top: 0px;
+        width: 100px;
+        text-align: center;
+        color: #fff;
+    }
+
+    .bar {
+        position: absolute;
+        display: block;
+        left: 0px;
+        top: 0px;
+        height: 16px;
+        background-color: #007f00;
     }
 </style>

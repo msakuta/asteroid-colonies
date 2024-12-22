@@ -156,6 +156,7 @@ impl AsteroidColonies {
                 Task::Excavate(t, _) => Some((t, EXCAVATE_TIME)),
                 Task::Move(t, _) => Some((t, MOVE_TIME)),
                 Task::Assemble { t, max_t, .. } => Some((t, max_t)),
+                Task::Smelt { t, max_t, .. } => Some((t, max_t)),
                 _ => None,
             };
 
