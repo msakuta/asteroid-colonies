@@ -8,6 +8,7 @@
     let buildingType = "";
     let task = "";
     let recipe = null;
+    let oreAccum = "";
     let inventory = new Map();
     let crews = "-";
     let construction = null;
@@ -20,6 +21,9 @@
             recipe = building.recipe;
             inventory = building.inventory;
             crews = formatCrews(building);
+            oreAccum = `iron: ${building.ore_accum.iron}` +
+                `copper: ${building.ore_accum.copper}` +
+                `cilicate: ${building.ore_accum.cilicate}`;
         }
         else {
             buildingType = "";
@@ -27,6 +31,7 @@
             recipe = null;
             inventory = new Map();
             crews = "-";
+            oreAccum = "";
         }
         construction = result?.construction;
 
@@ -50,6 +55,7 @@ Recipe: {#if recipe}
 {:else}
 None
 {/if}
+Ores: {oreAccum}
 Inventory: <Inventory items={inventory} />
 Crews: {crews}
 Construction: {#if construction}

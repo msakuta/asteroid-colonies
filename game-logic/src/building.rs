@@ -131,6 +131,7 @@ pub struct Building {
     pub direction: Option<Direction>,
     /// Some buildings can store energy, like capacitors and batteries.
     pub energy: Option<usize>,
+    pub ore_accum: OreAccum,
     #[serde(skip)]
     /// A cache of expected transports
     pub expected_transports: HashSet<EntityId>,
@@ -147,6 +148,7 @@ impl Building {
             recipe: None,
             direction: None,
             energy: type_.energy_capacity(),
+            ore_accum: OreAccum::default(),
             expected_transports: HashSet::new(),
         }
     }
@@ -161,6 +163,7 @@ impl Building {
             recipe: None,
             direction: None,
             energy: type_.energy_capacity(),
+            ore_accum: OreAccum::default(),
             expected_transports: HashSet::new(),
         }
     }
@@ -487,4 +490,13 @@ impl AsteroidColoniesGame {
             }
         }
     }
+}
+
+
+#[derive(Clone, Copy, Serialize, Deserialize, Default)]
+pub struct OreAccum {
+    pub cilicate: f64,
+    pub iron: f64,
+    pub copper: f64,
+    pub lithium: f64,
 }

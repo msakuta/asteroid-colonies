@@ -1,6 +1,6 @@
 use crate::AsteroidColonies;
 use asteroid_colonies_logic::{
-    building::{BuildingType, Recipe},
+    building::{BuildingType, OreAccum, Recipe},
     construction::{BuildMenuItem, ConstructionType},
     Inventory, Pos,
 };
@@ -15,6 +15,7 @@ struct GetBuildingInfoResult {
     inventory: Inventory,
     crews: usize,
     max_crews: usize,
+    ore_accum: OreAccum,
 }
 
 #[derive(Serialize)]
@@ -58,6 +59,7 @@ impl AsteroidColonies {
                     inventory: building.inventory.clone(),
                     crews: building.crews,
                     max_crews: building.type_.max_crews(),
+                    ore_accum: building.ore_accum,
                 }
             });
         let construction = self.game.iter_construction().find_map(|c| {
