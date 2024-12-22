@@ -210,11 +210,11 @@ impl AsteroidColoniesGame {
                 ref output_ores,
                 ..
             } => {
-                let smelt = |dst: &mut f64, src, inventory: &mut Inventory| {
+                let smelt = |dst: &mut f64, src, ty, inventory: &mut Inventory| {
                     *dst += src * power_ratio / max_t;
                     while 1. <= *dst {
                         inventory
-                            .entry(ItemType::Cilicate)
+                            .entry(ty)
                             .and_modify(|v| *v += 1)
                             .or_insert(1);
                         *dst -= 1.;
@@ -226,21 +226,25 @@ impl AsteroidColoniesGame {
                     smelt(
                         &mut building.ore_accum.cilicate,
                         output_ores.cilicate,
+                        ItemType::Cilicate,
                         &mut building.inventory,
                     );
                     smelt(
                         &mut building.ore_accum.iron,
                         output_ores.iron,
+                        ItemType::IronIngot,
                         &mut building.inventory,
                     );
                     smelt(
                         &mut building.ore_accum.copper,
                         output_ores.copper,
+                        ItemType::CopperIngot,
                         &mut building.inventory,
                     );
                     smelt(
                         &mut building.ore_accum.lithium,
                         output_ores.lithium,
+                        ItemType::LithiumIngot,
                         &mut building.inventory,
                     );
                     *t = (*t - power_ratio).max(0.);
