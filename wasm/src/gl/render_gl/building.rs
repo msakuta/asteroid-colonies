@@ -130,12 +130,8 @@ impl AsteroidColonies {
             }
 
             let task_target = match building.task {
-                BuildingTask::Excavate(t, _) => Some((t, EXCAVATE_TIME)),
                 BuildingTask::Move(t, _) => Some((t, MOVE_TIME)),
                 BuildingTask::Assemble { t, max_t, .. } => Some((t, max_t)),
-                BuildingTask::Move(t, _) => Some((t, MOVE_TIME)),
-                BuildingTask::Assemble { t, max_t, .. } => Some((t, max_t)),
-                BuildingTask::Smelt { t, max_t, .. } => Some((t, max_t)),
                 _ => None,
             };
 

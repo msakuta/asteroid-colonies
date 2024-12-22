@@ -59,7 +59,7 @@ None
 Ores:<br>
 &nbsp;Cilicate: <span class="barBackground" style="" >
     <span class="bar" style="width: {oreAccum.cilicate * 100}px" />
-    <span class="barText">{(oreAccum.cilicate * 100).toFixed(0)}</span>
+    <span class="barText">{(oreAccum.cilicate * 100).toFixed(0)}%</span>
   </span><br>
 &nbsp;Iron: <span class="barBackground">
     <span class="bar" style="width: {oreAccum.iron * 100}px" />
@@ -108,7 +108,7 @@ Construction: {#if construction}
         display: inline-block;
         left: 0px;
         top: 0px;
-        height: 16px;
+        height: 1em;
         width: 100px;
         background-color: #000;
     }
@@ -127,7 +127,7 @@ Construction: {#if construction}
         display: block;
         left: 0px;
         top: 0px;
-        height: 16px;
+        height: 1em;
         background-color: #007f00;
     }
 </style>

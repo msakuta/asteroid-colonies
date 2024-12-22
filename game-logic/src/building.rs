@@ -401,7 +401,7 @@ impl Building {
                         copper: rng.next() * 1.,
                         lithium: rng.next() * 2.,
                     };
-                    this.task = Task::Smelt {
+                    this.task = BuildingTask::Smelt {
                         t: RAW_ORE_SMELT_TIME,
                         max_t: RAW_ORE_SMELT_TIME,
                         output_ores: outputs,
