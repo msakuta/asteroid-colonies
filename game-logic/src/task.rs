@@ -153,7 +153,7 @@ impl AsteroidColoniesGame {
                     return None;
                 };
                 if !proceed_excavate(t, EXCAVATOR_SPEED * power_ratio, &mut building.inventory)
-                    || building.type_.capacity() <= building.inventory.values().map(|v| *v).sum()
+                    || building.type_.capacity() <= building.inventory.countable_size()
                 {
                     building.task = BuildingTask::None;
                 }
@@ -213,10 +213,7 @@ impl AsteroidColoniesGame {
                 let smelt = |dst: &mut f64, src, ty, inventory: &mut Inventory| {
                     *dst += src * power_ratio / max_t;
                     while 1. <= *dst {
-                        inventory
-                            .entry(ty)
-                            .and_modify(|v| *v += 1)
-                            .or_insert(1);
+                        inventory.entry(ty).and_modify(|v| *v += 1).or_insert(1);
                         *dst -= 1.;
                     }
                 };
@@ -276,7 +273,7 @@ impl AsteroidColoniesGame {
         //     building.pos,
         //     task_pos
         // );
-        if building.type_.capacity() <= building.inventory.values().map(|v| *v).sum() {
+        if building.type_.capacity() <= building.inventory.countable_size() {
             return None;
         }
 

@@ -2,7 +2,7 @@ use crate::AsteroidColonies;
 use asteroid_colonies_logic::{
     building::{BuildingType, OreAccum, Recipe},
     construction::{BuildMenuItem, ConstructionType},
-    Inventory, Pos,
+    CountableInventory, Pos,
 };
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
@@ -12,7 +12,7 @@ struct GetBuildingInfoResult {
     type_: BuildingType,
     recipe: Option<Recipe>,
     task: String,
-    inventory: Inventory,
+    inventory: CountableInventory,
     crews: usize,
     max_crews: usize,
     ore_accum: Option<OreAccum>,
@@ -22,7 +22,7 @@ struct GetBuildingInfoResult {
 struct GetConstructionInfoResult {
     type_: ConstructionType,
     recipe: BuildMenuItem,
-    ingredients: Inventory,
+    ingredients: CountableInventory,
 }
 
 #[derive(Serialize)]
@@ -60,7 +60,7 @@ impl AsteroidColonies {
                         type_: building.type_,
                         recipe,
                         task: format!("{}", building.task),
-                        inventory: building.inventory.clone(),
+                        inventory: building.inventory.countable().clone(),
                         crews: building.crews,
                         max_crews: building.type_.max_crews(),
                         ore_accum: if matches!(building.type_, BuildingType::Furnace) {
@@ -77,7 +77,7 @@ impl AsteroidColonies {
                 Some(GetConstructionInfoResult {
                     type_: c.get_type(),
                     recipe: c.recipe.clone(),
-                    ingredients: c.ingredients.clone(),
+                    ingredients: c.ingredients.countable().clone(),
                 })
             });
         }

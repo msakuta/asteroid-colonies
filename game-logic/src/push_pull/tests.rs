@@ -1,5 +1,5 @@
 use super::*;
-use crate::{btree_map, building::BuildingType, items::Inventory};
+use crate::{btree_map, building::BuildingType, inventory::Inventory};
 
 struct MockTiles;
 
@@ -37,7 +37,7 @@ fn test_pull_inputs() {
     let storage: EntitySet<_> = [Building::new_inventory(
         [1, -1],
         BuildingType::Storage,
-        inputs.clone(),
+        inputs.clone().into(),
     )]
     .into_iter()
     .collect();
@@ -210,7 +210,7 @@ fn test_pull_inputs2() {
     let storage = [Building::new_inventory(
         [1, -1],
         BuildingType::Storage,
-        inputs.clone(),
+        inputs.clone().into(),
     )]
     .into_iter()
     .collect();

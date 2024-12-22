@@ -68,7 +68,8 @@ impl AsteroidColoniesGame {
             Building::new_inventory(
                 start_ofs([6, 3]),
                 BuildingType::MediumStorage,
-                btree_map!(ItemType::ConveyorComponent => 20, ItemType::PowerGridComponent => 2),
+                btree_map!(ItemType::ConveyorComponent => 20, ItemType::PowerGridComponent => 2)
+                    .into(),
             ),
             Building::new(start_ofs([1, 10]), BuildingType::Assembler),
             Building::new(start_ofs([1, 4]), BuildingType::Furnace),

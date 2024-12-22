@@ -9,7 +9,8 @@ use crate::{
     conveyor::Conveyor,
     direction::Direction,
     entity::{EntityEntry, EntitySet, RefMutOption},
-    items::{Inventory, ItemType},
+    inventory::Inventory,
+    items::ItemType,
     transport::{
         expected_deliveries, find_multipath_should_expand, CPos, LevelTarget, Transport,
         TransportId,
@@ -63,8 +64,7 @@ pub(crate) fn pull_inputs<'a>(
     let expected = expected_deliveries(transports, expected_transports);
 
     for (ty, count) in inputs {
-        let this_count =
-            this_inventory.get(ty).copied().unwrap_or(0) + expected.get(ty).copied().unwrap_or(0);
+        let this_count = this_inventory.get(ty) + expected.get(ty).copied().unwrap_or(0);
         if *count <= this_count {
             continue;
         }
@@ -121,7 +121,7 @@ fn _find_from_other_inventory_mut<'a>(
         let Some(ref mut o) = o.payload.get_mut() else {
             return None;
         };
-        let count = *o.inventory.get(&item)?;
+        let count = o.inventory.get(&item);
         if count == 0 {
             return None;
         }
@@ -134,7 +134,7 @@ fn find_from_inventory_mut<'a>(
     buildings: &'a EntitySet<Building>,
 ) -> Option<(RefMutOption<'a, Building>, usize)> {
     buildings.iter_borrow_mut().find_map(|o| {
-        let count = *o.inventory.get(&item)?;
+        let count = o.inventory.get(&item);
         if count == 0 {
             return None;
         }
@@ -147,7 +147,7 @@ fn _find_from_inventory<'a>(
     mut iter: impl Iterator<Item = &'a Building>,
 ) -> Option<(&'a Building, usize)> {
     iter.find_map(|o| {
-        let count = *o.inventory.get(&item)?;
+        let count = o.inventory.get(&item);
         if count == 0 {
             return None;
         }
@@ -402,7 +402,7 @@ fn _find_from_all_inventories(
         .iter()
         .chain(last.iter())
         .chain(std::iter::once(this as &_))
-        .map(|o| o.inventory.get(&item).copied().unwrap_or(0))
+        .map(|o| o.inventory.get(&item))
         .sum::<usize>()
 }
 
@@ -414,7 +414,7 @@ fn _find_from_other_inventory<'a>(
     first
         .iter()
         .chain(last.iter())
-        .find_map(|o| Some((o, *o.inventory.get(&item)?)))
+        .find_map(|o| Some((o, o.inventory.get(&item))))
 }
 
 fn neighbors_set(it: impl Iterator<Item = Pos>) -> HashSet<Pos> {

@@ -38,7 +38,7 @@ impl AsteroidColoniesGame {
                 .iter_mut()
                 .find(|c| intersects(c.pos, c.size(), t.dest))
             {
-                let arrived = construction.ingredients.get(&t.item).copied().unwrap_or(0);
+                let arrived = construction.ingredients.get(&t.item);
                 let demand = construction
                     .recipe
                     .ingredients

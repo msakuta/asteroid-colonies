@@ -14,7 +14,8 @@ use crate::{
     crew::expected_crew_pickup_any,
     entity::{EntityId, EntitySet},
     hash_map,
-    items::{Inventory, ItemType},
+    inventory::Inventory,
+    items::ItemType,
     measure_time,
     push_pull::{pull_inputs, push_outputs},
     task::{BuildingTask, GlobalTask, RAW_ORE_SMELT_TIME},
@@ -204,7 +205,7 @@ impl Building {
     }
 
     pub fn inventory_size(&self) -> usize {
-        self.inventory.iter().map(|(_, v)| *v).sum()
+        self.inventory.countable_size()
     }
 
     pub fn intersects(&self, pos: Pos) -> bool {
@@ -263,7 +264,7 @@ impl Building {
                     bldgs,
                 );
                 for (ty, recipe_count) in &recipe.inputs {
-                    let actual_count = *this.inventory.get(&ty).unwrap_or(&0);
+                    let actual_count = this.inventory.get(&ty);
                     if actual_count < *recipe_count {
                         // crate::console_log!(
                         //     "An ingredient {:?} is missing for recipe {:?}",
