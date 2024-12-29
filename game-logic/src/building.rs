@@ -240,7 +240,7 @@ impl Building {
         constructions: &mut EntitySet<Construction>,
         crews: &mut EntitySet<Crew>,
         gtasks: &EntitySet<GlobalTask>,
-        rng: &mut Xor128,
+        _rng: &mut Xor128,
     ) -> Result<(), String> {
         // Try pushing out products
         if let Some(ref recipe) = self.recipe {

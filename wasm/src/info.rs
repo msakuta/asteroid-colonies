@@ -2,7 +2,7 @@ use crate::AsteroidColonies;
 use asteroid_colonies_logic::{
     building::{BuildingType, OreAccum, Recipe},
     construction::{BuildMenuItem, ConstructionType},
-    CountableInventory, Pos,
+    CountableInventory, Inventory, Pos,
 };
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
@@ -12,18 +12,10 @@ struct GetBuildingInfoResult {
     type_: BuildingType,
     recipe: Option<Recipe>,
     task: String,
-    inventory: CountableInventory,
+    inventory: Inventory,
     crews: usize,
     max_crews: usize,
-    ores: Option<OreInfo>,
-}
-
-#[derive(Serialize)]
-struct OreInfo {
-    /// This struct can be used for 2 ways; a storage contents and smelting progress.
-    /// If this is true, it means the former.
-    is_storage: bool,
-    ores: OreAccum,
+    ores: Option<OreAccum>,
 }
 
 #[derive(Serialize)]
@@ -68,20 +60,11 @@ impl AsteroidColonies {
                         type_: building.type_,
                         recipe,
                         task: format!("{}", building.task),
-                        inventory: building.inventory.countable().clone(),
+                        inventory: building.inventory.clone(),
                         crews: building.crews,
                         max_crews: building.type_.max_crews(),
                         ores: match building.type_ {
-                            BuildingType::Furnace => Some(OreInfo {
-                                is_storage: false,
-                                ores: building.ore_accum,
-                            }),
-                            BuildingType::Excavator
-                            | BuildingType::Storage
-                            | BuildingType::MediumStorage => Some(OreInfo {
-                                is_storage: true,
-                                ores: *building.inventory.ores(),
-                            }),
+                            BuildingType::Furnace => Some(building.ore_accum),
                             _ => None,
                         },
                     }
