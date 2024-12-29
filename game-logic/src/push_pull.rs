@@ -111,6 +111,70 @@ pub(crate) fn pull_inputs<'a>(
     // println!("pull_inputs took {} sec", time);
 }
 
+const FURNACE_CAPACITY: f64 = 100.;
+
+/// Pull ores for a furnace
+pub(crate) fn pull_ores<'a>(
+    tiles: &impl TileSampler,
+    transports: &mut EntitySet<Transport>,
+    expected_transports: &mut HashSet<TransportId>,
+    this_pos: Pos,
+    this_size: [usize; 2],
+    this_inventory: &mut Inventory,
+    buildings: &EntitySet<Building>,
+) {
+    let intersects_goal = |[ix, iy]: [i32; 2]| {
+        this_pos[0] <= ix
+            && ix < this_size[0] as i32 + this_pos[0]
+            && this_pos[1] <= iy
+            && iy < this_size[1] as i32 + this_pos[1]
+    };
+
+    for mut src in buildings.iter_borrow_mut() {
+        if src.inventory.ores().is_empty() {
+            continue;
+        }
+        let start_pos = rect_iter(src.pos, src.size());
+        let start_neighbors = neighbors_set(rect_iter(src.pos, src.size()));
+        let path = find_multipath_should_expand(
+            start_pos,
+            intersects_goal,
+            |from_direction, pos| {
+                if intersects_goal(pos) {
+                    return true;
+                }
+                push_pull_passable(tiles, from_direction, &start_neighbors, pos)
+            },
+            |to, pos, from| push_pull_should_expand(tiles, to, pos, from),
+        );
+        let Some(path) = path else {
+            continue;
+        };
+        let src_pos = src.pos;
+        let src_count = src.inventory.ores_mut();
+        let this_ores = this_inventory.ores();
+        let amount = OreAccum {
+            cilicate: src_count
+                .cilicate
+                .min(FURNACE_CAPACITY - this_ores.cilicate),
+            iron: src_count.iron.min(FURNACE_CAPACITY - this_ores.iron),
+            copper: src_count.copper.min(FURNACE_CAPACITY - this_ores.copper),
+            lithium: src_count.lithium.min(FURNACE_CAPACITY - this_ores.lithium),
+        };
+        let id = transports.insert(Transport {
+            src: src_pos,
+            dest: this_pos,
+            path,
+            payload: TransportPayload::Ores(amount),
+        });
+        expected_transports.insert(id);
+        src_count.cilicate = (src_count.cilicate - amount.cilicate).max(0.);
+        src_count.iron = (src_count.iron - amount.iron).max(0.);
+        src_count.copper = (src_count.copper - amount.copper).max(0.);
+        src_count.lithium = (src_count.lithium - amount.lithium).max(0.);
+    }
+}
+
 fn _find_from_other_inventory_mut<'a>(
     item: ItemType,
     first: &'a mut [EntityEntry<Building>],

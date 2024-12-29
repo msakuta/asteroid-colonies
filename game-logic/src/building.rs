@@ -13,11 +13,10 @@ use crate::{
     construction::Construction,
     crew::expected_crew_pickup_any,
     entity::{EntityId, EntitySet},
-    hash_map,
     inventory::Inventory,
     items::ItemType,
     measure_time,
-    push_pull::{pull_inputs, push_outputs},
+    push_pull::{pull_inputs, pull_ores, push_outputs},
     task::{BuildingTask, GlobalTask, RAW_ORE_SMELT_TIME},
     tile::Tiles,
     transport::TransportId,
@@ -390,14 +389,7 @@ impl Building {
                 if !matches!(this.task, BuildingTask::None) {
                     return Ok(());
                 }
-                // A tentative recipe. The output does not have to represent the actual products yet.
-                let recipe = Recipe {
-                    inputs: hash_map!(ItemType::RawOre => 1),
-                    outputs: hash_map!(ItemType::IronIngot => 1),
-                    time: RAW_ORE_SMELT_TIME,
-                };
-                pull_inputs(
-                    &recipe.inputs,
+                pull_ores(
                     tiles,
                     transports,
                     &mut this.expected_transports,
