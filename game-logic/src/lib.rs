@@ -21,6 +21,7 @@ mod entity;
 mod game;
 mod inventory;
 mod items;
+pub mod perlin_noise;
 mod push_pull;
 pub mod task;
 mod tile;

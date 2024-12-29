@@ -7,7 +7,7 @@ use std::{
 use fnv::FnvHasher;
 use serde::{de::Visitor, Deserialize, Serialize};
 
-use crate::{conveyor::Conveyor, Pos};
+use crate::{building::OreAccum, conveyor::Conveyor, perlin_noise::perlin_noise_pixel, Pos};
 
 pub const CHUNK_SIZE: usize = 16;
 
@@ -24,14 +24,17 @@ impl Hash for TileState {
     }
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Tile {
     pub state: TileState,
     pub power_grid: bool,
     pub conveyor: Conveyor,
+    pub ores: OreAccum,
     #[serde(skip)]
     pub image_idx: ImageIdx,
 }
+
+impl Eq for Tile {}
 
 impl Hash for Tile {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -47,6 +50,22 @@ impl Tile {
             state: TileState::Space,
             power_grid: false,
             conveyor: Conveyor::None,
+            ores: OreAccum::new(),
+            image_idx: ImageIdx::new(),
+        }
+    }
+
+    pub fn new_solid(x: i32, y: i32, noise_terms: &[[f64; 6]]) -> Self {
+        Self {
+            state: TileState::Solid,
+            power_grid: false,
+            conveyor: Conveyor::None,
+            ores: OreAccum {
+                cilicate: perlin_noise_pixel(x as f64, y as f64, 3, noise_terms),
+                iron: perlin_noise_pixel(x as f64, y as f64, 3, noise_terms),
+                copper: perlin_noise_pixel(x as f64, y as f64, 3, noise_terms),
+                lithium: perlin_noise_pixel(x as f64, y as f64, 3, noise_terms),
+            },
             image_idx: ImageIdx::new(),
         }
     }
@@ -57,6 +76,7 @@ impl Tile {
             state: TileState::Empty,
             power_grid: false,
             conveyor,
+            ores: OreAccum::new(),
             image_idx: ImageIdx::new(),
         }
     }
@@ -66,6 +86,7 @@ impl Tile {
             state: TileState::Empty,
             power_grid: true,
             conveyor: Conveyor::None,
+            ores: OreAccum::new(),
             image_idx: ImageIdx::splat(8),
         }
     }

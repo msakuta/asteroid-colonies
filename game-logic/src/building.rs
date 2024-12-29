@@ -521,6 +521,15 @@ pub struct OreAccum {
 }
 
 impl OreAccum {
+    pub const fn new() -> Self {
+        Self {
+            cilicate: 0.,
+            iron: 0.,
+            copper: 0.,
+            lithium: 0.,
+        }
+    }
+
     pub fn is_empty(&self) -> bool {
         self.cilicate == 0. && self.iron == 0. && self.copper == 0. && self.lithium == 0.
     }

@@ -10,7 +10,7 @@ use crate::{
     items::ItemType,
     task::{GlobalTask, GlobalTaskId, EXCAVATE_ORE_AMOUNT, LABOR_EXCAVATE_TIME},
     transport::{find_path, Transport, TransportPayload},
-    AsteroidColoniesGame, Pos, TileState, Tiles, Xor128,
+    AsteroidColoniesGame, Pos, Tile, TileState, Tiles, Xor128,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -498,19 +498,14 @@ pub(crate) fn proceed_excavate(
     t: &mut f64,
     speed: f64,
     inventory: &mut Inventory,
-    rng: &mut Xor128,
+    tile: &mut Tile,
 ) -> bool {
     if 0. < *t {
         let before_amount = (*t / LABOR_EXCAVATE_TIME * EXCAVATE_ORE_AMOUNT as f64).ceil() as usize;
         *t = (*t - speed).max(0.);
         let after_amount = (*t / LABOR_EXCAVATE_TIME * EXCAVATE_ORE_AMOUNT as f64).ceil() as usize;
         for _ in after_amount..before_amount {
-            let ores = OreAccum {
-                cilicate: rng.next() * 3.,
-                iron: rng.next() * 2.,
-                copper: rng.next() * 1.,
-                lithium: rng.next() * 2.,
-            };
+            let ores = tile.ores;
             console_log!("proceed_excavate: {:?} to {:?}", ores, inventory);
             inventory.add_ores(&ores);
         }

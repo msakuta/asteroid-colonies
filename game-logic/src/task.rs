@@ -144,7 +144,7 @@ impl AsteroidColoniesGame {
         buildings: &EntitySet<Building>,
         global_tasks: &mut EntitySet<GlobalTask>,
         power_ratio: f64,
-        rng: &mut Xor128,
+        _rng: &mut Xor128,
         _calculate_back_image: Option<&mut CalculateBackImage>,
     ) -> Option<(ItemType, [i32; 2])> {
         match building.task {
@@ -157,7 +157,7 @@ impl AsteroidColoniesGame {
                     t,
                     EXCAVATOR_SPEED * power_ratio,
                     &mut building.inventory,
-                    rng,
+                    &mut tiles[building.pos],
                 ) || building.type_.capacity() <= building.inventory.countable_size()
                 {
                     building.task = BuildingTask::None;
