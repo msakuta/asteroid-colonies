@@ -398,23 +398,24 @@ impl Building {
                     &mut this.inventory,
                     bldgs,
                 );
-                if let Some(source) = this.inventory.get_mut(&ItemType::RawOre) {
-                    if *source < 1 {
-                        return Ok(());
-                    };
-                    *source -= 1;
-                    let outputs = OreAccum {
-                        cilicate: rng.next() * 3.,
-                        iron: rng.next() * 2.,
-                        copper: rng.next() * 1.,
-                        lithium: rng.next() * 2.,
-                    };
-                    this.task = BuildingTask::Smelt {
-                        t: RAW_ORE_SMELT_TIME,
-                        max_t: RAW_ORE_SMELT_TIME,
-                        output_ores: outputs,
-                    };
+                let source = this.inventory.ores_mut();
+                if source.is_empty() {
+                    return Ok(());
+                };
+                let outputs = OreAccum {
+                    cilicate: source.cilicate.min(1.),
+                    iron: source.iron.min(1.),
+                    copper: source.copper.min(1.),
+                    lithium: source.lithium.min(1.),
+                };
+                for (src, out) in source.iter_mut().zip(outputs.iter()) {
+                    *src -= *out;
                 }
+                this.task = BuildingTask::Smelt {
+                    t: RAW_ORE_SMELT_TIME,
+                    max_t: RAW_ORE_SMELT_TIME,
+                    output_ores: outputs,
+                };
             }
             _ => {}
         }
@@ -522,5 +523,19 @@ pub struct OreAccum {
 impl OreAccum {
     pub fn is_empty(&self) -> bool {
         self.cilicate == 0. && self.iron == 0. && self.copper == 0. && self.lithium == 0.
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &f64> {
+        [&self.cilicate, &self.iron, &self.copper, &self.lithium].into_iter()
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut f64> {
+        [
+            &mut self.cilicate,
+            &mut self.iron,
+            &mut self.copper,
+            &mut self.lithium,
+        ]
+        .into_iter()
     }
 }
