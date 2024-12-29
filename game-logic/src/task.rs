@@ -14,15 +14,15 @@ use crate::{
     AsteroidColoniesGame, CountableInventory, Pos, TileState, Tiles, Xor128,
 };
 
-pub const EXCAVATE_TIME: f64 = 10.;
-pub const LABOR_EXCAVATE_TIME: f64 = 100.;
+pub const EXCAVATE_TIME: f64 = 30.;
+pub const LABOR_EXCAVATE_TIME: f64 = 300.;
 pub const EXCAVATOR_SPEED: f64 = LABOR_EXCAVATE_TIME / EXCAVATE_TIME;
 pub const MOVE_TIME: f64 = 2.;
 pub const BUILD_POWER_GRID_TIME: f64 = 60.;
 pub const BUILD_CONVEYOR_TIME: f64 = 90.;
 pub const MOVE_ITEM_TIME: f64 = 2.;
 pub(crate) const RAW_ORE_SMELT_TIME: f64 = 30.;
-pub(crate) const EXCAVATE_ORE_AMOUNT: usize = 5;
+pub(crate) const EXCAVATE_ORE_AMOUNT: usize = 15;
 
 pub type GlobalTaskId = EntityId<GlobalTask>;
 

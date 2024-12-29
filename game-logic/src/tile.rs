@@ -55,16 +55,29 @@ impl Tile {
         }
     }
 
-    pub fn new_solid(x: i32, y: i32, noise_terms: &[[f64; 6]]) -> Self {
+    pub fn new_solid(x: i32, y: i32, noise_terms: &[Vec<[f64; 6]>; 4]) -> Self {
+        let mut cilicate = perlin_noise_pixel(x as f64, y as f64, 3, &noise_terms[0]).max(0.);
+        let mut iron = perlin_noise_pixel(x as f64, y as f64, 3, &noise_terms[1]).max(0.);
+        let mut copper = perlin_noise_pixel(x as f64, y as f64, 3, &noise_terms[2]).max(0.);
+        let mut lithium = perlin_noise_pixel(x as f64, y as f64, 3, &noise_terms[3]).max(0.);
+        let total = cilicate + iron + copper + lithium;
+        if 0. < total {
+            cilicate /= total;
+            iron /= total;
+            copper /= total;
+            lithium /= total;
+        } else {
+            cilicate = 1.;
+        }
         Self {
             state: TileState::Solid,
             power_grid: false,
             conveyor: Conveyor::None,
             ores: OreAccum {
-                cilicate: perlin_noise_pixel(x as f64, y as f64, 3, noise_terms),
-                iron: perlin_noise_pixel(x as f64, y as f64, 3, noise_terms),
-                copper: perlin_noise_pixel(x as f64, y as f64, 3, noise_terms),
-                lithium: perlin_noise_pixel(x as f64, y as f64, 3, noise_terms),
+                cilicate,
+                iron,
+                copper,
+                lithium,
             },
             image_idx: ImageIdx::new(),
         }

@@ -45,7 +45,12 @@ impl AsteroidColoniesGame {
         let mut tiles = Tiles::new();
         let r2_thresh = (WIDTH as f64 * 3. / 8.).powi(2);
         let mut rng = Xor128::new(4155235);
-        let terms = gen_terms(&mut rng, 3);
+        let terms = [
+            gen_terms(&mut rng, 3),
+            gen_terms(&mut rng, 3),
+            gen_terms(&mut rng, 3),
+            gen_terms(&mut rng, 3),
+        ];
         for y in 0..HEIGHT {
             for x in 0..WIDTH {
                 let r2 = ((x as f64 - WIDTH as f64 / 2.) as f64).powi(2)
