@@ -2,7 +2,7 @@ use crate::AsteroidColonies;
 use asteroid_colonies_logic::{
     building::{BuildingType, OreAccum, Recipe},
     construction::{BuildMenuItem, ConstructionType},
-    CountableInventory, Inventory, Pos,
+    CountableInventory, Inventory, Pos, TileState,
 };
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
@@ -34,6 +34,7 @@ struct GetInfoResult {
     power_supply: isize,
     power_capacity: isize,
     transports: usize,
+    ores: Option<OreAccum>,
 }
 
 #[wasm_bindgen]
@@ -42,6 +43,7 @@ impl AsteroidColonies {
         // let [ix, iy] = self.transform_pos(x, y);
         let mut building = None;
         let mut construction = None;
+        let mut ores = None;
 
         if let Some([ix, iy]) = self.cursor {
             let intersects = |pos: Pos, size: [usize; 2]| {
@@ -79,6 +81,10 @@ impl AsteroidColonies {
                     ingredients: c.ingredients.countable().clone(),
                 })
             });
+            let tile = self.game.tiles()[[ix, iy]];
+            if matches!(tile.state, TileState::Solid) {
+                ores = Some(tile.ores);
+            }
         }
 
         // We want to count power generation and consumption separately
@@ -103,6 +109,7 @@ impl AsteroidColonies {
             power_supply,
             power_capacity: dischargeable + power_supply,
             transports: self.game.num_transports(),
+            ores,
         };
 
         serde_wasm_bindgen::to_value(&result).map_err(JsValue::from)

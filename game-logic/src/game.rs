@@ -19,6 +19,8 @@ use crate::{
     Pos, Position, Tile, TileState, Tiles, Xor128, HEIGHT, WIDTH,
 };
 
+pub(crate) const PERLIN_BITS: u32 = 4;
+
 pub type CalculateBackImage = Box<dyn Fn(&mut Tiles) + Send + Sync>;
 
 pub struct AsteroidColoniesGame {
@@ -46,10 +48,10 @@ impl AsteroidColoniesGame {
         let r2_thresh = (WIDTH as f64 * 3. / 8.).powi(2);
         let mut rng = Xor128::new(4155235);
         let terms = [
-            gen_terms(&mut rng, 3),
-            gen_terms(&mut rng, 3),
-            gen_terms(&mut rng, 3),
-            gen_terms(&mut rng, 3),
+            gen_terms(&mut rng, PERLIN_BITS),
+            gen_terms(&mut rng, PERLIN_BITS),
+            gen_terms(&mut rng, PERLIN_BITS),
+            gen_terms(&mut rng, PERLIN_BITS),
         ];
         for y in 0..HEIGHT {
             for x in 0..WIDTH {

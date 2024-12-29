@@ -149,7 +149,7 @@ impl AsteroidColoniesGame {
     ) -> Option<(ItemType, [i32; 2])> {
         match building.task {
             BuildingTask::Excavate(_, gt_id) => {
-                let Some(GlobalTask::Excavate(t, _)) = global_tasks.get_mut(gt_id) else {
+                let Some(GlobalTask::Excavate(t, gt_pos)) = global_tasks.get_mut(gt_id) else {
                     building.task = BuildingTask::None;
                     return None;
                 };
@@ -157,7 +157,7 @@ impl AsteroidColoniesGame {
                     t,
                     EXCAVATOR_SPEED * power_ratio,
                     &mut building.inventory,
-                    &mut tiles[building.pos],
+                    &mut tiles[*gt_pos],
                 ) || building.type_.capacity() <= building.inventory.countable_size()
                 {
                     building.task = BuildingTask::None;

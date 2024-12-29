@@ -15,7 +15,7 @@
     let crews = "-";
     let construction = null;
     let extra = "";
-    // let is_storage = false;
+    let ores = null;
     $: {
         let building = result?.building;
         if (building) {
@@ -37,6 +37,7 @@
             oreAccum = null;
         }
         construction = result?.construction;
+        ores = result?.ores;
 
         // Time scale = 360
         // 1 energy unit = 360 kJ = 0.36MJ
@@ -73,7 +74,13 @@ Crews: {crews}
 Construction: {#if construction}
 <Construction {construction}/>
 {/if}
+</pre>
+{#if ores}
+<Ores ores={ores} title="Ores:"/>
+{/if}
+<pre>
 {extra}
+</pre>
 </div>
 
 <style>

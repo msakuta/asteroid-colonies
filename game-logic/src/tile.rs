@@ -7,7 +7,10 @@ use std::{
 use fnv::FnvHasher;
 use serde::{de::Visitor, Deserialize, Serialize};
 
-use crate::{building::OreAccum, conveyor::Conveyor, perlin_noise::perlin_noise_pixel, Pos};
+use crate::{
+    building::OreAccum, conveyor::Conveyor, game::PERLIN_BITS, perlin_noise::perlin_noise_pixel,
+    Pos,
+};
 
 pub const CHUNK_SIZE: usize = 16;
 
@@ -56,10 +59,13 @@ impl Tile {
     }
 
     pub fn new_solid(x: i32, y: i32, noise_terms: &[Vec<[f64; 6]>; 4]) -> Self {
-        let mut cilicate = perlin_noise_pixel(x as f64, y as f64, 3, &noise_terms[0]).max(0.);
-        let mut iron = perlin_noise_pixel(x as f64, y as f64, 3, &noise_terms[1]).max(0.);
-        let mut copper = perlin_noise_pixel(x as f64, y as f64, 3, &noise_terms[2]).max(0.);
-        let mut lithium = perlin_noise_pixel(x as f64, y as f64, 3, &noise_terms[3]).max(0.);
+        let mut cilicate =
+            perlin_noise_pixel(x as f64, y as f64, PERLIN_BITS, &noise_terms[0]).max(0.);
+        let mut iron = perlin_noise_pixel(x as f64, y as f64, PERLIN_BITS, &noise_terms[1]).max(0.);
+        let mut copper =
+            perlin_noise_pixel(x as f64, y as f64, PERLIN_BITS, &noise_terms[2]).max(0.);
+        let mut lithium =
+            perlin_noise_pixel(x as f64, y as f64, PERLIN_BITS, &noise_terms[3]).max(0.);
         let total = cilicate + iron + copper + lithium;
         if 0. < total {
             cilicate /= total;
