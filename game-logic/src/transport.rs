@@ -5,6 +5,7 @@ use std::{
 };
 
 use crate::{
+    building::OreAccum,
     direction::Direction,
     entity::{EntityId, EntitySet},
     items::ItemType,
@@ -14,13 +15,18 @@ use crate::{
 pub type TransportId = EntityId<Transport>;
 
 /// Transporting item
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Transport {
     pub src: Pos,
     pub dest: Pos,
-    pub item: ItemType,
-    pub amount: usize,
+    pub payload: TransportPayload,
     pub path: Vec<Pos>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum TransportPayload {
+    Item(ItemType, usize),
+    Ores(OreAccum),
 }
 
 impl AsteroidColoniesGame {
@@ -38,18 +44,20 @@ impl AsteroidColoniesGame {
                 .iter_mut()
                 .find(|c| intersects(c.pos, c.size(), t.dest))
             {
-                let arrived = construction.ingredients.get(&t.item);
-                let demand = construction
-                    .recipe
-                    .ingredients
-                    .get(&t.item)
-                    .copied()
-                    .unwrap_or(0);
-                if arrived + t.amount <= demand {
-                    *construction.ingredients.entry(t.item).or_default() += t.amount;
-                    construction.clear_expected(id);
-                    t.path.clear();
-                    return true;
+                if let TransportPayload::Item(item, amount) = t.payload {
+                    let arrived = construction.ingredients.get(&item);
+                    let demand = construction
+                        .recipe
+                        .ingredients
+                        .get(&item)
+                        .copied()
+                        .unwrap_or(0);
+                    if arrived + amount <= demand {
+                        *construction.ingredients.entry(item).or_default() += amount;
+                        construction.clear_expected(id);
+                        t.path.clear();
+                        return true;
+                    }
                 }
             }
             false
@@ -61,10 +69,19 @@ impl AsteroidColoniesGame {
                 .iter_mut()
                 .find(|b| intersects(b.pos, b.type_.size(), t.dest));
             if let Some(building) = building {
-                if building.inventory_size() + t.amount <= building.type_.capacity() {
-                    *building.inventory.entry(t.item).or_default() += t.amount;
-                    t.path.clear();
-                    return true;
+                match t.payload {
+                    TransportPayload::Item(item, amount) => {
+                        if building.inventory_size() + amount <= building.type_.capacity() {
+                            *building.inventory.entry(item).or_default() += amount;
+                            t.path.clear();
+                            return true;
+                        }
+                    }
+                    TransportPayload::Ores(ores) => {
+                        building.inventory.add_ores(&ores);
+                        t.path.clear();
+                        return true;
+                    }
                 }
             }
             false
@@ -124,7 +141,9 @@ pub(crate) fn expected_deliveries(
         .iter()
         .filter_map(|id| transports.get(*id))
     {
-        *expected.entry(t.item).or_default() += t.amount;
+        if let TransportPayload::Item(item, amount) = t.payload {
+            *expected.entry(item).or_default() += amount;
+        }
     }
     expected
 }

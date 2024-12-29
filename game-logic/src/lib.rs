@@ -8,7 +8,7 @@ pub use crate::{
     inventory::{CountableInventory, Inventory},
     items::ItemType,
     tile::{new_hasher, Chunk, ImageIdx, Position, Tile, TileState, Tiles, CHUNK_SIZE},
-    transport::Transport,
+    transport::{Transport, TransportPayload},
     xor128::Xor128,
 };
 

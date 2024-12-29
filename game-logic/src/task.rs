@@ -11,7 +11,7 @@ use crate::{
     game::CalculateBackImage,
     items::ItemType,
     transport::find_path,
-    AsteroidColoniesGame, Inventory, Pos, TileState, Tiles,
+    AsteroidColoniesGame, CountableInventory, Pos, TileState, Tiles, Xor128,
 };
 
 pub const EXCAVATE_TIME: f64 = 10.;
@@ -144,6 +144,7 @@ impl AsteroidColoniesGame {
         buildings: &EntitySet<Building>,
         global_tasks: &mut EntitySet<GlobalTask>,
         power_ratio: f64,
+        rng: &mut Xor128,
         _calculate_back_image: Option<&mut CalculateBackImage>,
     ) -> Option<(ItemType, [i32; 2])> {
         match building.task {
@@ -152,8 +153,12 @@ impl AsteroidColoniesGame {
                     building.task = BuildingTask::None;
                     return None;
                 };
-                if !proceed_excavate(t, EXCAVATOR_SPEED * power_ratio, &mut building.inventory)
-                    || building.type_.capacity() <= building.inventory.countable_size()
+                if !proceed_excavate(
+                    t,
+                    EXCAVATOR_SPEED * power_ratio,
+                    &mut building.inventory,
+                    rng,
+                ) || building.type_.capacity() <= building.inventory.countable_size()
                 {
                     building.task = BuildingTask::None;
                 }
@@ -210,7 +215,7 @@ impl AsteroidColoniesGame {
                 ref output_ores,
                 ..
             } => {
-                let smelt = |dst: &mut f64, src, ty, inventory: &mut Inventory| {
+                let smelt = |dst: &mut f64, src, ty, inventory: &mut CountableInventory| {
                     *dst += src * power_ratio / max_t;
                     while 1. <= *dst {
                         inventory.entry(ty).and_modify(|v| *v += 1).or_insert(1);
@@ -220,29 +225,30 @@ impl AsteroidColoniesGame {
                 if *t <= 0. {
                     building.task = BuildingTask::None;
                 } else {
+                    let inventory = building.inventory.countable_mut();
                     smelt(
                         &mut building.ore_accum.cilicate,
                         output_ores.cilicate,
                         ItemType::Cilicate,
-                        &mut building.inventory,
+                        inventory,
                     );
                     smelt(
                         &mut building.ore_accum.iron,
                         output_ores.iron,
                         ItemType::IronIngot,
-                        &mut building.inventory,
+                        inventory,
                     );
                     smelt(
                         &mut building.ore_accum.copper,
                         output_ores.copper,
                         ItemType::CopperIngot,
-                        &mut building.inventory,
+                        inventory,
                     );
                     smelt(
                         &mut building.ore_accum.lithium,
                         output_ores.lithium,
                         ItemType::LithiumIngot,
-                        &mut building.inventory,
+                        inventory,
                     );
                     *t = (*t - power_ratio).max(0.);
                 }

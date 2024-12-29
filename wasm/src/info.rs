@@ -15,7 +15,15 @@ struct GetBuildingInfoResult {
     inventory: CountableInventory,
     crews: usize,
     max_crews: usize,
-    ore_accum: Option<OreAccum>,
+    ores: Option<OreInfo>,
+}
+
+#[derive(Serialize)]
+struct OreInfo {
+    /// This struct can be used for 2 ways; a storage contents and smelting progress.
+    /// If this is true, it means the former.
+    is_storage: bool,
+    ores: OreAccum,
 }
 
 #[derive(Serialize)]
@@ -63,10 +71,18 @@ impl AsteroidColonies {
                         inventory: building.inventory.countable().clone(),
                         crews: building.crews,
                         max_crews: building.type_.max_crews(),
-                        ore_accum: if matches!(building.type_, BuildingType::Furnace) {
-                            Some(building.ore_accum)
-                        } else {
-                            None
+                        ores: match building.type_ {
+                            BuildingType::Furnace => Some(OreInfo {
+                                is_storage: false,
+                                ores: building.ore_accum,
+                            }),
+                            BuildingType::Excavator
+                            | BuildingType::Storage
+                            | BuildingType::MediumStorage => Some(OreInfo {
+                                is_storage: true,
+                                ores: *building.inventory.ores(),
+                            }),
+                            _ => None,
                         },
                     }
                 });

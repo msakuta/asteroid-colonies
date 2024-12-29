@@ -5,7 +5,7 @@ mod tests;
 use std::collections::HashSet;
 
 use crate::{
-    building::Building,
+    building::{Building, OreAccum},
     conveyor::Conveyor,
     direction::Direction,
     entity::{EntityEntry, EntitySet, RefMutOption},
@@ -13,7 +13,7 @@ use crate::{
     items::ItemType,
     transport::{
         expected_deliveries, find_multipath_should_expand, CPos, LevelTarget, Transport,
-        TransportId,
+        TransportId, TransportPayload,
     },
     Pos, Tile, Tiles, WIDTH,
 };
@@ -98,8 +98,7 @@ pub(crate) fn pull_inputs<'a>(
             src: src_pos,
             dest: this_pos,
             path,
-            item: *ty,
-            amount,
+            payload: TransportPayload::Item(*ty, amount),
         });
         expected_transports.insert(id);
         if *src_count <= amount {
@@ -189,6 +188,7 @@ pub(crate) fn push_outputs<'a, 'b>(
     this: &mut impl HasInventory,
     buildings: &EntitySet<Building>,
     is_output: &impl Fn(ItemType) -> bool,
+    output_ores: bool,
 ) where
     'b: 'a,
 {
@@ -248,9 +248,8 @@ pub(crate) fn push_outputs<'a, 'b>(
             let id = transports.insert(Transport {
                 src: pos,
                 dest: dest.pos,
-                path,
-                item,
-                amount: 1,
+                path: path.clone(),
+                payload: TransportPayload::Item(item, 1),
             });
             dest.expected_transports.insert(id);
             // *dest.inventory.entry(*product.0).or_default() += 1;
@@ -260,6 +259,21 @@ pub(crate) fn push_outputs<'a, 'b>(
                 *amount -= 1;
             }
             // this.output_path = Some(path);
+        }
+
+        if output_ores {
+            let ores_mut = this.inventory().ores_mut();
+            if !ores_mut.is_empty() {
+                let ores_copy = *ores_mut;
+                *ores_mut = OreAccum::default();
+                let id = transports.insert(Transport {
+                    src: pos,
+                    dest: dest.pos,
+                    path,
+                    payload: TransportPayload::Ores(ores_copy),
+                });
+                dest.expected_transports.insert(id);
+            }
         }
     }
 }
@@ -313,8 +327,7 @@ where
         src: pos,
         dest: dest.pos,
         path,
-        item,
-        amount: *amount,
+        payload: TransportPayload::Item(item, *amount),
     });
     dest.expected_transports.insert(id);
     src.inventory().remove(&item);

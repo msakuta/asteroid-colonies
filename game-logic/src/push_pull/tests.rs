@@ -61,6 +61,7 @@ fn test_pull_inputs() {
         dest: [1, 3],
         item: ItemType::RawOre,
         amount: 1,
+        ores: OreAccum::default(),
         path: vec![[1, 3], [1, 2], [0, 2], [0, 1], [0, 0], [1, 0], [1, -1]],
     });
 
@@ -110,6 +111,7 @@ fn test_push_outputs() {
         dest: [1, -1],
         item: ItemType::RawOre,
         amount: 1,
+        ores: OreAccum::default(),
         path: vec![[1, -1], [1, 0], [2, 0], [2, 1], [2, 2], [1, 2], [1, 3]],
     });
 
@@ -234,6 +236,7 @@ fn test_pull_inputs2() {
         dest: [1, 4],
         item: ItemType::RawOre,
         amount: 1,
+        ores: OreAccum::default(),
         path: vec![
             [1, 4],
             [1, 3],
@@ -278,6 +281,7 @@ fn test_push_outputs2() {
         dest: [1, -1],
         item: ItemType::RawOre,
         amount: 1,
+        ores: OreAccum::default(),
         path: vec![
             [1, -1],
             [1, 0],

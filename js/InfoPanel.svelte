@@ -13,6 +13,7 @@
     let crews = "-";
     let construction = null;
     let extra = "";
+    let is_storage = false;
     $: {
         let building = result?.building;
         if (building) {
@@ -21,7 +22,11 @@
             recipe = building.recipe;
             inventory = building.inventory;
             crews = formatCrews(building);
-            oreAccum = building.ore_accum;
+            if (building.ores){
+                console.log(`building.ores.is_storage: ${building.ores.is_storage}`);
+                is_storage = building.ores.is_storage;
+            }
+            oreAccum = building.ores;
         }
         else {
             buildingType = "";
@@ -41,6 +46,24 @@ Power demand: ${result.power_demand} kW
 Power load: ${(result.power_demand / result.power_capacity * 100).toFixed(1)} %
 Transports: ${result.transports}` : "";
     }
+
+    function barWidth(ore) {
+        if(is_storage) {
+            return ore;
+        }
+        else {
+            return ore * 100;
+        }
+    }
+
+    function formatOre(ore) {
+        if(is_storage) {
+            return ore.toFixed(2);
+        }
+        else {
+            return `${(ore * 100).toFixed(0)}%`;
+        }
+    }
 </script>
 
 <div class="bottomPanel">
@@ -58,20 +81,20 @@ None
 <div style="font-family: monospace">
 Ores:<br>
 &nbsp;Cilicate: <span class="barBackground" style="" >
-    <span class="bar" style="width: {oreAccum.cilicate * 100}px" />
-    <span class="barText">{(oreAccum.cilicate * 100).toFixed(0)}%</span>
+    <span class="bar" style="width: {barWidth(oreAccum.ores.cilicate)}px" />
+    <span class="barText">{formatOre(oreAccum.ores.cilicate)}</span>
   </span><br>
 &nbsp;Iron: <span class="barBackground">
-    <span class="bar" style="width: {oreAccum.iron * 100}px" />
-    <span class="barText">{(oreAccum.iron * 100).toFixed(0)}%</span>
+    <span class="bar" style="width: {barWidth(oreAccum.ores.iron)}px" />
+    <span class="barText">{formatOre(oreAccum.ores.iron)}</span>
   </span><br>
 &nbsp;Copper: <span class="barBackground">
-    <span class="bar" style="width: {oreAccum.copper * 100}px" />
-    <span class="barText">{(oreAccum.copper * 100).toFixed(0)}%</span>
+    <span class="bar" style="width: {barWidth(oreAccum.ores.copper)}px" />
+    <span class="barText">{formatOre(oreAccum.ores.copper)}</span>
   </span><br>
 &nbsp;Lithium: <span class="barBackground">
-    <span class="bar" style="width: {oreAccum.lithium * 100}px" />
-    <span class="barText">{(oreAccum.lithium * 100).toFixed(0)}%</span>
+    <span class="bar" style="width: {barWidth(oreAccum.ores.lithium)}px" />
+    <span class="barText">{formatOre(oreAccum.ores.lithium)}</span>
   </span><br>
 </div>
 {/if}

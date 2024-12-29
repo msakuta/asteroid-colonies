@@ -313,6 +313,7 @@ impl AsteroidColoniesGame {
                         construction,
                         &self.buildings,
                         &|_| true,
+                        false,
                     );
                     crate::console_log!("Pushed out after: {:?}", construction.ingredients);
                 }

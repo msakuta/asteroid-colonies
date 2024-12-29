@@ -2,6 +2,7 @@ use super::{super::utils::Flatten, lerp, path::render_path, RenderContext};
 use crate::{gl::utils::enable_buffer, AsteroidColonies};
 
 use ::asteroid_colonies_logic::{Transport, TILE_SIZE};
+use asteroid_colonies_logic::{ItemType, TransportPayload};
 use cgmath::{Matrix3, Matrix4, SquareMatrix, Vector3};
 
 use web_sys::WebGlRenderingContext as GL;
@@ -31,7 +32,10 @@ impl AsteroidColonies {
             let Some(&pos) = t.path.last() else {
                 return;
             };
-            let tex = assets.item_to_tex(t.item);
+            let tex = match t.payload {
+                TransportPayload::Item(item, _) => assets.item_to_tex(item),
+                TransportPayload::Ores(_) => assets.item_to_tex(ItemType::RawOre),
+            };
             gl.bind_texture(GL::TEXTURE_2D, Some(tex));
             let [x, y] = if 2 <= t.path.len() {
                 lerp(pos, t.path[t.path.len() - 2], *frac_frame)

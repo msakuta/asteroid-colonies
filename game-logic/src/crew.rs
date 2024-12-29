@@ -2,15 +2,15 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::{
-    building::{Building, BuildingId},
+    building::{Building, BuildingId, OreAccum},
     console_log,
     construction::Construction,
     entity::EntitySet,
     inventory::Inventory,
     items::ItemType,
     task::{GlobalTask, GlobalTaskId, EXCAVATE_ORE_AMOUNT, LABOR_EXCAVATE_TIME},
-    transport::{find_path, Transport},
-    AsteroidColoniesGame, Pos, TileState, Tiles,
+    transport::{find_path, Transport, TransportPayload},
+    AsteroidColoniesGame, Pos, TileState, Tiles, Xor128,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -156,9 +156,10 @@ impl Crew {
         &mut self,
         global_tasks: &mut EntitySet<GlobalTask>,
         gt_id: GlobalTaskId,
+        rng: &mut Xor128,
     ) {
         if let Some(GlobalTask::Excavate(t, _)) = global_tasks.get_mut(gt_id) {
-            if proceed_excavate(t, 1., &mut self.inventory) && self.inventory.is_empty() {
+            if proceed_excavate(t, 1., &mut self.inventory, rng) && self.inventory.is_empty() {
                 return;
             }
         }
@@ -239,13 +240,16 @@ impl Crew {
                         .items_mut()
                         .find(|(_, t)| t.path.last() == Some(&src))?;
                     println!("Found transports: {idx}, {transport:?}");
-                    let item = transport.item;
-                    let move_amount = transport.amount.min(1);
+                    let TransportPayload::Item(item, ref mut amount) = transport.payload else {
+                        return None;
+                    };
+                    let item = item;
+                    let move_amount = (*amount).min(1);
                     if 0 < move_amount {
                         *self.inventory.entry(item).or_default() += move_amount;
-                        transport.amount -= move_amount;
+                        *amount -= move_amount;
                     }
-                    if transport.amount == 0 {
+                    if *amount == 0 {
                         transports.remove(idx);
                     }
                     let path = find_path(self.pos, dest, |pos| {
@@ -368,7 +372,7 @@ impl AsteroidColoniesGame {
             }
             match crew.task {
                 CrewTask::Excavate(gt_id) => {
-                    crew.process_excavate_task(&mut self.global_tasks, gt_id);
+                    crew.process_excavate_task(&mut self.global_tasks, gt_id, &mut self.rng);
                 }
                 CrewTask::Build(ct_pos) => {
                     crew.process_build_task(&mut self.constructions, ct_pos);
@@ -490,14 +494,25 @@ pub(crate) fn expected_crew_deliveries(
         })
 }
 
-pub(crate) fn proceed_excavate(t: &mut f64, speed: f64, inventory: &mut Inventory) -> bool {
+pub(crate) fn proceed_excavate(
+    t: &mut f64,
+    speed: f64,
+    inventory: &mut Inventory,
+    rng: &mut Xor128,
+) -> bool {
     if 0. < *t {
         let before_amount = (*t / LABOR_EXCAVATE_TIME * EXCAVATE_ORE_AMOUNT as f64).ceil() as usize;
         *t = (*t - speed).max(0.);
         let after_amount = (*t / LABOR_EXCAVATE_TIME * EXCAVATE_ORE_AMOUNT as f64).ceil() as usize;
         for _ in after_amount..before_amount {
-            let entry = inventory.entry(ItemType::RawOre).or_default();
-            *entry += 1;
+            let ores = OreAccum {
+                cilicate: rng.next() * 3.,
+                iron: rng.next() * 2.,
+                copper: rng.next() * 1.,
+                lithium: rng.next() * 2.,
+            };
+            console_log!("proceed_excavate: {:?} to {:?}", ores, inventory);
+            inventory.add_ores(&ores);
         }
         true
     } else {

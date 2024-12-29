@@ -60,8 +60,20 @@ impl Inventory {
         &self.countable
     }
 
+    pub fn countable_mut(&mut self) -> &mut CountableInventory {
+        &mut self.countable
+    }
+
     pub fn countable_size(&self) -> usize {
         self.countable.iter().map(|(_, v)| *v).sum()
+    }
+
+    pub fn ores(&self) -> &OreAccum {
+        &self.ores
+    }
+
+    pub fn ores_mut(&mut self) -> &mut OreAccum {
+        &mut self.ores
     }
 
     pub fn get(&self, ty: &ItemType) -> usize {
@@ -98,5 +110,12 @@ impl Inventory {
 
     pub fn insert(&mut self, key: ItemType, value: usize) -> Option<usize> {
         self.countable.insert(key, value)
+    }
+
+    pub fn add_ores(&mut self, ores: &OreAccum) {
+        self.ores.cilicate += ores.cilicate;
+        self.ores.iron += ores.iron;
+        self.ores.copper += ores.copper;
+        self.ores.lithium += ores.lithium;
     }
 }

@@ -246,9 +246,14 @@ impl Building {
         // Try pushing out products
         if let Some(ref recipe) = self.recipe {
             let outputs: HashSet<_> = recipe.outputs.keys().copied().collect();
-            push_outputs(tiles, transports, self, bldgs, &|item| {
-                outputs.contains(&item)
-            });
+            push_outputs(
+                tiles,
+                transports,
+                self,
+                bldgs,
+                &|item| outputs.contains(&item),
+                false,
+            );
         }
         let this = self;
         if matches!(this.task, BuildingTask::None) {
@@ -290,9 +295,14 @@ impl Building {
         }
         match this.type_ {
             BuildingType::Excavator => {
-                push_outputs(tiles, transports, &mut *this, bldgs, &|t| {
-                    matches!(t, ItemType::RawOre)
-                });
+                push_outputs(
+                    tiles,
+                    transports,
+                    &mut *this,
+                    bldgs,
+                    &|t| matches!(t, ItemType::RawOre),
+                    true,
+                );
             }
             BuildingType::CrewCabin => {
                 if this.crews == 0 {
@@ -369,9 +379,14 @@ impl Building {
                 }
             }
             BuildingType::Furnace => {
-                push_outputs(tiles, transports, &mut *this, bldgs, &|t| {
-                    !matches!(t, ItemType::RawOre)
-                });
+                push_outputs(
+                    tiles,
+                    transports,
+                    &mut *this,
+                    bldgs,
+                    &|t| !matches!(t, ItemType::RawOre),
+                    false,
+                );
                 if !matches!(this.task, BuildingTask::None) {
                     return Ok(());
                 }
@@ -455,6 +470,7 @@ impl AsteroidColoniesGame {
                 &self.buildings,
                 &mut self.global_tasks,
                 power_ratio,
+                &mut self.rng,
                 self.calculate_back_image.as_mut(),
             ) {
                 moving_items.push((item, dest));
@@ -503,10 +519,16 @@ impl AsteroidColoniesGame {
     }
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, Default)]
 pub struct OreAccum {
     pub cilicate: f64,
     pub iron: f64,
     pub copper: f64,
     pub lithium: f64,
+}
+
+impl OreAccum {
+    pub fn is_empty(&self) -> bool {
+        self.cilicate == 0. && self.iron == 0. && self.copper == 0. && self.lithium == 0.
+    }
 }
