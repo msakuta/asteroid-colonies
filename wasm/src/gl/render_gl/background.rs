@@ -190,6 +190,16 @@ impl AsteroidColonies {
         let RenderContext { assets, .. } = ctx;
         let mt_shader = &assets.multi_textured_shader;
 
+        let enabled = self.draw_ore_overlay;
+
+        gl.uniform1i(
+            mt_shader.locations.draw_ore_overlay.as_ref(),
+            enabled as i32,
+        );
+        if !enabled {
+            return Ok(());
+        }
+
         let mut buf = vec![0u8; 3 * size * size];
         for iy in 0..size {
             for ix in 0..size {

@@ -5,7 +5,7 @@ use std::cell::Cell;
 use crate::console_log;
 
 use self::make_shader::{
-    make_flat_shader, make_instancing_shader, make_multitex_shader, make_textured_shader,
+    make_background_shader, make_flat_shader, make_instancing_shader, make_textured_shader,
     make_vertex_textured_shader,
 };
 use super::{
@@ -13,6 +13,7 @@ use super::{
     utils::{create_texture, load_texture, vertex_buffer_data},
 };
 use asteroid_colonies_logic::{building::BuildingType, ItemType};
+use make_shader::BgShaderBundle;
 use wasm_bindgen::{prelude::*, JsCast, JsValue};
 use web_sys::{
     ImageBitmap, WebGlBuffer, WebGlProgram, WebGlRenderingContext as GL, WebGlShader, WebGlTexture,
@@ -109,7 +110,7 @@ pub(crate) struct Assets {
 
     pub flat_shader: ShaderBundle,
     pub textured_shader: ShaderBundle,
-    pub multi_textured_shader: ShaderBundle,
+    pub multi_textured_shader: BgShaderBundle,
     pub vertex_textured_shader: ShaderBundle,
     /// Textured instancing shader, may use later
     pub _textured_instancing_shader: Option<ShaderBundle>,
@@ -233,7 +234,7 @@ impl Assets {
 
             flat_shader: make_flat_shader(gl)?,
             textured_shader,
-            multi_textured_shader: make_multitex_shader(gl, &vert_shader)?,
+            multi_textured_shader: make_background_shader(gl, &vert_shader)?,
             vertex_textured_shader: make_vertex_textured_shader(gl)?,
             _textured_instancing_shader: make_instancing_shader(gl).ok(),
             screen_buffer,

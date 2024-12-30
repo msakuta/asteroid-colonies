@@ -507,7 +507,6 @@ pub(crate) fn proceed_excavate(
         let after_amount = (*t / LABOR_EXCAVATE_TIME * EXCAVATE_ORE_AMOUNT as f64).ceil() as usize;
         for _ in after_amount..before_amount {
             let ores = tile.ores;
-            console_log!("proceed_excavate: {:?} to {:?}", ores, inventory);
             inventory.add_ores(&ores);
         }
         true

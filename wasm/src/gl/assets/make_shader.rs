@@ -1,8 +1,8 @@
 //! A collection of shader programs
 use wasm_bindgen::JsValue;
-use web_sys::{WebGlRenderingContext as GL, WebGlShader};
+use web_sys::{WebGlRenderingContext as GL, WebGlShader, WebGlUniformLocation};
 
-use crate::console_log;
+use crate::{console_log, gl::shader_bundle::GetLocations};
 
 use super::{super::shader_bundle::ShaderBundle, compile_shader, link_program};
 
@@ -84,10 +84,33 @@ pub(super) fn make_textured_shader(
     Ok((shader, vert_shader, frag_shader))
 }
 
-pub(super) fn make_multitex_shader(
+pub(crate) struct BackgroundLocations {
+    pub draw_ore_overlay: Option<WebGlUniformLocation>,
+}
+
+impl GetLocations for BackgroundLocations {
+    fn get_locations(gl: &GL, program: &web_sys::WebGlProgram) -> Self {
+        let get_uniform = |location: &str| {
+            let op: Option<WebGlUniformLocation> = gl.get_uniform_location(&program, location);
+            if op.is_none() {
+                console_log!("Warning: location {} undefined", location);
+            } else {
+                console_log!("location {} defined", location);
+            }
+            op
+        };
+        Self {
+            draw_ore_overlay: get_uniform("draw_ore_overlay"),
+        }
+    }
+}
+
+pub(crate) type BgShaderBundle = ShaderBundle<BackgroundLocations>;
+
+pub(super) fn make_background_shader(
     gl: &GL,
     vert_shader: &WebGlShader,
-) -> Result<ShaderBundle, JsValue> {
+) -> Result<BgShaderBundle, JsValue> {
     let frag_shader = compile_shader(
         &gl,
         GL::FRAGMENT_SHADER,
@@ -102,6 +125,7 @@ pub(super) fn make_multitex_shader(
         uniform float alpha;
         uniform float widthScale;
         uniform float heightScale;
+        uniform bool draw_ore_overlay;
         const float sampleSize = 128.;
         // Margin is a way to work around border artifacts between tiles
         const float margin = 1. / 32.;
@@ -122,7 +146,14 @@ pub(super) fn make_multitex_shader(
             vec4 texColor = texture2D( texture, vec2(
                 (xf + margin) * marginDiscard * widthScale,
                 ((yf + margin) * marginDiscard + first[0] * 2.) * heightScale) );
-            gl_FragColor = texColor * texture2D( texture3, vec2(xi, yi) );
+
+            if (draw_ore_overlay) {
+                gl_FragColor = texColor * texture2D( texture3, vec2(xi, yi) );
+            }
+            else {
+                gl_FragColor = texColor;
+            }
+
             // gl_FragColor = vec4(texColor.rgb, texColor.a * alpha);
             if(gl_FragColor.a < 0.01)
                 discard;
