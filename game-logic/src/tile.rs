@@ -61,11 +61,12 @@ impl Tile {
     pub fn new_solid(x: i32, y: i32, noise_terms: &[Vec<[f64; 6]>; 4]) -> Self {
         let mut cilicate =
             perlin_noise_pixel(x as f64, y as f64, PERLIN_BITS, &noise_terms[0]).max(0.);
-        let mut iron = perlin_noise_pixel(x as f64, y as f64, PERLIN_BITS, &noise_terms[1]).max(0.);
+        let mut iron =
+            perlin_noise_pixel(x as f64, y as f64, PERLIN_BITS, &noise_terms[1]).max(0.) * 0.25;
         let mut copper =
-            perlin_noise_pixel(x as f64, y as f64, PERLIN_BITS, &noise_terms[2]).max(0.);
+            perlin_noise_pixel(x as f64, y as f64, PERLIN_BITS, &noise_terms[2]).max(0.) * 0.25;
         let mut lithium =
-            perlin_noise_pixel(x as f64, y as f64, PERLIN_BITS, &noise_terms[3]).max(0.);
+            perlin_noise_pixel(x as f64, y as f64, PERLIN_BITS, &noise_terms[3]).max(0.) * 0.125;
         let total = cilicate + iron + copper + lithium;
         if 0. < total {
             cilicate /= total;

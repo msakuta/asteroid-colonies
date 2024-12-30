@@ -98,6 +98,7 @@ pub(super) fn make_multitex_shader(
 
         uniform sampler2D texture;
         uniform sampler2D texture2;
+        uniform sampler2D texture3;
         uniform float alpha;
         uniform float widthScale;
         uniform float heightScale;
@@ -121,7 +122,7 @@ pub(super) fn make_multitex_shader(
             vec4 texColor = texture2D( texture, vec2(
                 (xf + margin) * marginDiscard * widthScale,
                 ((yf + margin) * marginDiscard + first[0] * 2.) * heightScale) );
-            gl_FragColor = texColor;
+            gl_FragColor = texColor * texture2D( texture3, vec2(xi, yi) );
             // gl_FragColor = vec4(texColor.rgb, texColor.a * alpha);
             if(gl_FragColor.a < 0.01)
                 discard;

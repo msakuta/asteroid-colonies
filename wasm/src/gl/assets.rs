@@ -101,6 +101,12 @@ pub(crate) struct Assets {
     /// If there was, the buffer data is transferred to the GPU texture memory.
     pub bg_sampler_buf: Cell<Vec<u8>>,
 
+    /// The 3rd texture to hold modulation colors, used to quickly render ore
+    /// distribution by modulating colors.
+    pub tex_bg_modulate: WebGlTexture,
+    /// A buffer for above
+    pub bg_modulate_buf: Cell<Vec<u8>>,
+
     pub flat_shader: ShaderBundle,
     pub textured_shader: ShaderBundle,
     pub multi_textured_shader: ShaderBundle,
@@ -219,8 +225,11 @@ impl Assets {
             tex_excavate: load_texture_local("excavate")?,
             tex_path: load_texture_local("path")?,
 
-            tex_bg_sampler: create_texture(gl, 128)?,
+            tex_bg_sampler: create_texture(gl, 128, GL::LUMINANCE)?,
             bg_sampler_buf: Cell::new(vec![]),
+
+            tex_bg_modulate: create_texture(gl, 128, GL::RGB)?,
+            bg_modulate_buf: Cell::new(vec![]),
 
             flat_shader: make_flat_shader(gl)?,
             textured_shader,
