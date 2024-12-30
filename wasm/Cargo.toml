@@ -19,7 +19,7 @@ wasm-bindgen = "0.2.84"
 # code size when deploying.
 console_error_panic_hook = { version = "0.1.7", optional = true }
 rand = "0.8.5"
-getrandom = { version = "0.2.12", features = ["js"] }
+getrandom = { version = "0.2.15", features = ["js"] }
 serde = { version = "1.0", features = ["derive"] }
 serde-wasm-bindgen = "0.6.3"
 asteroid-colonies-logic = { path = "../game-logic" }
