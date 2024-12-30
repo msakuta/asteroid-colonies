@@ -185,9 +185,9 @@ dependencies = [
 
 [[package]]
 name = "actix-tls"
-version = "3.3.0"
+version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d4cce60a2f2b477bc72e5cde0af1812a6e82d8fd85b5570a5dcf2a5bf2c5be5f"
+checksum = "ac453898d866cdbecdbc2334fe1738c747b4eba14a677261f2b768ba05329389"
 dependencies = [
  "actix-rt",
  "actix-service",
