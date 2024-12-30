@@ -399,23 +399,17 @@ impl Building {
                     bldgs,
                 );
                 let source = this.inventory.ores_mut();
-                if source.is_empty() {
-                    return Ok(());
-                };
-                let outputs = OreAccum {
-                    cilicate: source.cilicate.min(1.),
-                    iron: source.iron.min(1.),
-                    copper: source.copper.min(1.),
-                    lithium: source.lithium.min(1.),
-                };
-                for (src, out) in source.iter_mut().zip(outputs.iter()) {
-                    *src -= *out;
+                if let Some(normalized) = source.normalize() {
+                    let outputs = normalized.min(source);
+                    for (src, out) in source.iter_mut().zip(outputs.iter()) {
+                        *src -= *out;
+                    }
+                    this.task = BuildingTask::Smelt {
+                        t: RAW_ORE_SMELT_TIME,
+                        max_t: RAW_ORE_SMELT_TIME,
+                        output_ores: outputs,
+                    };
                 }
-                this.task = BuildingTask::Smelt {
-                    t: RAW_ORE_SMELT_TIME,
-                    max_t: RAW_ORE_SMELT_TIME,
-                    output_ores: outputs,
-                };
             }
             _ => {}
         }
@@ -532,6 +526,37 @@ impl OreAccum {
 
     pub fn is_empty(&self) -> bool {
         self.cilicate == 0. && self.iron == 0. && self.copper == 0. && self.lithium == 0.
+    }
+
+    pub fn total(&self) -> f64 {
+        self.cilicate + self.iron + self.copper + self.lithium
+    }
+
+    /// Normalize the ore fraction so that it sums up to 1. In case of zero vector, returns zero.
+    pub fn normalize(&self) -> Option<Self> {
+        let total = self.total();
+        if total == 0. {
+            return None;
+        }
+        Some(Self {
+            cilicate: self.cilicate / total,
+            iron: self.iron / total,
+            copper: self.copper / total,
+            lithium: self.lithium / total,
+        })
+    }
+
+    pub fn min(&self, other: &Self) -> Self {
+        self.each(other, |lhs, rhs| lhs.min(rhs))
+    }
+
+    pub fn each(&self, other: &Self, f: impl Fn(f64, f64) -> f64) -> Self {
+        Self {
+            cilicate: f(self.cilicate, other.cilicate),
+            iron: f(self.iron, other.iron),
+            copper: f(self.copper, other.copper),
+            lithium: f(self.lithium, other.lithium),
+        }
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &f64> {
