@@ -1,7 +1,7 @@
 
 export let sessionId = null;
 export let websocket = null;
-export let tickTime = 0.2;
+export let tickTime = 0.5;
 
 export async function fetchSessionId({port, baseUrl, game}) {
     let loaded = false;

@@ -2,13 +2,14 @@ use web_sys::{WebGlProgram, WebGlRenderingContext as GL, WebGlUniformLocation};
 
 use crate::console_log;
 
-pub(crate) struct ShaderBundle {
+pub(crate) struct ShaderBundle<L = ()> {
     pub program: WebGlProgram,
     pub vertex_position: u32,
     #[allow(dead_code)] // May use later
     pub tex_coord_position: u32,
     pub texture_loc: Option<WebGlUniformLocation>,
     pub texture2_loc: Option<WebGlUniformLocation>,
+    pub texture3_loc: Option<WebGlUniformLocation>,
     pub transform_loc: Option<WebGlUniformLocation>,
     pub tex_transform_loc: Option<WebGlUniformLocation>,
     pub width_scale_loc: Option<WebGlUniformLocation>,
@@ -18,9 +19,12 @@ pub(crate) struct ShaderBundle {
     #[allow(dead_code)] // May use later
     pub alpha_loc: Option<WebGlUniformLocation>,
     pub color_loc: Option<WebGlUniformLocation>,
+    /// Extra locations. It could be a `HashMap<String, GLuint>`, but it would be more
+    /// efficient to statically know the list of locations.
+    pub locations: L,
 }
 
-impl ShaderBundle {
+impl<L: GetLocations> ShaderBundle<L> {
     pub fn new(gl: &GL, program: WebGlProgram) -> Self {
         let get_uniform = |location: &str| {
             let op: Option<WebGlUniformLocation> = gl.get_uniform_location(&program, location);
@@ -41,6 +45,7 @@ impl ShaderBundle {
             tex_coord_position,
             texture_loc: get_uniform("texture"),
             texture2_loc: get_uniform("texture2"),
+            texture3_loc: get_uniform("texture3"),
             transform_loc: get_uniform("transform"),
             tex_transform_loc: get_uniform("texTransform"),
             alpha_loc: get_uniform("alpha"),
@@ -48,8 +53,21 @@ impl ShaderBundle {
             width_scale_loc: get_uniform("widthScale"),
             height_scale_loc: get_uniform("heightScale"),
             attrib_position_loc,
+            locations: L::get_locations(gl, &program),
             // Program has to be later than others
             program,
         }
+    }
+}
+
+/// A trait representing a set of shader locations, which knows how to retrieve them
+/// from a compiled shader program.
+pub trait GetLocations {
+    fn get_locations(gl: &GL, program: &WebGlProgram) -> Self;
+}
+
+impl GetLocations for () {
+    fn get_locations(_: &GL, _: &WebGlProgram) -> Self {
+        ()
     }
 }

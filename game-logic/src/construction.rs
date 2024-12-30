@@ -8,7 +8,8 @@ use crate::{
     crew::{expected_crew_deliveries, Crew},
     direction::Direction,
     entity::EntitySet,
-    items::{Inventory, ItemType},
+    inventory::{CountableInventory, Inventory},
+    items::ItemType,
     push_pull::{pull_inputs, push_outputs, HasInventory},
     task::{BUILD_CONVEYOR_TIME, BUILD_POWER_GRID_TIME},
     transport::{expected_deliveries, Transport, TransportId},
@@ -119,14 +120,15 @@ impl Construction {
     ) -> Option<Self> {
         let con_ty = ConstructionType::Building(building);
         let recipe = get_build_menu().iter().find(|bi| bi.type_ == con_ty)?;
-        let mut ingredients: Inventory = recipe.ingredients.iter().map(|(k, v)| (*k, *v)).collect();
+        let mut ingredients: CountableInventory =
+            recipe.ingredients.iter().map(|(k, v)| (*k, *v)).collect();
         for (item, amount) in inventory {
             ingredients.insert(*item, *amount);
         }
         Some(Self {
             type_: con_ty,
             pos,
-            ingredients,
+            ingredients: ingredients.into(),
             recipe: recipe.clone(),
             canceling: true,
             progress: recipe.time,
@@ -181,9 +183,10 @@ impl Construction {
     }
 
     pub fn ingredients_satisfied(&self) -> bool {
-        self.recipe.ingredients.iter().all(|(ty, recipe_amount)| {
-            *recipe_amount <= self.ingredients.get(ty).copied().unwrap_or(0)
-        })
+        self.recipe
+            .ingredients
+            .iter()
+            .all(|(ty, recipe_amount)| *recipe_amount <= self.ingredients.get(ty))
     }
 
     pub fn required_ingredients<'a>(
@@ -201,7 +204,7 @@ impl Construction {
                 .ingredients
                 .iter()
                 .filter_map(move |(ty, recipe_count)| {
-                    let required_amount = self.ingredients.get(ty).copied().unwrap_or(0)
+                    let required_amount = self.ingredients.get(ty)
                         + expected.get(ty).copied().unwrap_or(0)
                         + crew_expected.get(ty).copied().unwrap_or(0);
                     if *recipe_count <= required_amount {
@@ -310,6 +313,7 @@ impl AsteroidColoniesGame {
                         construction,
                         &self.buildings,
                         &|_| true,
+                        false,
                     );
                     crate::console_log!("Pushed out after: {:?}", construction.ingredients);
                 }

@@ -7,7 +7,10 @@ use std::{
 use fnv::FnvHasher;
 use serde::{de::Visitor, Deserialize, Serialize};
 
-use crate::{conveyor::Conveyor, Pos};
+use crate::{
+    building::OreAccum, conveyor::Conveyor, game::PERLIN_BITS, perlin_noise::perlin_noise_pixel,
+    Pos,
+};
 
 pub const CHUNK_SIZE: usize = 16;
 
@@ -24,14 +27,17 @@ impl Hash for TileState {
     }
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Tile {
     pub state: TileState,
     pub power_grid: bool,
     pub conveyor: Conveyor,
+    pub ores: OreAccum,
     #[serde(skip)]
     pub image_idx: ImageIdx,
 }
+
+impl Eq for Tile {}
 
 impl Hash for Tile {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -47,6 +53,39 @@ impl Tile {
             state: TileState::Space,
             power_grid: false,
             conveyor: Conveyor::None,
+            ores: OreAccum::new(),
+            image_idx: ImageIdx::new(),
+        }
+    }
+
+    pub fn new_solid(x: i32, y: i32, noise_terms: &[Vec<[f64; 6]>; 4]) -> Self {
+        let mut cilicate =
+            perlin_noise_pixel(x as f64, y as f64, PERLIN_BITS, &noise_terms[0]).max(0.);
+        let mut iron =
+            perlin_noise_pixel(x as f64, y as f64, PERLIN_BITS, &noise_terms[1]).max(0.) * 0.25;
+        let mut copper =
+            perlin_noise_pixel(x as f64, y as f64, PERLIN_BITS, &noise_terms[2]).max(0.) * 0.25;
+        let mut lithium =
+            perlin_noise_pixel(x as f64, y as f64, PERLIN_BITS, &noise_terms[3]).max(0.) * 0.125;
+        let total = cilicate + iron + copper + lithium;
+        if 0. < total {
+            cilicate /= total;
+            iron /= total;
+            copper /= total;
+            lithium /= total;
+        } else {
+            cilicate = 1.;
+        }
+        Self {
+            state: TileState::Solid,
+            power_grid: false,
+            conveyor: Conveyor::None,
+            ores: OreAccum {
+                cilicate,
+                iron,
+                copper,
+                lithium,
+            },
             image_idx: ImageIdx::new(),
         }
     }
@@ -57,6 +96,7 @@ impl Tile {
             state: TileState::Empty,
             power_grid: false,
             conveyor,
+            ores: OreAccum::new(),
             image_idx: ImageIdx::new(),
         }
     }
@@ -66,6 +106,7 @@ impl Tile {
             state: TileState::Empty,
             power_grid: true,
             conveyor: Conveyor::None,
+            ores: OreAccum::new(),
             image_idx: ImageIdx::splat(8),
         }
     }

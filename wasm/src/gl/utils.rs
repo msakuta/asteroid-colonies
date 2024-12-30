@@ -55,15 +55,20 @@ pub(crate) fn load_texture(gl: &GL, bitmap: ImageBitmap) -> Result<WebGlTexture,
     Ok(texture)
 }
 
-pub fn create_texture(gl: &GL, size: usize) -> Result<WebGlTexture, JsValue> {
+pub fn create_texture(gl: &GL, size: usize, format: u32) -> Result<WebGlTexture, JsValue> {
     let texture = gl.create_texture().unwrap();
     gl.bind_texture(GL::TEXTURE_2D, Some(&texture));
 
-    let buf = vec![0u8; size * size];
+    let pixel_size = match format {
+        GL::LUMINANCE => 1,
+        GL::RGB => 3,
+        _ => todo!(),
+    };
+    let buf = vec![0u8; size * size * pixel_size];
 
     let level = 0;
-    let internal_format = GL::LUMINANCE as i32;
-    let src_format = GL::LUMINANCE;
+    let internal_format = format as i32;
+    let src_format = format;
     let src_type = GL::UNSIGNED_BYTE;
     gl.tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_u8_array(
         GL::TEXTURE_2D,

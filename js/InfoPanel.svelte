@@ -2,33 +2,42 @@
     import RecipeItem from './RecipeItem.svelte';
     import Inventory from './Inventory.svelte';
     import Construction from './Construction.svelte';
+    import Ores from './Ores.svelte';
     import { formatCrews } from './graphics';
     export let result;
 
     let buildingType = "";
     let task = "";
     let recipe = null;
-    let inventory = new Map();
+    let oreAccum = null;
+    let countableInventory = new Map();
+    let oresInventory = null;
     let crews = "-";
     let construction = null;
     let extra = "";
+    let ores = null;
     $: {
         let building = result?.building;
         if (building) {
             buildingType = building.type_;
             task = building.task;
             recipe = building.recipe;
-            inventory = building.inventory;
+            countableInventory = building.inventory.countable;
+            oresInventory = building.inventory.ores;
             crews = formatCrews(building);
+            oreAccum = building.ores;
         }
         else {
             buildingType = "";
             task = "";
             recipe = null;
-            inventory = new Map();
+            countableInventory = new Map();
+            oresInventory = null;
             crews = "-";
+            oreAccum = null;
         }
         construction = result?.construction;
+        ores = result?.ores;
 
         // Time scale = 360
         // 1 energy unit = 360 kJ = 0.36MJ
@@ -50,13 +59,28 @@ Recipe: {#if recipe}
 {:else}
 None
 {/if}
-Inventory: <Inventory items={inventory} />
+</pre>
+{#if oreAccum}
+<Ores ores={oreAccum} title="Smelting ores:"/>
+{/if}
+<tt>
+Inventory: <Inventory items={countableInventory} />
+</tt>
+{#if oresInventory}
+<Ores ores={oresInventory} isStorage={true} title="Inventory ores:"/>
+{/if}
+<pre>
 Crews: {crews}
 Construction: {#if construction}
 <Construction {construction}/>
 {/if}
+</pre>
+{#if ores}
+<Ores ores={ores} title="Ores:"/>
+{/if}
+<pre>
 {extra}
-  </pre>
+</pre>
 </div>
 
 <style>

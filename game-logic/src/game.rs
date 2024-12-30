@@ -11,12 +11,15 @@ use crate::{
     direction::Direction,
     entity::{EntitySet, RefOption},
     items::{recipes, ItemType},
+    perlin_noise::gen_terms,
     push_pull::send_item,
     task::{BuildingTask, GlobalTask, MOVE_TIME},
     tile::CHUNK_SIZE,
     transport::{find_path, Transport},
     Pos, Position, Tile, TileState, Tiles, Xor128, HEIGHT, WIDTH,
 };
+
+pub(crate) const PERLIN_BITS: u32 = 4;
 
 pub type CalculateBackImage = Box<dyn Fn(&mut Tiles) + Send + Sync>;
 
@@ -43,12 +46,20 @@ impl AsteroidColoniesGame {
     pub fn new(calculate_back_image: Option<CalculateBackImage>) -> Result<Self, String> {
         let mut tiles = Tiles::new();
         let r2_thresh = (WIDTH as f64 * 3. / 8.).powi(2);
+        let mut rng = Xor128::new(4155235);
+        let terms = [
+            gen_terms(&mut rng, PERLIN_BITS),
+            gen_terms(&mut rng, PERLIN_BITS),
+            gen_terms(&mut rng, PERLIN_BITS),
+            gen_terms(&mut rng, PERLIN_BITS),
+        ];
         for y in 0..HEIGHT {
             for x in 0..WIDTH {
                 let r2 = ((x as f64 - WIDTH as f64 / 2.) as f64).powi(2)
                     + ((y as f64 - HEIGHT as f64 / 2.) as f64).powi(2);
                 if r2 < r2_thresh {
-                    tiles[[x as i32, y as i32]].state = TileState::Solid;
+                    let tile = &mut tiles[[x as i32, y as i32]];
+                    *tile = Tile::new_solid(x as i32, y as i32, &terms);
                 }
             }
         }
@@ -68,7 +79,8 @@ impl AsteroidColoniesGame {
             Building::new_inventory(
                 start_ofs([6, 3]),
                 BuildingType::MediumStorage,
-                btree_map!(ItemType::ConveyorComponent => 20, ItemType::PowerGridComponent => 2),
+                btree_map!(ItemType::ConveyorComponent => 20, ItemType::PowerGridComponent => 2)
+                    .into(),
             ),
             Building::new(start_ofs([1, 10]), BuildingType::Assembler),
             Building::new(start_ofs([1, 4]), BuildingType::Furnace),

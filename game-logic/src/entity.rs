@@ -338,7 +338,7 @@ impl<A> FromIterator<A> for EntitySet<A> {
     }
 }
 
-#[derive(Eq, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct EntityId<T> {
     id: u32,
     gen: u32,
@@ -368,6 +368,8 @@ impl<T> std::cmp::PartialEq for EntityId<T> {
         self.id == other.id && self.gen == other.gen
     }
 }
+
+impl<T> std::cmp::Eq for EntityId<T> {}
 
 impl<T> std::hash::Hash for EntityId<T> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {

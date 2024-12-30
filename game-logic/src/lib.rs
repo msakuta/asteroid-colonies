@@ -5,9 +5,10 @@ pub use crate::{
     crew::Crew,
     direction::Direction,
     game::{AsteroidColoniesGame, SerializeGame},
-    items::{Inventory, ItemType},
+    inventory::{CountableInventory, Inventory},
+    items::ItemType,
     tile::{new_hasher, Chunk, ImageIdx, Position, Tile, TileState, Tiles, CHUNK_SIZE},
-    transport::Transport,
+    transport::{Transport, TransportPayload},
     xor128::Xor128,
 };
 
@@ -18,7 +19,9 @@ mod crew;
 mod direction;
 mod entity;
 mod game;
+mod inventory;
 mod items;
+pub mod perlin_noise;
 mod push_pull;
 pub mod task;
 mod tile;

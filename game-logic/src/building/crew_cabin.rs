@@ -24,7 +24,7 @@ impl Building {
             .find_map(|(ty, _)| {
                 let mut targets = std::collections::HashMap::new();
                 for (id, o) in envs.buildings.items() {
-                    if 0 < o.inventory.get(&ty).copied().unwrap_or(0) {
+                    if 0 < o.inventory.get(&ty) {
                         let opos = o.pos;
                         let size = o.size();
                         for iy in 0..size[1] {

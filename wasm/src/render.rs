@@ -14,7 +14,7 @@ use asteroid_colonies_logic::{
     conveyor::Conveyor,
     new_hasher,
     task::{BuildingTask, GlobalTask, LABOR_EXCAVATE_TIME, MOVE_TIME},
-    Chunk, Direction, ImageIdx, ItemType, Position, TileState, Tiles, CHUNK_SIZE,
+    Chunk, Direction, ImageIdx, ItemType, Position, TileState, Tiles, TransportPayload, CHUNK_SIZE,
 };
 
 pub(crate) const TILE_SIZE: f64 = 32.;
@@ -439,21 +439,24 @@ impl AsteroidColonies {
             }
             context.stroke();
             if let Some(pos) = t.path.last() {
-                let (img, sw, sh) = match t.item {
-                    ItemType::RawOre => (&self.assets.img_raw_ore, 16., 16.),
-                    ItemType::IronIngot => (&self.assets.img_iron_ingot, 16., 16.),
-                    ItemType::CopperIngot => (&self.assets.img_copper_ingot, 16., 16.),
-                    ItemType::LithiumIngot => (&self.assets.img_lithium_ingot, 16., 16.),
-                    ItemType::Cilicate => (&self.assets.img_cilicate, 16., 16.),
-                    ItemType::Gear => (&self.assets.img_gear, 32., 32.),
-                    ItemType::Wire => (&self.assets.img_wire, 32., 32.),
-                    ItemType::Circuit => (&self.assets.img_circuit, 32., 32.),
-                    ItemType::Battery => (&self.assets.img_battery_item, 32., 32.),
-                    ItemType::PowerGridComponent => (&self.assets.img_power_grid, 32., 32.),
-                    ItemType::ConveyorComponent => (&self.assets.img_conveyor_item, 32., 32.),
-                    ItemType::AssemblerComponent => {
-                        (&self.assets.img_assembler_component, 32., 32.)
-                    }
+                let (img, sw, sh) = match t.payload {
+                    TransportPayload::Item(item, _) => match item {
+                        ItemType::RawOre => (&self.assets.img_raw_ore, 16., 16.),
+                        ItemType::IronIngot => (&self.assets.img_iron_ingot, 16., 16.),
+                        ItemType::CopperIngot => (&self.assets.img_copper_ingot, 16., 16.),
+                        ItemType::LithiumIngot => (&self.assets.img_lithium_ingot, 16., 16.),
+                        ItemType::Cilicate => (&self.assets.img_cilicate, 16., 16.),
+                        ItemType::Gear => (&self.assets.img_gear, 32., 32.),
+                        ItemType::Wire => (&self.assets.img_wire, 32., 32.),
+                        ItemType::Circuit => (&self.assets.img_circuit, 32., 32.),
+                        ItemType::Battery => (&self.assets.img_battery_item, 32., 32.),
+                        ItemType::PowerGridComponent => (&self.assets.img_power_grid, 32., 32.),
+                        ItemType::ConveyorComponent => (&self.assets.img_conveyor_item, 32., 32.),
+                        ItemType::AssemblerComponent => {
+                            (&self.assets.img_assembler_component, 32., 32.)
+                        }
+                    },
+                    TransportPayload::Ores(_) => (&self.assets.img_raw_ore, 16., 16.),
                 };
                 let tile_offset = (TILE_SIZE as f64 - ITEM_SIZE as f64) / 2.;
                 let x = pos[0] as f64 * TILE_SIZE + tile_offset + offset[0];

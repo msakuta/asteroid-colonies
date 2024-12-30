@@ -1,5 +1,5 @@
 use super::*;
-use crate::{btree_map, building::BuildingType, items::Inventory};
+use crate::{btree_map, building::BuildingType, inventory::Inventory};
 
 struct MockTiles;
 
@@ -37,7 +37,7 @@ fn test_pull_inputs() {
     let storage: EntitySet<_> = [Building::new_inventory(
         [1, -1],
         BuildingType::Storage,
-        inputs.clone(),
+        inputs.clone().into(),
     )]
     .into_iter()
     .collect();
@@ -59,8 +59,7 @@ fn test_pull_inputs() {
     expected.insert(Transport {
         src: [1, -1],
         dest: [1, 3],
-        item: ItemType::RawOre,
-        amount: 1,
+        payload: TransportPayload::Item(ItemType::RawOre, 1),
         path: vec![[1, 3], [1, 2], [0, 2], [0, 1], [0, 0], [1, 0], [1, -1]],
     });
 
@@ -102,14 +101,14 @@ fn test_push_outputs() {
         &mut mock_inventory,
         &storage,
         &|_| true,
+        false,
     );
 
     let mut expected = EntitySet::new();
     expected.insert(Transport {
         src: [1, 3],
         dest: [1, -1],
-        item: ItemType::RawOre,
-        amount: 1,
+        payload: TransportPayload::Item(ItemType::RawOre, 1),
         path: vec![[1, -1], [1, 0], [2, 0], [2, 1], [2, 2], [1, 2], [1, 3]],
     });
 
@@ -210,7 +209,7 @@ fn test_pull_inputs2() {
     let storage = [Building::new_inventory(
         [1, -1],
         BuildingType::Storage,
-        inputs.clone(),
+        inputs.clone().into(),
     )]
     .into_iter()
     .collect();
@@ -232,8 +231,7 @@ fn test_pull_inputs2() {
     expected.insert(Transport {
         src: [1, -1],
         dest: [1, 4],
-        item: ItemType::RawOre,
-        amount: 1,
+        payload: TransportPayload::Item(ItemType::RawOre, 1),
         path: vec![
             [1, 4],
             [1, 3],
@@ -270,14 +268,14 @@ fn test_push_outputs2() {
         &mut mock_inventory,
         &storage,
         &|_| true,
+        false,
     );
 
     let mut expected = EntitySet::new();
     expected.insert(Transport {
         src: [1, 4],
         dest: [1, -1],
-        item: ItemType::RawOre,
-        amount: 1,
+        payload: TransportPayload::Item(ItemType::RawOre, 1),
         path: vec![
             [1, -1],
             [1, 0],

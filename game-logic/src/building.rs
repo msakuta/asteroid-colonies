@@ -13,10 +13,10 @@ use crate::{
     construction::Construction,
     crew::expected_crew_pickup_any,
     entity::{EntityId, EntitySet},
-    hash_map,
-    items::{Inventory, ItemType},
+    inventory::Inventory,
+    items::ItemType,
     measure_time,
-    push_pull::{pull_inputs, push_outputs},
+    push_pull::{pull_inputs, pull_ores, push_outputs},
     task::{BuildingTask, GlobalTask, RAW_ORE_SMELT_TIME},
     tile::Tiles,
     transport::TransportId,
@@ -134,6 +134,7 @@ pub struct Building {
     pub direction: Option<Direction>,
     /// Some buildings can store energy, like capacitors and batteries.
     pub energy: Option<usize>,
+    pub ore_accum: OreAccum,
     #[serde(skip)]
     /// A cache of expected transports
     pub expected_transports: HashSet<TransportId>,
@@ -150,6 +151,7 @@ impl Building {
             recipe: None,
             direction: None,
             energy: type_.energy_capacity(),
+            ore_accum: OreAccum::default(),
             expected_transports: HashSet::new(),
         }
     }
@@ -164,6 +166,7 @@ impl Building {
             recipe: None,
             direction: None,
             energy: type_.energy_capacity(),
+            ore_accum: OreAccum::default(),
             expected_transports: HashSet::new(),
         }
     }
@@ -201,7 +204,7 @@ impl Building {
     }
 
     pub fn inventory_size(&self) -> usize {
-        self.inventory.iter().map(|(_, v)| *v).sum()
+        self.inventory.countable_size()
     }
 
     pub fn intersects(&self, pos: Pos) -> bool {
@@ -237,14 +240,19 @@ impl Building {
         constructions: &mut EntitySet<Construction>,
         crews: &mut EntitySet<Crew>,
         gtasks: &EntitySet<GlobalTask>,
-        rng: &mut Xor128,
+        _rng: &mut Xor128,
     ) -> Result<(), String> {
         // Try pushing out products
         if let Some(ref recipe) = self.recipe {
             let outputs: HashSet<_> = recipe.outputs.keys().copied().collect();
-            push_outputs(tiles, transports, self, bldgs, &|item| {
-                outputs.contains(&item)
-            });
+            push_outputs(
+                tiles,
+                transports,
+                self,
+                bldgs,
+                &|item| outputs.contains(&item),
+                false,
+            );
         }
         let this = self;
         if matches!(this.task, BuildingTask::None) {
@@ -260,7 +268,7 @@ impl Building {
                     bldgs,
                 );
                 for (ty, recipe_count) in &recipe.inputs {
-                    let actual_count = *this.inventory.get(&ty).unwrap_or(&0);
+                    let actual_count = this.inventory.get(&ty);
                     if actual_count < *recipe_count {
                         // crate::console_log!(
                         //     "An ingredient {:?} is missing for recipe {:?}",
@@ -286,9 +294,14 @@ impl Building {
         }
         match this.type_ {
             BuildingType::Excavator => {
-                push_outputs(tiles, transports, &mut *this, bldgs, &|t| {
-                    matches!(t, ItemType::RawOre)
-                });
+                push_outputs(
+                    tiles,
+                    transports,
+                    &mut *this,
+                    bldgs,
+                    &|t| matches!(t, ItemType::RawOre),
+                    true,
+                );
             }
             BuildingType::CrewCabin => {
                 if this.crews == 0 {
@@ -365,20 +378,18 @@ impl Building {
                 }
             }
             BuildingType::Furnace => {
-                push_outputs(tiles, transports, &mut *this, bldgs, &|t| {
-                    !matches!(t, ItemType::RawOre)
-                });
+                push_outputs(
+                    tiles,
+                    transports,
+                    &mut *this,
+                    bldgs,
+                    &|t| !matches!(t, ItemType::RawOre),
+                    false,
+                );
                 if !matches!(this.task, BuildingTask::None) {
                     return Ok(());
                 }
-                // A tentative recipe. The output does not have to represent the actual products yet.
-                let recipe = Recipe {
-                    inputs: hash_map!(ItemType::RawOre => 1),
-                    outputs: hash_map!(ItemType::IronIngot => 1),
-                    time: RAW_ORE_SMELT_TIME,
-                };
-                pull_inputs(
-                    &recipe.inputs,
+                pull_ores(
                     tiles,
                     transports,
                     &mut this.expected_transports,
@@ -387,22 +398,16 @@ impl Building {
                     &mut this.inventory,
                     bldgs,
                 );
-                if let Some(source) = this.inventory.get_mut(&ItemType::RawOre) {
-                    if *source < 1 {
-                        return Ok(());
-                    };
-                    *source -= 1;
-                    let dice = rng.nexti() % 8;
-                    let outputs = hash_map!(match dice {
-                        0..=3 => ItemType::Cilicate,
-                        4..=5 => ItemType::IronIngot,
-                        6 => ItemType::CopperIngot,
-                        _ => ItemType::LithiumIngot,
-                    } => 1);
-                    this.task = BuildingTask::Assemble {
+                let source = this.inventory.ores_mut();
+                if let Some(normalized) = source.normalize() {
+                    let outputs = normalized.min(source);
+                    for (src, out) in source.iter_mut().zip(outputs.iter()) {
+                        *src -= *out;
+                    }
+                    this.task = BuildingTask::Smelt {
                         t: RAW_ORE_SMELT_TIME,
                         max_t: RAW_ORE_SMELT_TIME,
-                        outputs,
+                        output_ores: outputs,
                     };
                 }
             }
@@ -452,6 +457,7 @@ impl AsteroidColoniesGame {
                 &self.buildings,
                 &mut self.global_tasks,
                 power_ratio,
+                &mut self.rng,
                 self.calculate_back_image.as_mut(),
             ) {
                 moving_items.push((item, dest));
@@ -497,5 +503,73 @@ impl AsteroidColoniesGame {
                 *found.inventory.entry(item).or_default() += 1;
             }
         }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, Default)]
+pub struct OreAccum {
+    pub cilicate: f64,
+    pub iron: f64,
+    pub copper: f64,
+    pub lithium: f64,
+}
+
+impl OreAccum {
+    pub const fn new() -> Self {
+        Self {
+            cilicate: 0.,
+            iron: 0.,
+            copper: 0.,
+            lithium: 0.,
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.cilicate == 0. && self.iron == 0. && self.copper == 0. && self.lithium == 0.
+    }
+
+    pub fn total(&self) -> f64 {
+        self.cilicate + self.iron + self.copper + self.lithium
+    }
+
+    /// Normalize the ore fraction so that it sums up to 1. In case of zero vector, returns zero.
+    pub fn normalize(&self) -> Option<Self> {
+        let total = self.total();
+        if total == 0. {
+            return None;
+        }
+        Some(Self {
+            cilicate: self.cilicate / total,
+            iron: self.iron / total,
+            copper: self.copper / total,
+            lithium: self.lithium / total,
+        })
+    }
+
+    pub fn min(&self, other: &Self) -> Self {
+        self.each(other, |lhs, rhs| lhs.min(rhs))
+    }
+
+    pub fn each(&self, other: &Self, f: impl Fn(f64, f64) -> f64) -> Self {
+        Self {
+            cilicate: f(self.cilicate, other.cilicate),
+            iron: f(self.iron, other.iron),
+            copper: f(self.copper, other.copper),
+            lithium: f(self.lithium, other.lithium),
+        }
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &f64> {
+        [&self.cilicate, &self.iron, &self.copper, &self.lithium].into_iter()
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut f64> {
+        [
+            &mut self.cilicate,
+            &mut self.iron,
+            &mut self.copper,
+            &mut self.lithium,
+        ]
+        .into_iter()
     }
 }

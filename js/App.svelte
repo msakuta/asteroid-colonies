@@ -5,6 +5,7 @@
     // import SidePanel from './SidePanel.svelte';
     import ButtonFrames from './ButtonFrames.svelte';
     import DebugButton from './DebugButton.svelte';
+    import OreOverlayButton from './OreOverlayButton.svelte';
     import InfoPanel from './InfoPanel.svelte';
     import { websocket, fetchSessionId, reconnectWebSocket, tickTime } from './session';
     import BuildMenu from './BuildMenu.svelte';
@@ -733,6 +734,13 @@
         debugDrawChunks = !debugDrawChunks;
         game.set_debug_draw_chunks(debugDrawChunks);
     }
+
+    let drawOreOverlay = false;
+
+    function oreOverlayClick() {
+        drawOreOverlay = !drawOreOverlay;
+        game.set_draw_ore_overlay(drawOreOverlay);
+    }
 </script>
 
 <div class="container">
@@ -801,6 +809,7 @@
         <ErrorMessage text={errorMessage} timeout={errorMessageTimeout} on:click={() => showErrorMessage = false}/>
     {/if}
     <DebugButton on:click={debugClick}/>
+    <OreOverlayButton on:click={oreOverlayClick}/>
 </div>
 
 <style>

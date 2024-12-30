@@ -102,6 +102,7 @@ pub struct AsteroidColonies {
     gl_assets: Option<gl::assets::Assets>,
     viewport: Viewport,
     debug_draw_chunks: bool,
+    draw_ore_overlay: bool,
 }
 
 #[wasm_bindgen]
@@ -128,6 +129,7 @@ impl AsteroidColonies {
                 scale: 1.,
             },
             debug_draw_chunks: false,
+            draw_ore_overlay: false,
         })
     }
 
@@ -367,6 +369,10 @@ impl AsteroidColonies {
 
     pub fn set_debug_draw_chunks(&mut self, v: bool) {
         self.debug_draw_chunks = v;
+    }
+
+    pub fn set_draw_ore_overlay(&mut self, v: bool) {
+        self.draw_ore_overlay = v;
     }
 
     pub fn get_build_menu(&self) -> Result<Vec<JsValue>, JsValue> {

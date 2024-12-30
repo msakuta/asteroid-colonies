@@ -3,7 +3,7 @@ use std::{collections::HashMap, fmt::Display};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    building::{Building, BuildingType},
+    building::{Building, BuildingType, OreAccum},
     construction::Construction,
     crew::proceed_excavate,
     direction::Direction,
@@ -11,18 +11,18 @@ use crate::{
     game::CalculateBackImage,
     items::ItemType,
     transport::find_path,
-    AsteroidColoniesGame, Pos, TileState, Tiles,
+    AsteroidColoniesGame, CountableInventory, Pos, TileState, Tiles, Xor128,
 };
 
-pub const EXCAVATE_TIME: f64 = 10.;
-pub const LABOR_EXCAVATE_TIME: f64 = 100.;
+pub const EXCAVATE_TIME: f64 = 30.;
+pub const LABOR_EXCAVATE_TIME: f64 = 300.;
 pub const EXCAVATOR_SPEED: f64 = LABOR_EXCAVATE_TIME / EXCAVATE_TIME;
 pub const MOVE_TIME: f64 = 2.;
 pub const BUILD_POWER_GRID_TIME: f64 = 60.;
 pub const BUILD_CONVEYOR_TIME: f64 = 90.;
 pub const MOVE_ITEM_TIME: f64 = 2.;
 pub(crate) const RAW_ORE_SMELT_TIME: f64 = 30.;
-pub(crate) const EXCAVATE_ORE_AMOUNT: usize = 5;
+pub(crate) const EXCAVATE_ORE_AMOUNT: usize = 15;
 
 pub type GlobalTaskId = EntityId<GlobalTask>;
 
@@ -43,7 +43,11 @@ pub enum BuildingTask {
         max_t: f64,
         outputs: HashMap<ItemType, usize>,
     },
-    // Smelt(usize),
+    Smelt {
+        t: f64,
+        max_t: f64,
+        output_ores: OreAccum,
+    },
 }
 
 impl Display for BuildingTask {
@@ -54,6 +58,7 @@ impl Display for BuildingTask {
             Self::Move(_, _) => write!(f, "Move"),
             Self::MoveToExcavate { .. } => write!(f, "MoveToExcavate"),
             Self::Assemble { .. } => write!(f, "BuildItem"),
+            Self::Smelt { .. } => write!(f, "Smelt"),
         }
     }
 }
@@ -139,16 +144,21 @@ impl AsteroidColoniesGame {
         buildings: &EntitySet<Building>,
         global_tasks: &mut EntitySet<GlobalTask>,
         power_ratio: f64,
+        _rng: &mut Xor128,
         _calculate_back_image: Option<&mut CalculateBackImage>,
     ) -> Option<(ItemType, [i32; 2])> {
         match building.task {
             BuildingTask::Excavate(_, gt_id) => {
-                let Some(GlobalTask::Excavate(t, _)) = global_tasks.get_mut(gt_id) else {
+                let Some(GlobalTask::Excavate(t, gt_pos)) = global_tasks.get_mut(gt_id) else {
                     building.task = BuildingTask::None;
                     return None;
                 };
-                if !proceed_excavate(t, EXCAVATOR_SPEED * power_ratio, &mut building.inventory)
-                    || building.type_.capacity() <= building.inventory.values().map(|v| *v).sum()
+                if !proceed_excavate(
+                    t,
+                    EXCAVATOR_SPEED * power_ratio,
+                    &mut building.inventory,
+                    &mut tiles[*gt_pos],
+                ) || building.type_.capacity() <= building.inventory.countable_size()
                 {
                     building.task = BuildingTask::None;
                 }
@@ -199,6 +209,50 @@ impl AsteroidColoniesGame {
                     *t = (*t - power_ratio).max(0.);
                 }
             }
+            BuildingTask::Smelt {
+                ref mut t,
+                ref max_t,
+                ref output_ores,
+                ..
+            } => {
+                let smelt = |dst: &mut f64, src, ty, inventory: &mut CountableInventory| {
+                    *dst += src * power_ratio / max_t;
+                    while 1. <= *dst {
+                        inventory.entry(ty).and_modify(|v| *v += 1).or_insert(1);
+                        *dst -= 1.;
+                    }
+                };
+                if *t <= 0. {
+                    building.task = BuildingTask::None;
+                } else {
+                    let inventory = building.inventory.countable_mut();
+                    smelt(
+                        &mut building.ore_accum.cilicate,
+                        output_ores.cilicate,
+                        ItemType::Cilicate,
+                        inventory,
+                    );
+                    smelt(
+                        &mut building.ore_accum.iron,
+                        output_ores.iron,
+                        ItemType::IronIngot,
+                        inventory,
+                    );
+                    smelt(
+                        &mut building.ore_accum.copper,
+                        output_ores.copper,
+                        ItemType::CopperIngot,
+                        inventory,
+                    );
+                    smelt(
+                        &mut building.ore_accum.lithium,
+                        output_ores.lithium,
+                        ItemType::LithiumIngot,
+                        inventory,
+                    );
+                    *t = (*t - power_ratio).max(0.);
+                }
+            }
             BuildingTask::None => {
                 if matches!(building.type_, BuildingType::Excavator) {
                     for (gt_id, gt) in global_tasks.items() {
@@ -225,7 +279,7 @@ impl AsteroidColoniesGame {
         //     building.pos,
         //     task_pos
         // );
-        if building.type_.capacity() <= building.inventory.values().map(|v| *v).sum() {
+        if building.type_.capacity() <= building.inventory.countable_size() {
             return None;
         }
 

@@ -34,43 +34,8 @@ impl AsteroidColonies {
 
         let size = 128;
 
-        let mut buf = vec![0u8; size * size];
-        for iy in 0..size {
-            for ix in 0..size {
-                let tile = &self.game.tiles()[[ix as i32, iy as i32]];
-                buf[ix + iy * size] = match tile.state {
-                    TileState::Solid => 0,
-                    TileState::Empty => 127,
-                    _ => 255,
-                };
-            }
-        }
-
-        let existing_buf = assets.bg_sampler_buf.take();
-
-        gl.active_texture(GL::TEXTURE1);
-
-        gl.uniform1i(mt_shader.texture2_loc.as_ref(), 1);
-
-        gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_bg_sampler));
-        if buf != existing_buf {
-            // tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_u8_array
-            // let internal_format = GL::RGBA as i32;
-            let format = GL::LUMINANCE;
-            let type_ = GL::UNSIGNED_BYTE;
-            gl.tex_sub_image_2d_with_i32_and_i32_and_u32_and_type_and_opt_u8_array(
-                GL::TEXTURE_2D,
-                0,
-                0,
-                0,
-                size as i32,
-                size as i32,
-                format,
-                type_,
-                Some(&buf),
-            )?;
-        }
-        assets.bg_sampler_buf.set(buf);
+        self.render_bg_sampler(size, gl, ctx)?;
+        self.render_bg_modulate(size, gl, ctx)?;
 
         let shader = &assets.textured_shader;
 
@@ -174,6 +139,108 @@ impl AsteroidColonies {
 
         // console_log!("rendered_tiles: {}", rendered_tiles);
 
+        Ok(())
+    }
+
+    fn render_bg_sampler(&self, size: usize, gl: &GL, ctx: &RenderContext) -> Result<(), JsValue> {
+        let RenderContext { assets, .. } = ctx;
+        let mt_shader = &assets.multi_textured_shader;
+
+        let mut buf = vec![0u8; size * size];
+        for iy in 0..size {
+            for ix in 0..size {
+                let tile = &self.game.tiles()[[ix as i32, iy as i32]];
+                buf[ix + iy * size] = match tile.state {
+                    TileState::Solid => 0,
+                    TileState::Empty => 127,
+                    _ => 255,
+                };
+            }
+        }
+
+        let existing_buf = assets.bg_sampler_buf.take();
+
+        gl.active_texture(GL::TEXTURE1);
+
+        gl.uniform1i(mt_shader.texture2_loc.as_ref(), 1);
+
+        gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_bg_sampler));
+        if buf != existing_buf {
+            // tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_u8_array
+            // let internal_format = GL::RGBA as i32;
+            let format = GL::LUMINANCE;
+            let type_ = GL::UNSIGNED_BYTE;
+            gl.tex_sub_image_2d_with_i32_and_i32_and_u32_and_type_and_opt_u8_array(
+                GL::TEXTURE_2D,
+                0,
+                0,
+                0,
+                size as i32,
+                size as i32,
+                format,
+                type_,
+                Some(&buf),
+            )?;
+        }
+        assets.bg_sampler_buf.set(buf);
+        Ok(())
+    }
+
+    fn render_bg_modulate(&self, size: usize, gl: &GL, ctx: &RenderContext) -> Result<(), JsValue> {
+        let RenderContext { assets, .. } = ctx;
+        let mt_shader = &assets.multi_textured_shader;
+
+        let enabled = self.draw_ore_overlay;
+
+        gl.uniform1i(
+            mt_shader.locations.draw_ore_overlay.as_ref(),
+            enabled as i32,
+        );
+        if !enabled {
+            return Ok(());
+        }
+
+        let mut buf = vec![0u8; 3 * size * size];
+        for iy in 0..size {
+            for ix in 0..size {
+                let tile = &self.game.tiles()[[ix as i32, iy as i32]];
+                let start = (ix + iy * size) * 3;
+                buf[start..start + 3].copy_from_slice(&match tile.state {
+                    TileState::Solid => [
+                        (tile.ores.copper * 63. + 191.) as u8,
+                        (tile.ores.lithium * 63. + 191.) as u8,
+                        (tile.ores.iron * 63. + 191.) as u8,
+                    ],
+                    _ => [255; 3],
+                });
+            }
+        }
+
+        let existing_buf = assets.bg_modulate_buf.take();
+
+        gl.active_texture(GL::TEXTURE2);
+
+        gl.uniform1i(mt_shader.texture3_loc.as_ref(), 2);
+
+        gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_bg_modulate));
+        if buf != existing_buf {
+            // tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_u8_array
+            // let internal_format = GL::RGBA as i32;
+            let format = GL::RGB;
+            let type_ = GL::UNSIGNED_BYTE;
+            gl.tex_sub_image_2d_with_i32_and_i32_and_u32_and_type_and_opt_u8_array(
+                GL::TEXTURE_2D,
+                0,
+                0,
+                0,
+                size as i32,
+                size as i32,
+                format,
+                type_,
+                Some(&buf),
+            )?;
+        }
+        assets.bg_modulate_buf.set(buf);
         Ok(())
     }
 }
