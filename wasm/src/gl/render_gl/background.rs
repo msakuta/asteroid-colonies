@@ -220,7 +220,7 @@ impl AsteroidColonies {
 
         gl.active_texture(GL::TEXTURE2);
 
-        gl.uniform1i(mt_shader.texture3_loc.as_ref(), 2);
+        gl.uniform1i(mt_shader.locations.texture_ores.as_ref(), 2);
 
         gl.bind_texture(GL::TEXTURE_2D, Some(&assets.tex_bg_modulate));
         if buf != existing_buf {

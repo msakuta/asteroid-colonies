@@ -85,6 +85,7 @@ pub(super) fn make_textured_shader(
 }
 
 pub(crate) struct BackgroundLocations {
+    pub texture_ores: Option<WebGlUniformLocation>,
     pub draw_ore_overlay: Option<WebGlUniformLocation>,
 }
 
@@ -100,7 +101,8 @@ impl GetLocations for BackgroundLocations {
             op
         };
         Self {
-            draw_ore_overlay: get_uniform("draw_ore_overlay"),
+            texture_ores: get_uniform("textureOres"),
+            draw_ore_overlay: get_uniform("drawOreOverlay"),
         }
     }
 }
@@ -121,11 +123,11 @@ pub(super) fn make_background_shader(
 
         uniform sampler2D texture;
         uniform sampler2D texture2;
-        uniform sampler2D texture3;
+        uniform sampler2D textureOres;
         uniform float alpha;
         uniform float widthScale;
         uniform float heightScale;
-        uniform bool draw_ore_overlay;
+        uniform bool drawOreOverlay;
         const float sampleSize = 128.;
         // Margin is a way to work around border artifacts between tiles
         const float margin = 1. / 32.;
@@ -147,8 +149,8 @@ pub(super) fn make_background_shader(
                 (xf + margin) * marginDiscard * widthScale,
                 ((yf + margin) * marginDiscard + first[0] * 2.) * heightScale) );
 
-            if (draw_ore_overlay) {
-                gl_FragColor = texColor * texture2D( texture3, vec2(xi, yi) );
+            if (drawOreOverlay) {
+                gl_FragColor = texColor * texture2D( textureOres, vec2(xi, yi) );
             }
             else {
                 gl_FragColor = texColor;
