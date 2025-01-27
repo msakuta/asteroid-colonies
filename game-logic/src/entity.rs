@@ -1,24 +1,28 @@
+mod entry_payload;
+mod ref_option;
+
 use std::{
-    cell::{Ref, RefCell, RefMut},
+    cell::{Cell, RefCell},
     fmt::Display,
     marker::PhantomData,
-    ops::{Deref, DerefMut},
 };
 
+pub(crate) use self::entry_payload::EntryPayload;
+pub use self::ref_option::{RefMutOption, RefOption};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 /// An entry in entity list with generational ids, with the payload and the generation
 pub struct EntityEntry<T> {
-    pub gen: u32,
-    pub payload: RefCell<Option<T>>,
+    pub(crate) gen: u32,
+    pub(crate) payload: RefCell<EntryPayload<T>>,
 }
 
 impl<T> EntityEntry<T> {
     pub(crate) fn new(payload: T) -> Self {
         Self {
             gen: 0,
-            payload: RefCell::new(Some(payload)),
+            payload: RefCell::new(EntryPayload::Occupied(payload)),
         }
     }
 }
@@ -26,11 +30,18 @@ impl<T> EntityEntry<T> {
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct EntitySet<T> {
     v: Vec<EntityEntry<T>>,
+
+    /// Index into `v` which is the start of free list, wrapped in a Cell to allow
+    /// mutation through a shared reference, which can happen in `retain_borrow_mut`.
+    free: Cell<Option<usize>>,
 }
 
 impl<T> EntitySet<T> {
     pub fn new() -> Self {
-        Self { v: vec![] }
+        Self {
+            v: vec![],
+            free: Cell::new(None),
+        }
     }
 
     /// Returns the number of active elements in this EntitySet.
@@ -39,7 +50,7 @@ impl<T> EntitySet<T> {
         // TODO: optimize by caching active elements
         self.v
             .iter()
-            .filter(|entry| entry.payload.borrow().is_some())
+            .filter(|entry| entry.payload.borrow().is_occupied())
             .count()
     }
 
@@ -117,9 +128,9 @@ impl<T> EntitySet<T> {
     pub fn insert(&mut self, val: T) -> EntityId<T> {
         for (i, entry) in self.v.iter_mut().enumerate() {
             let payload = entry.payload.get_mut();
-            if payload.is_none() {
+            if payload.is_free() {
                 entry.gen += 1;
-                entry.payload = RefCell::new(Some(val));
+                entry.payload = RefCell::new(EntryPayload::Occupied(val));
                 return EntityId::new(i as u32, entry.gen);
             }
         }
@@ -155,24 +166,24 @@ impl<T> EntitySet<T> {
                 continue;
             };
             if !f(payload) {
-                entry.payload = RefCell::new(None);
+                entry.payload = RefCell::new(EntryPayload::Free(self.free.get()));
             }
         }
     }
 
     pub fn retain_borrow_mut(&self, mut f: impl FnMut(&mut T, EntityId<T>) -> bool) {
-        for (id, entry) in self.v.iter().enumerate() {
+        for (i, entry) in self.v.iter().enumerate() {
             let Ok(mut payload) = entry.payload.try_borrow_mut() else {
                 continue;
             };
-            if payload.is_none() {
+            if payload.is_free() {
                 continue;
             }
             if !f(
                 payload.as_mut().unwrap(),
-                EntityId::new(id as u32, entry.gen),
+                EntityId::new(i as u32, entry.gen),
             ) {
-                *payload = None;
+                *payload = EntryPayload::Free(Some(i));
             }
         }
     }
@@ -208,57 +219,6 @@ impl<T> EntitySet<T> {
         self.v
             .get(idx)
             .and_then(|entry| RefMutOption::new(&entry.payload))
-    }
-}
-
-#[derive(Debug)]
-/// A wrapper around Ref<Option> that always has Some.
-/// We need a Ref to release the refcounter, but we would never return
-/// a Ref(None).
-pub struct RefOption<'a, T>(Ref<'a, Option<T>>);
-
-impl<'a, T> RefOption<'a, T> {
-    fn new(val: &'a RefCell<Option<T>>) -> Option<Self> {
-        let v = val.try_borrow().ok()?;
-        if v.is_none() {
-            return None;
-        }
-        Some(Self(v))
-    }
-}
-
-impl<'a, T> Deref for RefOption<'a, T> {
-    type Target = T;
-    fn deref(&self) -> &Self::Target {
-        self.0.as_ref().unwrap()
-    }
-}
-
-/// A wrapper around RefMut<Option> that always has Some.
-/// We need a RefMut to release the refcounter, but we would never return
-/// a RefMut(None).
-pub struct RefMutOption<'a, T>(RefMut<'a, Option<T>>);
-
-impl<'a, T> RefMutOption<'a, T> {
-    fn new(val: &'a RefCell<Option<T>>) -> Option<Self> {
-        let v = val.try_borrow_mut().ok()?;
-        if v.is_none() {
-            return None;
-        }
-        Some(Self(v))
-    }
-}
-
-impl<'a, T> Deref for RefMutOption<'a, T> {
-    type Target = T;
-    fn deref(&self) -> &Self::Target {
-        self.0.as_ref().unwrap()
-    }
-}
-
-impl<'a, T> DerefMut for RefMutOption<'a, T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.0.as_mut().unwrap()
     }
 }
 
@@ -334,7 +294,10 @@ impl<'a, T> IntoIterator for &'a EntitySet<T> {
 impl<A> FromIterator<A> for EntitySet<A> {
     fn from_iter<T: IntoIterator<Item = A>>(iter: T) -> Self {
         let v = iter.into_iter().map(EntityEntry::new).collect();
-        Self { v }
+        Self {
+            v,
+            free: Cell::new(None),
+        }
     }
 }
 

@@ -8,7 +8,7 @@ use crate::{
     building::{Building, OreAccum},
     conveyor::Conveyor,
     direction::Direction,
-    entity::{EntityEntry, EntitySet, RefMutOption},
+    entity::{EntityEntry, EntitySet, EntryPayload, RefMutOption},
     inventory::Inventory,
     items::ItemType,
     transport::{
@@ -181,7 +181,7 @@ fn _find_from_other_inventory_mut<'a>(
     last: &'a mut [EntityEntry<Building>],
 ) -> Option<(&'a mut Building, usize)> {
     first.iter_mut().chain(last.iter_mut()).find_map(|o| {
-        let Some(ref mut o) = o.payload.get_mut() else {
+        let EntryPayload::Occupied(ref mut o) = o.payload.get_mut() else {
             return None;
         };
         let count = o.inventory.get(&item);
