@@ -28,7 +28,7 @@ js-sys = "0.3.69"
 slice-of-array = "0.3.2"
 
 [dev-dependencies]
-wasm-bindgen-test = "0.3.34"
+wasm-bindgen-test = "0.3.42"
 
 
 [dependencies.web-sys]
