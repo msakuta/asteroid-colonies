@@ -32,7 +32,7 @@ wasm-bindgen-test = "0.3.34"
 
 
 [dependencies.web-sys]
-version = "0.3.4"
+version = "0.3.69"
 features = [
     'CanvasRenderingContext2d',
     'ImageBitmap',
