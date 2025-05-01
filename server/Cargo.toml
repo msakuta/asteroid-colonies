@@ -8,7 +8,7 @@ authors = ["msakuta"]
 
 [dependencies]
 asteroid-colonies-logic = { path = "../game-logic" }
-actix = "0.13.0"
+actix = "0.13.5"
 actix-web = { version = "4.5.1", features = ["openssl"] }
 actix-cors = "0.7.0"
 actix-files = "0.6.0"
